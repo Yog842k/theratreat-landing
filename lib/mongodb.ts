@@ -5,30 +5,31 @@ declare global {
   var _mongoClientPromise: Promise<MongoClient> | undefined;
 }
 
-const uri = process.env.MONGODB_URI as string;
-if (!uri) {
-  // Throw early to surface missing env during dev/start
-  throw new Error("Missing environment variable MONGODB_URI");
-}
-
 const options: MongoClientOptions = {};
 
-let client: MongoClient;
-let clientPromise: Promise<MongoClient>;
+let clientPromise: Promise<MongoClient> | undefined;
 
-if (process.env.NODE_ENV === "development") {
-  if (!global._mongoClientPromise) {
-    client = new MongoClient(uri, options);
-    global._mongoClientPromise = client.connect();
+function ensureClientPromise(): Promise<MongoClient> {
+  const uri = process.env.MONGODB_URI as string | undefined;
+  if (!uri) {
+    throw new Error("MONGODB_URI not configured");
   }
-  clientPromise = global._mongoClientPromise!;
-} else {
-  client = new MongoClient(uri, options);
-  clientPromise = client.connect();
+  if (process.env.NODE_ENV === "development") {
+    if (!global._mongoClientPromise) {
+      const client = new MongoClient(uri, options);
+      global._mongoClientPromise = client.connect();
+    }
+    return global._mongoClientPromise!;
+  }
+  if (!clientPromise) {
+    const client = new MongoClient(uri, options);
+    clientPromise = client.connect();
+  }
+  return clientPromise;
 }
 
 export async function getDb(dbName = process.env.MONGODB_DB || "theratreat"): Promise<Db> {
-  const client = await clientPromise;
+  const client = await ensureClientPromise();
   return client.db(dbName);
 }
 
