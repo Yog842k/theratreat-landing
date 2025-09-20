@@ -1,535 +1,503 @@
 "use client";
-import { useState } from "react";
+import React, { useState } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Progress } from "@/components/ui/progress";
+import ReactSelect from "react-select";
+import "./react-select-custom.css";
 import { motion } from "framer-motion";
-import Link from "next/link";
 import {
-  ArrowLeft,
-  ArrowRight,
-  CheckCircle,
-  AlertTriangle,
+  User,
+  GraduationCap,
+  Brain,
+  Clock,
+  DollarSign,
+  Building2,
+  Camera,
+  Shield,
+  Upload,
+  Calendar,
   UserCheck,
   TrendingUp,
-  Calendar,
   Bot,
   Star,
   Network,
-  FileText,
-  ChevronDown,
+  ArrowRight,
+  ArrowLeft,
+  CheckCircle,
+  AlertTriangle,
 } from "lucide-react";
 
-type ViewType = "home" | "register" | "book";
-
 interface FormData {
-  personalInfo: {
-    firstName: string;
-    lastName: string;
-    email: string;
-    phone: string;
-    dateOfBirth: string;
-    gender: string;
+  fullName: string;
+  gender: string;
+  dateOfBirth: string;
+  phoneNumber: string;
+  email: string;
+  password: string;
+  residentialAddress: string;
+  currentCity: string;
+  preferredLanguages: string[];
+  panCard: string;
+  aadhaar: string;
+  qualification: string;
+  university: string;
+  graduationYear: string;
+  licenseNumber: string;
+  designations: string[];
+  primaryConditions: string[];
+  experience: string;
+  workplaces: string;
+  onlineExperience: boolean;
+  preferredDays: string[];
+  preferredTimeSlots: string[];
+  weeklySessions: string;
+  sessionDurations: string[];
+  sessionFee: string;
+  dynamicPricing: boolean;
+  freeFirstSession: boolean;
+  paymentMode: string;
+  bankDetails: {
+    accountHolder: string;
+    bankName: string;
+    accountNumber: string;
+    ifscCode: string;
+    upiId: string;
   };
-  professionalInfo: {
-    licenseNumber: string;
-    licenseState: string;
-    licenseExpiry: string;
-    primarySpecialty: string;
-    yearsOfExperience: string;
-    currentEmployment: string;
-    workplaceName: string;
-    workplaceAddress: string;
-  };
-  education: {
-    highestDegree: string;
-    institution: string;
-    graduationYear: string;
-    continuingEducation: string;
-  };
-  practiceDetails: {
-    practiceType: string;
-    serviceTypes: string[];
-    sessionFormats: string[];
-    languages: string[];
-    ageGroups: string[];
-  };
-  availability: {
-    workingDays: string[];
-    preferredHours: string[];
-    timeZone: string;
-    consultationFees: {
-      videoCall: string;
-      audioCall: string;
-      inPerson: string;
-      chatConsultation: string;
-    };
-    emergencyAvailability: boolean;
-  };
-  location: {
-    primaryAddress: string;
-    city: string;
-    state: string;
-    pincode: string;
-    onlineOnly: boolean;
-    clinicVisits: boolean;
-    homeVisits: boolean;
-  };
-  documents: {
-    profilePicture: string;
-  };
+  hasClinic: boolean;
+  profilePhoto: File | null;
+  bio: string;
+  linkedIn: string;
+  website: string;
+  instagram: string;
+  therapyLanguages: string[];
   agreements: {
-    termsOfService: boolean;
-    privacyPolicy: boolean;
-    professionalConduct: boolean;
+    accuracy: boolean;
+    verification: boolean;
+    guidelines: boolean;
+    confidentiality: boolean;
+    independent: boolean;
+    norms: boolean;
+    conduct: boolean;
+    terms: boolean;
+    digitalConsent: boolean;
+    secureDelivery: boolean;
+    declaration: boolean;
     serviceAgreement: boolean;
   };
 }
 
 export default function RegisterTherapistPage() {
-  // India States and Union Territories
-  const INDIA_STATES: string[] = [
-    "Andhra Pradesh",
-    "Arunachal Pradesh",
-    "Assam",
-    "Bihar",
-    "Chhattisgarh",
-    "Goa",
-    "Gujarat",
-    "Haryana",
-    "Himachal Pradesh",
-    "Jharkhand",
-    "Karnataka",
-    "Kerala",
-    "Madhya Pradesh",
-    "Maharashtra",
-    "Manipur",
-    "Meghalaya",
-    "Mizoram",
-    "Nagaland",
-    "Odisha",
-    "Punjab",
-    "Rajasthan",
-    "Sikkim",
-    "Tamil Nadu",
-    "Telangana",
-    "Tripura",
-    "Uttar Pradesh",
-    "Uttarakhand",
-    "West Bengal",
-  ];
-  const INDIA_UTS: string[] = [
-    "Andaman and Nicobar Islands",
-    "Chandigarh",
-    "Dadra and Nagar Haveli and Daman and Diu",
-    "Delhi",
-    "Jammu and Kashmir",
-    "Ladakh",
-    "Lakshadweep",
-    "Puducherry",
-  ];
-  const INDIA_STATES_AND_UTS = [...INDIA_STATES, ...INDIA_UTS];
-
-  // Categorized Conditions (used instead of Service Types Offered)
-  const conditionCategories: { id: string; title: string; conditions: string[] }[] = [
-    {
-      id: "neurological",
-      title: "🧠 Neurological & Neurodevelopmental Conditions",
-      conditions: [
-        "Autism Spectrum Disorder (ASD)", "Attention Deficit Hyperactivity Disorder (ADHD)",
-        "Cerebral Palsy", "Down Syndrome", "Developmental Delays", "Sensory Processing Disorder",
-        "Intellectual Disabilities", "Traumatic Brain Injury (TBI)", "Stroke (Post-Stroke Rehabilitation)",
-        "Epilepsy", "Multiple Sclerosis", "Parkinson's Disease", "Alzheimer's Disease",
-        "Huntington's Disease", "Guillain-Barré Syndrome"
-      ]
-    },
-    {
-      id: "orthopedic",
-      title: "🦴 Orthopedic & Musculoskeletal Conditions",
-      conditions: [
-        "Fractures and Dislocations", "Arthritis (Rheumatoid, Osteoarthritis)", "Scoliosis",
-        "Frozen Shoulder", "Sports Injuries", "Sprains and Strains",
-        "Post-Surgical Rehabilitation (e.g. joint replacements)", "Back and Neck Pain",
-        "Postural Deformities", "Carpal Tunnel Syndrome", "Plantar Fasciitis",
-        "Tendonitis", "Spinal Cord Injury"
-      ]
-    },
-    {
-      id: "cardiovascular",
-      title: "❤️ Cardiovascular & Pulmonary Conditions",
-      conditions: [
-        "Post-Heart Attack (MI) Rehabilitation", "Hypertension", "Coronary Artery Disease",
-        "Chronic Obstructive Pulmonary Disease (COPD)", "Asthma", "Congestive Heart Failure",
-        "Post-CABG (Bypass Surgery) Recovery", "Post-COVID Rehabilitation",
-        "Deep Vein Thrombosis (DVT)", "Pulmonary Fibrosis"
-      ]
-    },
-    {
-      id: "psychological",
-      title: "🧘‍♀️ Psychological & Psychiatric Conditions",
-      conditions: [
-        "Depression", "Anxiety Disorders", "Obsessive-Compulsive Disorder (OCD)",
-        "Bipolar Disorder", "Schizophrenia", "Post-Traumatic Stress Disorder (PTSD)",
-        "Eating Disorders (Anorexia, Bulimia, Binge Eating)", "Personality Disorders",
-        "Sleep Disorders (Insomnia, Sleep Apnea)", "Substance Use/Addiction",
-        "Self-Harm & Suicidal Ideation", "Panic Disorder", "Phobias"
-      ]
-    },
-    {
-      id: "pediatric",
-      title: "🧒 Pediatric Conditions",
-      conditions: [
-        "Learning Disabilities (Dyslexia, Dysgraphia, Dyscalculia)", "Speech and Language Delays",
-        "Motor Coordination Disorders (Dyspraxia)", "Feeding Difficulties", "Behavioral Challenges",
-        "Autism & ADHD (covered above)", "Premature Birth Complications",
-        "Developmental Apraxia of Speech", "Visual-Motor Integration Issues"
-      ]
-    },
-    {
-      id: "geriatric",
-      title: "👩‍🦳 Geriatric Conditions",
-      conditions: [
-        "Dementia & Alzheimer's", "Fall Risk & Balance Issues", "Parkinson's (covered above)",
-        "Arthritis (covered above)", "Post-Surgery Rehab (Hip, Knee replacements)",
-        "Osteoporosis", "Age-related Hearing/Vision Loss", "Incontinence",
-        "Social Isolation & Depression", "Polypharmacy Side Effects"
-      ]
-    },
-    {
-      id: "womens-health",
-      title: "💕 Women's Health Conditions",
-      conditions: [
-        "Postpartum Depression", "PCOS & Hormonal Imbalance Support", "Infertility Counseling",
-        "Menopause Management", "Prenatal & Postnatal Physiotherapy", "Pelvic Floor Dysfunction",
-        "Sexual Health Issues", "Breast Cancer Rehab"
-      ]
-    },
-    {
-      id: "surgical-recovery",
-      title: "🧑‍⚕️ Surgical & Medical Recovery",
-      conditions: [
-        "Post-Orthopedic Surgeries", "Post-Neurosurgeries", "Post-Cardiac Surgeries",
-        "Post-Cancer Therapy (Chemo/Radiation Recovery)", "Scar Management",
-        "Lymphedema", "Wound Healing Support", "Amputation & Prosthesis Training"
-      ]
-    },
-    {
-      id: "speech-language",
-      title: "🗣️ Speech & Language Conditions",
-      conditions: [
-        "Aphasia", "Stuttering", "Articulation Disorders", "Voice Disorders",
-        "Language Delay", "Auditory Processing Disorders", "Mutism", "Resonance Disorders"
-      ]
-    },
-    {
-      id: "sensory-perceptual",
-      title: "👁️ Sensory & Perceptual Disorders",
-      conditions: [
-        "Sensory Integration Disorder", "Visual Processing Disorder", "Auditory Processing Disorder",
-        "Tactile Defensiveness", "Body Awareness Challenges",
-        "Proprioception & Vestibular Dysfunction"
-      ]
-    },
-    {
-      id: "occupational-therapy",
-      title: "👩‍⚕️ Occupational Therapy Specific Concerns",
-      conditions: [
-        "Activities of Daily Living (ADL) Difficulties", "Handwriting Issues",
-        "Fine Motor Skill Delay", "Time Management/Executive Function",
-        "Vocational Rehabilitation", "Social Skills Training", "Assistive Device Training"
-      ]
-    },
-    {
-      id: "community-lifestyle",
-      title: "🌍 Community & Lifestyle Disorders",
-      conditions: [
-        "Work Stress & Burnout", "Internet/Game Addiction", "Anger Management",
-        "Career Confusion", "Relationship Issues", "Parenting Challenges",
-        "Grief & Loss", "Low Self-Esteem", "Screen Time Addiction"
-      ]
-    }
-  ];
-
   const [currentStep, setCurrentStep] = useState(1);
   const totalSteps = 8;
   const progress = (currentStep / totalSteps) * 100;
-  const [submitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
-  const [formData, setFormData] = useState<FormData>({
-    personalInfo: {
-      firstName: "",
-      lastName: "",
-      email: "",
-      phone: "",
-      dateOfBirth: "",
-      gender: "",
+  const formInitial: FormData = {
+    fullName: "",
+    gender: "",
+    dateOfBirth: "",
+    phoneNumber: "",
+    email: "",
+    password: "",
+    residentialAddress: "",
+    currentCity: "",
+    preferredLanguages: [],
+    panCard: "",
+    aadhaar: "",
+    qualification: "",
+    university: "",
+    graduationYear: "",
+    licenseNumber: "",
+    designations: [],
+    primaryConditions: [],
+    experience: "",
+    workplaces: "",
+    onlineExperience: false,
+    preferredDays: [],
+    preferredTimeSlots: [],
+    weeklySessions: "",
+    sessionDurations: [],
+    sessionFee: "",
+    dynamicPricing: false,
+    freeFirstSession: false,
+    paymentMode: "",
+    bankDetails: {
+      accountHolder: "",
+      bankName: "",
+      accountNumber: "",
+      ifscCode: "",
+      upiId: "",
     },
-    professionalInfo: {
-      licenseNumber: "",
-      licenseState: "",
-      licenseExpiry: "",
-      primarySpecialty: "",
-      yearsOfExperience: "",
-      currentEmployment: "",
-      workplaceName: "",
-      workplaceAddress: "",
-    },
-    education: {
-      highestDegree: "",
-      institution: "",
-      graduationYear: "",
-      continuingEducation: "",
-    },
-    practiceDetails: {
-      practiceType: "",
-      serviceTypes: [],
-      sessionFormats: [],
-      languages: [],
-      ageGroups: [],
-    },
-    availability: {
-      workingDays: [],
-      preferredHours: [],
-      timeZone: "",
-      consultationFees: {
-        videoCall: "",
-        audioCall: "",
-        inPerson: "",
-        chatConsultation: "",
-      },
-      emergencyAvailability: false,
-    },
-    location: {
-      primaryAddress: "",
-      city: "",
-      state: "",
-      pincode: "",
-      onlineOnly: false,
-      clinicVisits: false,
-      homeVisits: false,
-    },
-    documents: {
-      profilePicture: "",
-    },
+    hasClinic: false,
+    profilePhoto: null,
+    bio: "",
+    linkedIn: "",
+    website: "",
+    instagram: "",
+    therapyLanguages: [],
     agreements: {
-      termsOfService: false,
-      privacyPolicy: false,
-      professionalConduct: false,
+      accuracy: false,
+      verification: false,
+      guidelines: false,
+      confidentiality: false,
+      independent: false,
+      norms: false,
+      conduct: false,
+      terms: false,
+      digitalConsent: false,
+      secureDelivery: false,
+      declaration: false,
       serviceAgreement: false,
     },
-  });
+  };
+  const [formData, setFormData] = useState<FormData>(formInitial);
 
-  const stepTitles = [
-    "Personal & Contact Information",
-    "Education & Credentials",
-    "Specialization & Experience",
-    "Availability & Scheduling",
-    "Session Charges & Payment",
-    "Clinic/Offline Setup",
-    "Profile Details",
-    "Agreements & Consent",
+  const languages = [
+    "English",
+    "Hindi",
+    "Marathi",
+    "Tamil",
+    "Telugu",
+    "Bengali",
+    "Gujarati",
+    "Kannada",
+    "Malayalam",
+    "Punjabi",
+    "Odia",
+    "Urdu",
+    "Assamese",
+    "Nepali",
+    "Spanish",
+    "French",
+    "Other",
+  ];
+  const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+  const timeSlots = ["Morning", "Afternoon", "Evening", "Late Night"];
+  const sessionDurations = ["30 min sessions", "45 min sessions", "60 min sessions"];
+
+  const designations = [
+    "Behavioural Therapist",
+    "Cognitive Behavioural Therapist",
+    "Neuro-Developmental Therapist",
+    "Occupational Therapist",
+    "Physiotherapist",
+    "Special Educator",
+    "Speech and Language Pathologist",
+    "Sports Therapist",
+    "ABA Therapist",
+    "Acupuncture/Acupressure Therapist",
+    "Animal-Assisted Therapist",
+    "Aqua Therapist",
+    "Aromatherapist",
+    "Art Therapist",
+    "Chiropractor / Osteopath",
+    "Clinical Psychologist",
+    "Cupping Therapist",
+    "Dance Movement Therapist",
+    "Dietician",
+    "Fitness Instructor",
+    "Hand Therapist",
+    "Holistic/Hypnotherapist",
+    "Horticultural Therapist",
+    "Massage Therapist",
+    "Music Therapist",
+    "Naturopathic Therapist",
+    "Neonatal Therapist",
+    "Orthotistician",
+    "Prosthetist",
+    "Panchakarma Therapist",
+    "Play Therapist",
+    "Psychotherapist",
+    "Recreational Therapist",
+    "Rehabilitation Therapist",
+    "Yoga Therapist",
   ];
 
-  function handleInputChange(section: keyof FormData, field: string, value: any) {
+  const conditionCategories = [
+    { id: "neurological", title: "🧠 Neurological & Neurodevelopmental Conditions", conditions: [
+      "Autism Spectrum Disorder (ASD)",
+      "Attention Deficit Hyperactivity Disorder (ADHD)",
+      "Cerebral Palsy",
+      "Down Syndrome",
+      "Developmental Delays",
+      "Sensory Processing Disorder",
+      "Intellectual Disabilities",
+      "Traumatic Brain Injury (TBI)",
+      "Stroke (Post-Stroke Rehabilitation)",
+      "Epilepsy",
+      "Multiple Sclerosis",
+      "Parkinson's Disease",
+      "Alzheimer's Disease",
+      "Huntington's Disease",
+      "Guillain-Barré Syndrome",
+    ] },
+    { id: "orthopedic", title: "🦴 Orthopedic & Musculoskeletal Conditions", conditions: [
+      "Fractures and Dislocations",
+      "Arthritis (Rheumatoid, Osteoarthritis)",
+      "Scoliosis",
+      "Frozen Shoulder",
+      "Sports Injuries",
+      "Sprains and Strains",
+      "Post-Surgical Rehabilitation (e.g. joint replacements)",
+      "Back and Neck Pain",
+      "Postural Deformities",
+      "Carpal Tunnel Syndrome",
+      "Plantar Fasciitis",
+      "Tendonitis",
+      "Spinal Cord Injury",
+    ] },
+    { id: "cardiovascular", title: "❤️ Cardiovascular & Pulmonary Conditions", conditions: [
+      "Post-Heart Attack (MI) Rehabilitation",
+      "Hypertension",
+      "Coronary Artery Disease",
+      "Chronic Obstructive Pulmonary Disease (COPD)",
+      "Asthma",
+      "Congestive Heart Failure",
+      "Post-CABG (Bypass Surgery) Recovery",
+      "Post-COVID Rehabilitation",
+      "Deep Vein Thrombosis (DVT)",
+      "Pulmonary Fibrosis",
+    ] },
+    { id: "psychological", title: "🧘‍♀️ Psychological & Psychiatric Conditions", conditions: [
+      "Depression",
+      "Anxiety Disorders",
+      "Obsessive-Compulsive Disorder (OCD)",
+      "Bipolar Disorder",
+      "Schizophrenia",
+      "Post-Traumatic Stress Disorder (PTSD)",
+      "Eating Disorders (Anorexia, Bulimia, Binge Eating)",
+      "Personality Disorders",
+      "Sleep Disorders (Insomnia, Sleep Apnea)",
+      "Substance Use/Addiction",
+      "Self-Harm & Suicidal Ideation",
+      "Panic Disorder",
+      "Phobias",
+    ] },
+    { id: "pediatric", title: "🧒 Pediatric Conditions", conditions: [
+      "Learning Disabilities (Dyslexia, Dysgraphia, Dyscalculia)",
+      "Speech and Language Delays",
+      "Motor Coordination Disorders (Dyspraxia)",
+      "Feeding Difficulties",
+      "Behavioral Challenges",
+      "Autism & ADHD (covered above)",
+      "Premature Birth Complications",
+      "Developmental Apraxia of Speech",
+      "Visual-Motor Integration Issues",
+    ] },
+    { id: "geriatric", title: "👩‍🦳 Geriatric Conditions", conditions: [
+      "Dementia & Alzheimer's",
+      "Fall Risk & Balance Issues",
+      "Parkinson's (covered above)",
+      "Arthritis (covered above)",
+      "Post-Surgery Rehab (Hip, Knee replacements)",
+      "Osteoporosis",
+      "Age-related Hearing/Vision Loss",
+      "Incontinence",
+      "Social Isolation & Depression",
+      "Polypharmacy Side Effects",
+    ] },
+    { id: "womens-health", title: "💕 Women's Health Conditions", conditions: [
+      "Postpartum Depression",
+      "PCOS & Hormonal Imbalance Support",
+      "Infertility Counseling",
+      "Menopause Management",
+      "Prenatal & Postnatal Physiotherapy",
+      "Pelvic Floor Dysfunction",
+      "Sexual Health Issues",
+      "Breast Cancer Rehab",
+    ] },
+    { id: "surgical-recovery", title: "🧑‍⚕️ Surgical & Medical Recovery", conditions: [
+      "Post-Orthopedic Surgeries",
+      "Post-Neurosurgeries",
+      "Post-Cardiac Surgeries",
+      "Post-Cancer Therapy (Chemo/Radiation Recovery)",
+      "Scar Management",
+      "Lymphedema",
+      "Wound Healing Support",
+      "Amputation & Prosthesis Training",
+    ] },
+    { id: "speech-language", title: "🗣️ Speech & Language Conditions", conditions: [
+      "Aphasia",
+      "Stuttering",
+      "Articulation Disorders",
+      "Voice Disorders",
+      "Language Delay",
+      "Auditory Processing Disorders",
+      "Mutism",
+      "Resonance Disorders",
+    ] },
+    { id: "sensory-perceptual", title: "👁️ Sensory & Perceptual Disorders", conditions: [
+      "Sensory Integration Disorder",
+      "Visual Processing Disorder",
+      "Auditory Processing Disorder",
+      "Tactile Defensiveness",
+      "Body Awareness Challenges",
+      "Proprioception & Vestibular Dysfunction",
+    ] },
+    { id: "occupational-therapy", title: "👩‍⚕️ Occupational Therapy Specific Concerns", conditions: [
+      "Activities of Daily Living (ADL) Difficulties",
+      "Handwriting Issues",
+      "Fine Motor Skill Delay",
+      "Time Management/Executive Function",
+      "Vocational Rehabilitation",
+      "Social Skills Training",
+      "Assistive Device Training",
+    ] },
+    { id: "community-lifestyle", title: "🌍 Community & Lifestyle Disorders", conditions: [
+      "Work Stress & Burnout",
+      "Internet/Game Addiction",
+      "Anger Management",
+      "Career Confusion",
+      "Relationship Issues",
+      "Parenting Challenges",
+      "Grief & Loss",
+      "Low Self-Esteem",
+      "Screen Time Addiction",
+    ] },
+  ];
+
+  const handleInputChange = (field: keyof FormData, value: any) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleNestedInputChange = <K extends keyof FormData, S extends keyof FormData[K]>(
+    parent: K,
+    field: S,
+    value: any
+  ) => {
     setFormData((prev) => ({
       ...prev,
-      [section]: {
-        ...prev[section],
-        [field]: value,
-      },
+      [parent]: { ...(prev[parent] as any), [field]: value },
     }));
-  }
-  function handleNestedInputChange(section: keyof FormData, subsection: string, field: string, value: any) {
-    setFormData((prev) => ({
-      ...prev,
-      [section]: {
-        ...prev[section],
-        [subsection]: {
-          ...(prev as any)[section][subsection],
-          [field]: value,
-        },
-      },
-    }));
-  }
-  function handleArrayToggle(section: keyof FormData, field: string, value: string) {
+  };
+
+  const handleArrayToggle = (field: keyof FormData, value: string) => {
     setFormData((prev) => {
-      const arr = (prev as any)[section][field] as string[];
-      const next = arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
-      return { ...prev, [section]: { ...(prev as any)[section], [field]: next } } as FormData;
+      const current = (prev[field] as any[]) || [];
+      const next = current.includes(value) ? current.filter((v) => v !== value) : [...current, value];
+      return { ...prev, [field]: next };
     });
+  };
+
+  const handleNext = () => setCurrentStep((s) => Math.min(totalSteps, s + 1));
+  const handlePrevious = () => setCurrentStep((s) => Math.max(1, s - 1));
+
+  function isFormValid() {
+    return (
+      Object.values(formData.agreements).every(Boolean) &&
+      !!formData.fullName &&
+      !!formData.email &&
+      !!formData.phoneNumber &&
+      !!formData.password &&
+      formData.password.length >= 8
+    );
   }
 
-  function isFormValid(): boolean {
-    const { personalInfo, professionalInfo, education, practiceDetails, availability, location, documents, agreements } = formData;
-    switch (currentStep) {
-      case 1:
-        return !!(personalInfo.firstName && personalInfo.lastName && personalInfo.email && personalInfo.phone && personalInfo.dateOfBirth && personalInfo.gender);
-      case 2:
-        return !!(professionalInfo.licenseNumber && professionalInfo.licenseState && professionalInfo.primarySpecialty);
-      case 3:
-        return !!(education.highestDegree && education.institution && education.graduationYear);
-      case 4:
-        return !!(practiceDetails.serviceTypes.length > 0 && practiceDetails.sessionFormats.length > 0 && professionalInfo.yearsOfExperience);
-      case 5:
-        return !!(availability.workingDays.length > 0 && availability.timeZone);
-      case 6:
-        return !!(availability.consultationFees.videoCall && location.primaryAddress && location.city && location.state && location.pincode);
-      case 7:
-        return true;
-      case 8:
-        return !!(agreements.termsOfService && agreements.privacyPolicy && agreements.professionalConduct && agreements.serviceAgreement);
-      default:
-        return false;
-    }
-  }
-
-  async function handleSubmitAll() {
+  async function handleSubmit() {
+    setIsSubmitting(true);
     setSubmitError(null);
-    if (!isFormValid()) return;
-    setSubmitting(true);
     try {
+      // Map the flat UI form into the backend expected nested schema
+      const payload = {
+        personalInfo: {
+          firstName: formData.fullName.split(" ")[0] || formData.fullName,
+          lastName: formData.fullName.split(" ").slice(1).join(" ") || "",
+          email: formData.email,
+          phone: formData.phoneNumber,
+          dateOfBirth: formData.dateOfBirth,
+          gender: formData.gender,
+        },
+        professionalInfo: {
+          licenseNumber: formData.licenseNumber,
+          licenseState: "",
+          licenseExpiry: "",
+          primarySpecialty: formData.designations[0] || "",
+          yearsOfExperience: formData.experience,
+          currentEmployment: "",
+          workplaceName: "",
+          workplaceAddress: formData.workplaces,
+        },
+        education: {
+          highestDegree: formData.qualification,
+          institution: formData.university,
+          graduationYear: formData.graduationYear,
+          continuingEducation: "",
+        },
+        practiceDetails: {
+          practiceType: "",
+          serviceTypes: formData.primaryConditions,
+          sessionFormats: [
+            ...(formData.preferredTimeSlots.includes("Morning") ? ["Video Call"] : []),
+            ...(formData.preferredTimeSlots.includes("Afternoon") ? ["Audio Call"] : []),
+          ],
+          languages: formData.therapyLanguages.length ? formData.therapyLanguages : formData.preferredLanguages,
+          ageGroups: [],
+        },
+        availability: {
+          workingDays: formData.preferredDays,
+          preferredHours: formData.preferredTimeSlots,
+          timeZone: "IST",
+          consultationFees: {
+            videoCall: formData.sessionFee,
+            audioCall: "",
+            inPerson: "",
+            chatConsultation: "",
+          },
+          emergencyAvailability: false,
+        },
+        location: {
+          primaryAddress: formData.residentialAddress,
+          city: formData.currentCity,
+          state: "",
+          pincode: "",
+          onlineOnly: !formData.hasClinic,
+          clinicVisits: formData.hasClinic,
+          homeVisits: false,
+        },
+        documents: { profilePicture: "" },
+        agreements: {
+          termsOfService: formData.agreements.terms,
+          privacyPolicy: formData.agreements.digitalConsent,
+          professionalConduct: formData.agreements.conduct,
+          serviceAgreement: formData.agreements.serviceAgreement,
+        },
+      };
+
+      // Minimal validation to satisfy backend route
+      if (!payload.professionalInfo.primarySpecialty) {
+        throw new Error("Please select at least one designation (primary specialty)");
+      }
+      if (!payload.practiceDetails.serviceTypes?.length) {
+        throw new Error("Please select at least one primary condition");
+      }
+      if (!payload.availability.workingDays?.length) {
+        throw new Error("Please select working days");
+      }
+
       const res = await fetch("/api/therapists/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "Failed to submit");
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error || "Registration failed");
+
       setSubmitted(true);
-    } catch (e: any) {
-      setSubmitError(e.message || "Something went wrong");
+    } catch (err: any) {
+      setSubmitError(err?.message || "Something went wrong");
     } finally {
-      setSubmitting(false);
+      setIsSubmitting(false);
     }
-  }
-
-  // Simple animated custom select
-  function AnimatedSelect({
-    value,
-    onChange,
-    options,
-    placeholder = "Select",
-  }: {
-    value: string;
-    onChange: (v: string) => void;
-    options: string[];
-    placeholder?: string;
-  }) {
-    const [open, setOpen] = useState(false);
-    const [highlight, setHighlight] = useState<string | null>(null);
-
-    return (
-      <div className="relative" onBlur={(e) => {
-        // Close if focus leaves the container
-        if (!e.currentTarget.contains(e.relatedTarget as Node)) setOpen(false);
-      }}>
-        <button
-          type="button"
-          className="w-full border rounded px-3 py-2 flex items-center justify-between hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white"
-          onClick={() => setOpen((o) => !o)}
-        >
-          <span className={`truncate ${!value ? "text-gray-400" : ""}`}>{value || placeholder}</span>
-          <motion.span animate={{ rotate: open ? 180 : 0 }} transition={{ duration: 0.2 }}>
-            <ChevronDown className="w-4 h-4 text-gray-600" />
-          </motion.span>
-        </button>
-        <motion.div
-          initial={false}
-          animate={{ opacity: open ? 1 : 0, scale: open ? 1 : 0.98 }}
-          style={{ pointerEvents: open ? "auto" : "none" }}
-          transition={{ duration: 0.15 }}
-          className="absolute z-20 mt-2 w-full origin-top"
-        >
-          <div className="rounded-lg border border-blue-200 shadow-lg bg-white overflow-hidden">
-            <div className="max-h-64 overflow-auto">
-              {[...options, "Other"].map((opt) => (
-                <button
-                  key={opt}
-                  type="button"
-                  onMouseEnter={() => setHighlight(opt)}
-                  onMouseLeave={() => setHighlight(null)}
-                  onClick={() => {
-                    onChange(opt);
-                    setOpen(false);
-                  }}
-                  className={`w-full text-left px-3 py-2 text-sm ${
-                    (value === opt || highlight === opt) ? "bg-blue-50 text-blue-700" : "hover:bg-gray-50"
-                  }`}
-                >
-                  {opt}
-                </button>
-              ))}
-            </div>
-          </div>
-        </motion.div>
-      </div>
-    );
-  }
-
-  // Animated multi-select for Preferred Working Hours
-  function AnimatedMultiSelect({
-    values,
-    onChange,
-    options,
-    placeholder = "Select",
-  }: {
-    values: string[];
-    onChange: (v: string[]) => void;
-    options: string[];
-    placeholder?: string;
-  }) {
-    const [open, setOpen] = useState(false);
-    const [highlight, setHighlight] = useState<string | null>(null);
-
-    const toggle = (opt: string) => {
-      const next = values.includes(opt) ? values.filter((v) => v !== opt) : [...values, opt];
-      onChange(next);
-    };
-
-    const label = values.length ? values.join(", ") : placeholder;
-
-    return (
-      <div className="relative" onBlur={(e) => {
-        if (!e.currentTarget.contains(e.relatedTarget as Node)) setOpen(false);
-      }}>
-        <button
-          type="button"
-          className="w-full border rounded px-3 py-2 flex items-center justify-between hover:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white"
-          onClick={() => setOpen((o) => !o)}
-        >
-          <span className={`truncate ${values.length === 0 ? "text-gray-400" : ""}`}>{label}</span>
-          <motion.span animate={{ rotate: open ? 180 : 0 }} transition={{ duration: 0.2 }}>
-            <ChevronDown className="w-4 h-4 text-gray-600" />
-          </motion.span>
-        </button>
-        <motion.div
-          initial={false}
-          animate={{ opacity: open ? 1 : 0, scale: open ? 1 : 0.98 }}
-          style={{ pointerEvents: open ? "auto" : "none" }}
-          transition={{ duration: 0.15 }}
-          className="absolute z-20 mt-2 w-full origin-top"
-        >
-          <div className="rounded-lg border border-blue-200 shadow-lg bg-white overflow-hidden">
-            <div className="max-h-64 overflow-auto">
-              {options.map((opt) => (
-                <button
-                  key={opt}
-                  type="button"
-                  onMouseEnter={() => setHighlight(opt)}
-                  onMouseLeave={() => setHighlight(null)}
-                  onClick={() => toggle(opt)}
-                  className={`w-full text-left px-3 py-2 text-sm flex items-center justify-between ${
-                    (values.includes(opt) || highlight === opt) ? "bg-blue-50 text-blue-700" : "hover:bg-gray-50"
-                  }`}
-                >
-                  <span>{opt}</span>
-                  {values.includes(opt) && <span className="ml-3 inline-block w-2 h-2 rounded-full bg-blue-600" />}
-                </button>
-              ))}
-            </div>
-          </div>
-        </motion.div>
-      </div>
-    );
   }
 
   function renderStepContent() {
@@ -538,44 +506,66 @@ export default function RegisterTherapistPage() {
         return (
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm mb-2">First Name *</label>
-                <input className="w-full border rounded px-3 py-2" value={formData.personalInfo.firstName} onChange={(e) => handleInputChange("personalInfo", "firstName", e.target.value)} />
+              <div className="space-y-2">
+                <Label htmlFor="fullName">Full Name *</Label>
+                <Input id="fullName" value={formData.fullName} onChange={(e) => handleInputChange("fullName", e.target.value)} placeholder="Enter your full name" />
               </div>
-              <div>
-                <label className="block text-sm mb-2">Last Name *</label>
-                <input className="w-full border rounded px-3 py-2" value={formData.personalInfo.lastName} onChange={(e) => handleInputChange("personalInfo", "lastName", e.target.value)} />
+              <div className="space-y-2">
+                <Label>Gender *</Label>
+                <ReactSelect
+                  options={[
+                    { value: "male", label: "Male" },
+                    { value: "female", label: "Female" },
+                    { value: "non-binary", label: "Non-binary" },
+                    { value: "prefer-not-to-say", label: "Prefer not to say" },
+                  ]}
+                  value={[
+                    { value: "male", label: "Male" },
+                    { value: "female", label: "Female" },
+                    { value: "non-binary", label: "Non-binary" },
+                    { value: "prefer-not-to-say", label: "Prefer not to say" },
+                  ].find((o) => o.value === formData.gender) || null}
+                  onChange={(opt) => handleInputChange("gender", opt ? (opt as any).value : "")}
+                  classNamePrefix="react-select"
+                  placeholder="Select gender"
+                  isClearable
+                />
               </div>
-              <div>
-                <label className="block text-sm mb-2">Email *</label>
-                <input type="email" className="w-full border rounded px-3 py-2" value={formData.personalInfo.email} onChange={(e) => handleInputChange("personalInfo", "email", e.target.value)} />
+              <div className="space-y-2">
+                <Label htmlFor="dob">Date of Birth *</Label>
+                <Input id="dob" type="date" value={formData.dateOfBirth} onChange={(e) => handleInputChange("dateOfBirth", e.target.value)} />
               </div>
-              <div>
-                <label className="block text-sm mb-2">Phone *</label>
-                <input type="tel" className="w-full border rounded px-3 py-2" value={formData.personalInfo.phone} onChange={(e) => handleInputChange("personalInfo", "phone", e.target.value)} />
+              <div className="space-y-2">
+                <Label htmlFor="phone">Phone Number *</Label>
+                <Input id="phone" value={formData.phoneNumber} onChange={(e) => handleInputChange("phoneNumber", e.target.value)} placeholder="+91 " />
               </div>
-              <div>
-                <label className="block text-sm mb-2">Date of Birth *</label>
-                <input type="date" className="w-full border rounded px-3 py-2" value={formData.personalInfo.dateOfBirth} onChange={(e) => handleInputChange("personalInfo", "dateOfBirth", e.target.value)} />
+              <div className="space-y-2">
+                <Label htmlFor="email">Email *</Label>
+                <Input id="email" type="email" value={formData.email} onChange={(e) => handleInputChange("email", e.target.value)} placeholder="your@email.com" />
               </div>
-              <div>
-                <label className="block text-sm mb-2">Gender *</label>
-                <select className="w-full border rounded px-3 py-2" value={formData.personalInfo.gender} onChange={(e) => handleInputChange("personalInfo", "gender", e.target.value)}>
-                  <option value="">Select</option>
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                  <option value="other">Other</option>
-                  <option value="prefer-not-to-say">Prefer not to say</option>
-                </select>
+              <div className="space-y-2">
+                <Label htmlFor="password">Password * (min 8 characters)</Label>
+                <Input id="password" type="password" value={formData.password} onChange={(e) => handleInputChange("password", e.target.value)} />
               </div>
-              <div>
-                <label className="block text-sm mb-2">Current City / Location</label>
-                <input className="w-full border rounded px-3 py-2" value={formData.location.city} onChange={(e) => handleInputChange("location", "city", e.target.value)} />
+              <div className="space-y-2">
+                <Label htmlFor="city">Current City *</Label>
+                <Input id="city" value={formData.currentCity} onChange={(e) => handleInputChange("currentCity", e.target.value)} placeholder="Your city" />
               </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm mb-2">Residential Address</label>
-                <textarea className="w-full border rounded px-3 py-2" rows={3} value={formData.location.primaryAddress} onChange={(e) => handleInputChange("location", "primaryAddress", e.target.value)} />
-              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="address">Residential Address *</Label>
+              <Textarea id="address" rows={3} value={formData.residentialAddress} onChange={(e) => handleInputChange("residentialAddress", e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Preferred Communication Language(s) *</Label>
+              <ReactSelect
+                isMulti
+                options={languages.map((l) => ({ value: l, label: l }))}
+                value={formData.preferredLanguages.map((l) => ({ value: l, label: l }))}
+                onChange={(vals) => handleInputChange("preferredLanguages", (vals as any[]).map((v) => v.value))}
+                classNamePrefix="react-select"
+                placeholder="Select language(s)"
+              />
             </div>
           </div>
         );
@@ -583,185 +573,185 @@ export default function RegisterTherapistPage() {
         return (
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm mb-2">License Number *</label>
-                <input className="w-full border rounded px-3 py-2" value={formData.professionalInfo.licenseNumber} onChange={(e) => handleInputChange("professionalInfo", "licenseNumber", e.target.value)} />
-              </div>
-              <div>
-                <label className="block text-sm mb-2">License State/Authority *</label>
-                <AnimatedSelect
-                  value={formData.professionalInfo.licenseState}
-                  onChange={(v) => handleInputChange("professionalInfo", "licenseState", v)}
-                  options={INDIA_STATES_AND_UTS}
-                  placeholder="Select State/UT"
+              <div className="space-y-2">
+                <Label>Highest Qualification *</Label>
+                <ReactSelect
+                  options={[
+                    { value: "phd", label: "PhD" },
+                    { value: "masters", label: "Master's Degree" },
+                    { value: "bachelors", label: "Bachelor's Degree" },
+                    { value: "diploma", label: "Diploma" },
+                    { value: "certificate", label: "Professional Certificate" },
+                  ]}
+                  value={[
+                    { value: "phd", label: "PhD" },
+                    { value: "masters", label: "Master's Degree" },
+                    { value: "bachelors", label: "Bachelor's Degree" },
+                    { value: "diploma", label: "Diploma" },
+                    { value: "certificate", label: "Professional Certificate" },
+                  ].find((o) => o.value === formData.qualification) || null}
+                  onChange={(opt) => handleInputChange("qualification", opt ? (opt as any).value : "")}
+                  classNamePrefix="react-select"
+                  placeholder="Select qualification"
+                  isClearable
                 />
               </div>
-              <div>
-                <label className="block text-sm mb-2">License Expiry</label>
-                <input type="date" className="w-full border rounded px-3 py-2" value={formData.professionalInfo.licenseExpiry} onChange={(e) => handleInputChange("professionalInfo", "licenseExpiry", e.target.value)} />
+              <div className="space-y-2">
+                <Label htmlFor="univ">University/Institute *</Label>
+                <Input id="univ" value={formData.university} onChange={(e) => handleInputChange("university", e.target.value)} />
               </div>
-              <div>
-                <label className="block text-sm mb-2">Primary Specialty *</label>
-                <select className="w-full border rounded px-3 py-2" value={formData.professionalInfo.primarySpecialty} onChange={(e) => handleInputChange("professionalInfo", "primarySpecialty", e.target.value)}>
-                  <option value="">Select</option>
-                  {/* Added specialties */}
-                  <option value="behavioural-therapist">Behavioural Therapist</option>
-                  <option value="cognitive-behavioural-therapist">Cognitive Behavioural Therapist</option>
-                  <option value="neuro-developmental-therapist">Neuro-Developmental Therapist</option>
-                  <option value="occupational-therapist">Occupational Therapist</option>
-                  <option value="physiotherapist">Physiotherapist</option>
-                  <option value="special-educator">Special Educator</option>
-                  <option value="speech-language-pathologist">Speech and Language Pathologist</option>
-                  <option value="sports-therapist">Sports Therapist</option>
-                  <option value="aba-therapist">ABA Therapist</option>
-                  <option value="acupuncture-acupressure-therapist">Acupuncture/Acupressure Therapist</option>
-                  <option value="animal-assisted-therapist">Animal-Assisted Therapist</option>
-                  <option value="aqua-therapist">Aqua Therapist</option>
-                  <option value="aromatherapist">Aromatherapist</option>
-                  <option value="art-therapist">Art Therapist</option>
-                  <option value="chiropractor-osteopath">Chiropractor / Osteopath</option>
-                  <option value="clinical-psychologist">Clinical Psychologist</option>
-                  <option value="cupping-therapist">Cupping Therapist</option>
-                  <option value="dance-movement-therapist">Dance Movement Therapist</option>
-                  <option value="dietician">Dietician</option>
-                  <option value="fitness-instructor">Fitness Instructor</option>
-                  <option value="hand-therapist">Hand Therapist</option>
-                  <option value="holistic-hypnotherapist">Holistic/Hypnotherapist</option>
-                  <option value="horticultural-therapist">Horticultural Therapist</option>
-                  <option value="massage-therapist">Massage Therapist</option>
-                  <option value="music-therapist">Music Therapist</option>
-                  <option value="naturopathic-therapist">Naturopathic Therapist</option>
-                  <option value="neonatal-therapist">Neonatal Therapist</option>
-                  <option value="orthotistician">Orthotistician</option>
-                  <option value="prosthetist">Prosthetist</option>
-                  <option value="panchakarma-therapist">Panchakarma Therapist</option>
-                  <option value="play-therapist">Play Therapist</option>
-                  <option value="psychotherapist">Psychotherapist</option>
-                  <option value="recreational-therapist">Recreational Therapist</option>
-                  <option value="rehabilitation-therapist">Rehabilitation Therapist</option>
-                  <option value="yoga-therapist">Yoga Therapist</option>
-                </select>
+              <div className="space-y-2">
+                <Label>Graduation Year *</Label>
+                <ReactSelect
+                  options={Array.from({ length: 50 }, (_, i) => new Date().getFullYear() - i).map((y) => ({ value: String(y), label: String(y) }))}
+                  value={Array.from({ length: 50 }, (_, i) => new Date().getFullYear() - i)
+                    .map((y) => ({ value: String(y), label: String(y) }))
+                    .find((o) => o.value === formData.graduationYear) || null}
+                  onChange={(opt) => handleInputChange("graduationYear", opt ? (opt as any).value : "")}
+                  classNamePrefix="react-select"
+                  placeholder="Select year"
+                  isClearable
+                />
               </div>
-              <div>
-                <label className="block text-sm mb-2">Years of Experience *</label>
-                <select className="w-full border rounded px-3 py-2" value={formData.professionalInfo.yearsOfExperience} onChange={(e) => handleInputChange("professionalInfo", "yearsOfExperience", e.target.value)}>
-                  <option value="">Select</option>
-                  <option value="0-1">0-1 years</option>
-                  <option value="2-5">2-5 years</option>
-                  <option value="6-10">6-10 years</option>
-                  <option value="11-15">11-15 years</option>
-                  <option value="16-20">16-20 years</option>
-                  <option value="20+">20+ years</option>
-                </select>
+              <div className="space-y-2">
+                <Label htmlFor="license">Licensing/Registration Number *</Label>
+                <Input id="license" value={formData.licenseNumber} onChange={(e) => handleInputChange("licenseNumber", e.target.value)} />
               </div>
-              <div>
-                <label className="block text-sm mb-2">Current Employment</label>
-                <select className="w-full border rounded px-3 py-2" value={formData.professionalInfo.currentEmployment} onChange={(e) => handleInputChange("professionalInfo", "currentEmployment", e.target.value)}>
-                  <option value="">Select</option>
-                  <option value="private-practice">Private Practice</option>
-                  <option value="hospital">Hospital</option>
-                  <option value="clinic">Clinic</option>
-                  <option value="freelance">Freelance</option>
-                  <option value="unemployed">Currently Unemployed</option>
-                </select>
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm mb-2">Current Workplace Name</label>
-              <input className="w-full border rounded px-3 py-2" value={formData.professionalInfo.workplaceName} onChange={(e) => handleInputChange("professionalInfo", "workplaceName", e.target.value)} />
-            </div>
-            <div>
-              <label className="block text-sm mb-2">Workplace Address</label>
-              <textarea className="w-full border rounded px-3 py-2" rows={3} value={formData.professionalInfo.workplaceAddress} onChange={(e) => handleInputChange("professionalInfo", "workplaceAddress", e.target.value)} />
             </div>
           </div>
         );
       case 3:
         return (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm mb-2">Highest Degree *</label>
-                <select className="w-full border rounded px-3 py-2" value={formData.education.highestDegree} onChange={(e) => handleInputChange("education", "highestDegree", e.target.value)}>
-                  <option value="">Select</option>
-                  <option value="bachelors">Bachelor's Degree</option>
-                  <option value="masters">Master's Degree</option>
-                  <option value="doctorate">Doctorate/PhD</option>
-                  <option value="diploma">Diploma</option>
-                  <option value="certificate">Professional Certificate</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm mb-2">Institution *</label>
-                <input className="w-full border rounded px-3 py-2" value={formData.education.institution} onChange={(e) => handleInputChange("education", "institution", e.target.value)} />
-              </div>
-              <div>
-                <label className="block text-sm mb-2">Graduation Year *</label>
-                <input type="number" min={1980} max={new Date().getFullYear()} className="w-full border rounded px-3 py-2" value={formData.education.graduationYear} onChange={(e) => handleInputChange("education", "graduationYear", e.target.value)} />
+            <div className="space-y-3">
+              <Label>Professional Designation(s) *</Label>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-60 overflow-y-auto border rounded-lg p-4">
+                {designations.map((d) => (
+                  <div key={d} className="flex items-center space-x-2">
+                    <Checkbox id={d} checked={formData.designations.includes(d)} onCheckedChange={() => handleArrayToggle("designations", d)} />
+                    <Label htmlFor={d} className="text-sm">
+                      {d}
+                    </Label>
+                  </div>
+                ))}
               </div>
             </div>
-            <div>
-              <label className="block text-sm mb-2">Continuing Education & Training</label>
-              <textarea className="w-full border rounded px-3 py-2" rows={4} value={formData.education.continuingEducation} onChange={(e) => handleInputChange("education", "continuingEducation", e.target.value)} />
+            <div className="space-y-4">
+              <Label>Primary Conditions You Work With</Label>
+              {conditionCategories.map((cat) => (
+                <div key={cat.id} className="space-y-2">
+                  <h4 className="font-medium text-blue-600">{cat.title}</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 pl-4">
+                    {cat.conditions.map((c) => (
+                      <div key={c} className="flex items-center space-x-2">
+                        <Checkbox id={c} checked={formData.primaryConditions.includes(c)} onCheckedChange={() => handleArrayToggle("primaryConditions", c)} />
+                        <Label htmlFor={c} className="text-sm">
+                          {c}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label>Years of Experience *</Label>
+                <ReactSelect
+                  options={[
+                    { value: "0-1", label: "0-1 years" },
+                    { value: "2-5", label: "2-5 years" },
+                    { value: "6-10", label: "6-10 years" },
+                    { value: "11-15", label: "11-15 years" },
+                    { value: "16-20", label: "16-20 years" },
+                    { value: "20+", label: "20+ years" },
+                  ]}
+                  value={[
+                    { value: "0-1", label: "0-1 years" },
+                    { value: "2-5", label: "2-5 years" },
+                    { value: "6-10", label: "6-10 years" },
+                    { value: "11-15", label: "11-15 years" },
+                    { value: "16-20", label: "16-20 years" },
+                    { value: "20+", label: "20+ years" },
+                  ].find((o) => o.value === formData.experience) || null}
+                  onChange={(opt) => handleInputChange("experience", opt ? (opt as any).value : "")}
+                  classNamePrefix="react-select"
+                  placeholder="Select experience"
+                  isClearable
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="workplaces">Previous Workplaces / Affiliations</Label>
+                <Textarea id="workplaces" rows={3} value={formData.workplaces} onChange={(e) => handleInputChange("workplaces", e.target.value)} />
+              </div>
             </div>
           </div>
         );
       case 4:
         return (
           <div className="space-y-6">
-            <div>
-              <label className="block text-sm mb-2">Conditions Treated *</label>
-              <div className="space-y-5">
-                {conditionCategories.map((cat) => (
-                  <div key={cat.id}>
-                    <div className="font-medium text-gray-700 mb-2">{cat.title}</div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                      {cat.conditions.map((cond) => (
-                        <label key={cond} className="flex items-center gap-2 text-sm">
-                          <input
-                            type="checkbox"
-                            checked={formData.practiceDetails.serviceTypes.includes(cond)}
-                            onChange={() => handleArrayToggle("practiceDetails", "serviceTypes", cond)}
-                          />
-                          {cond}
-                        </label>
-                      ))}
-                    </div>
+            <div className="space-y-3">
+              <Label>Preferred Days *</Label>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                {days.map((d) => (
+                  <div key={d} className="flex items-center space-x-2">
+                    <Checkbox id={d} checked={formData.preferredDays.includes(d)} onCheckedChange={() => handleArrayToggle("preferredDays", d)} />
+                    <Label htmlFor={d} className="text-sm">
+                      {d}
+                    </Label>
                   </div>
                 ))}
               </div>
             </div>
-            <div>
-              <label className="block text-sm mb-2">Session Formats *</label>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {["Video Call","Audio Call","In-Person","Chat/Messaging"].map((s) => (
-                  <label key={s} className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" checked={formData.practiceDetails.sessionFormats.includes(s)} onChange={() => handleArrayToggle("practiceDetails","sessionFormats",s)} />
-                    {s}
-                  </label>
+            <div className="space-y-3">
+              <Label>Preferred Time Slots *</Label>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                {timeSlots.map((t) => (
+                  <div key={t} className="flex items-center space-x-2">
+                    <Checkbox id={t} checked={formData.preferredTimeSlots.includes(t)} onCheckedChange={() => handleArrayToggle("preferredTimeSlots", t)} />
+                    <Label htmlFor={t} className="text-sm">
+                      {t}
+                    </Label>
+                  </div>
                 ))}
               </div>
             </div>
-            <div>
-              <label className="block text-sm mb-2">Languages</label>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {["English","Hindi","Bengali","Telugu","Marathi","Tamil","Gujarati","Kannada","Malayalam","Punjabi","Urdu","Other"].map((s) => (
-                  <label key={s} className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" checked={formData.practiceDetails.languages.includes(s)} onChange={() => handleArrayToggle("practiceDetails","languages",s)} />
-                    {s}
-                  </label>
-                ))}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label>Weekly Sessions Capacity *</Label>
+                <ReactSelect
+                  options={[
+                    { value: "1-5", label: "1-5 sessions/week" },
+                    { value: "6-10", label: "6-10 sessions/week" },
+                    { value: "11-20", label: "11-20 sessions/week" },
+                    { value: "21-30", label: "21-30 sessions/week" },
+                    { value: "30+", label: "30+ sessions/week" },
+                  ]}
+                  value={[
+                    { value: "1-5", label: "1-5 sessions/week" },
+                    { value: "6-10", label: "6-10 sessions/week" },
+                    { value: "11-20", label: "11-20 sessions/week" },
+                    { value: "21-30", label: "21-30 sessions/week" },
+                    { value: "30+", label: "30+ sessions/week" },
+                  ].find((o) => o.value === formData.weeklySessions) || null}
+                  onChange={(opt) => handleInputChange("weeklySessions", opt ? (opt as any).value : "")}
+                  classNamePrefix="react-select"
+                  placeholder="Select weekly capacity"
+                  isClearable
+                />
               </div>
-            </div>
-            <div>
-              <label className="block text-sm mb-2">Age Groups</label>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                {["Children (5-12)","Adolescents (13-17)","Adults (18-64)","Seniors (65+)"].map((s) => (
-                  <label key={s} className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" checked={formData.practiceDetails.ageGroups.includes(s)} onChange={() => handleArrayToggle("practiceDetails","ageGroups",s)} />
-                    {s}
-                  </label>
-                ))}
+              <div className="space-y-2">
+                <Label>Session Duration Options *</Label>
+                <div className="space-y-2">
+                  {sessionDurations.map((d) => (
+                    <div key={d} className="flex items-center space-x-2">
+                      <Checkbox id={d} checked={formData.sessionDurations.includes(d)} onCheckedChange={() => handleArrayToggle("sessionDurations", d)} />
+                      <Label htmlFor={d} className="text-sm">
+                        {d}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
@@ -769,119 +759,126 @@ export default function RegisterTherapistPage() {
       case 5:
         return (
           <div className="space-y-6">
-            <div>
-              <label className="block text-sm mb-2">Working Days *</label>
-              <div className="grid grid-cols-3 md:grid-cols-7 gap-3">
-                {["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"].map((s) => (
-                  <label key={s} className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" checked={formData.availability.workingDays.includes(s)} onChange={() => handleArrayToggle("availability","workingDays",s)} />
-                    {s}
-                  </label>
-                ))}
-              </div>
-            </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm mb-2">Preferred Working Hours</label>
-                <AnimatedMultiSelect
-                  values={formData.availability.preferredHours}
-                  onChange={(vals) => handleInputChange("availability","preferredHours", vals)}
+              <div className="space-y-2">
+                <Label htmlFor="sessionFee">Session Fee (₹) *</Label>
+                <Input id="sessionFee" type="number" value={formData.sessionFee} onChange={(e) => handleInputChange("sessionFee", e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label>Payment Mode Preference *</Label>
+                <ReactSelect
                   options={[
-                    "Morning (6 AM - 12 PM)",
-                    "Afternoon (12 PM - 6 PM)",
-                    "Evening (6 PM - 10 PM)",
-                    "Flexible",
+                    { value: "bank-transfer", label: "Bank Transfer" },
+                    { value: "upi", label: "UPI" },
+                    { value: "both", label: "Both" },
                   ]}
-                  placeholder="Select one or more"
+                  value={[
+                    { value: "bank-transfer", label: "Bank Transfer" },
+                    { value: "upi", label: "UPI" },
+                    { value: "both", label: "Both" },
+                  ].find((o) => o.value === formData.paymentMode) || null}
+                  onChange={(opt) => handleInputChange("paymentMode", opt ? (opt as any).value : "")}
+                  classNamePrefix="react-select"
+                  placeholder="Select payment mode"
+                  isClearable
                 />
               </div>
-              <div>
-                <label className="block text-sm mb-2">Time Zone *</label>
-                <select className="w-full border rounded px-3 py-2" value={formData.availability.timeZone} onChange={(e) => handleInputChange("availability","timeZone", e.target.value)}>
-                  <option value="">Select</option>
-                  <option value="IST">IST (Indian Standard Time)</option>
-                  <option value="PST">PST (Pacific Standard Time)</option>
-                  <option value="EST">EST (Eastern Standard Time)</option>
-                  <option value="GMT">GMT (Greenwich Mean Time)</option>
-                </select>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2">
+                <Checkbox id="dynamicPricing" checked={formData.dynamicPricing} onCheckedChange={(v) => handleInputChange("dynamicPricing", v)} />
+                <Label htmlFor="dynamicPricing">Enable dynamic pricing based on demand</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox id="freeFirstSession" checked={formData.freeFirstSession} onCheckedChange={(v) => handleInputChange("freeFirstSession", v)} />
+                <Label htmlFor="freeFirstSession">Offer free first session</Label>
               </div>
             </div>
-            <label className="inline-flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={formData.availability.emergencyAvailability} onChange={(e) => handleInputChange("availability","emergencyAvailability", e.target.checked)} />
-              Available for emergency consultations (after hours)
-            </label>
+            <Separator />
+            <div className="space-y-4">
+              <h4 className="font-semibold text-blue-600">Bank Details for Payments</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="accountHolder">Account Holder Name *</Label>
+                  <Input id="accountHolder" value={formData.bankDetails.accountHolder} onChange={(e) => handleNestedInputChange("bankDetails", "accountHolder", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="bankName">Bank Name *</Label>
+                  <Input id="bankName" value={formData.bankDetails.bankName} onChange={(e) => handleNestedInputChange("bankDetails", "bankName", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="accountNumber">Account Number *</Label>
+                  <Input id="accountNumber" value={formData.bankDetails.accountNumber} onChange={(e) => handleNestedInputChange("bankDetails", "accountNumber", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="ifsc">IFSC Code *</Label>
+                  <Input id="ifsc" value={formData.bankDetails.ifscCode} onChange={(e) => handleNestedInputChange("bankDetails", "ifscCode", e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="upi">UPI ID (optional)</Label>
+                  <Input id="upi" value={formData.bankDetails.upiId} onChange={(e) => handleNestedInputChange("bankDetails", "upiId", e.target.value)} />
+                </div>
+              </div>
+            </div>
           </div>
         );
       case 6:
         return (
           <div className="space-y-6">
-            <div>
-              <label className="block text-sm mb-2">Consultation Fees (INR) *</label>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {([
-                  ["videoCall","Video Call Consultation *"],
-                  ["audioCall","Audio Call Consultation"],
-                  ["inPerson","In-Person Consultation"],
-                  ["chatConsultation","Chat Consultation"],
-                ] as const).map(([key, label]) => (
-                  <div key={key}>
-                    <label className="block text-sm mb-2">{label}</label>
-                    <input type="number" className="w-full border rounded px-3 py-2" value={(formData.availability.consultationFees as any)[key]} onChange={(e) => handleNestedInputChange("availability","consultationFees", key, e.target.value)} />
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm mb-2">City *</label>
-                <input className="w-full border rounded px-3 py-2" value={formData.location.city} onChange={(e) => handleInputChange("location","city", e.target.value)} />
-              </div>
-              <div>
-                <label className="block text-sm mb-2">State *</label>
-                <AnimatedSelect
-                  value={formData.location.state}
-                  onChange={(v) => handleInputChange("location", "state", v)}
-                  options={INDIA_STATES_AND_UTS}
-                  placeholder="Select State/UT"
-                />
-              </div>
-              <div>
-                <label className="block text-sm mb-2">PIN Code *</label>
-                <input className="w-full border rounded px-3 py-2" value={formData.location.pincode} onChange={(e) => handleInputChange("location","pincode", e.target.value)} />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm mb-2">Primary Practice Address *</label>
-              <textarea className="w-full border rounded px-3 py-2" rows={3} value={formData.location.primaryAddress} onChange={(e) => handleInputChange("location","primaryAddress", e.target.value)} />
-            </div>
             <div className="space-y-2">
-              <label className="block text-sm mb-2">Service Delivery Options</label>
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={formData.location.onlineOnly} onChange={(e) => handleInputChange("location","onlineOnly", e.target.checked)} />
-                Online consultations only
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={formData.location.clinicVisits} onChange={(e) => handleInputChange("location","clinicVisits", e.target.checked)} />
-                In-clinic consultations
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={formData.location.homeVisits} onChange={(e) => handleInputChange("location","homeVisits", e.target.checked)} />
-                Home visits (additional charges may apply)
-              </label>
+              <Label>Do you have a physical clinic/practice location? *</Label>
+              <RadioGroup value={formData.hasClinic ? "yes" : "no"} onValueChange={(v) => handleInputChange("hasClinic", v === "yes")}> 
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="yes" id="clinic-yes" />
+                  <Label htmlFor="clinic-yes">Yes</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="no" id="clinic-no" />
+                  <Label htmlFor="clinic-no">No</Label>
+                </div>
+              </RadioGroup>
+            </div>
+            <div className="rounded border border-yellow-200 bg-yellow-50 p-3 text-yellow-800 text-sm flex items-start gap-2">
+              <AlertTriangle className="w-4 h-4 mt-0.5" />
+              <p>Note: You can always add clinic details later through your dashboard settings.</p>
             </div>
           </div>
         );
       case 7:
         return (
           <div className="space-y-6">
-            <div>
-              <label className="block text-sm mb-2">Professional Profile Picture (optional)</label>
-              <input type="file" accept=".jpg,.jpeg,.png" className="w-full border rounded px-3 py-2" onChange={(e) => handleInputChange("documents","profilePicture", (e.target as HTMLInputElement).value)} />
-              <p className="text-sm text-gray-500 mt-1">Upload a professional headshot (JPG, PNG)</p>
+            <div className="space-y-2">
+              <Label>Profile Photo *</Label>
+              <div className="border-2 border-dashed rounded-lg p-6 text-center text-gray-600">Upload Profile Photo (JPG, PNG)</div>
             </div>
-            <div className="rounded border border-blue-200 bg-blue-50 p-4 text-blue-700 text-sm flex items-start gap-2">
-              <FileText className="w-4 h-4 mt-0.5" />
-              <p>All documents will be securely stored by our team. Profiles may be reviewed before enabling bookings.</p>
+            <div className="space-y-2">
+              <Label htmlFor="bio">Professional Bio *</Label>
+              <Textarea id="bio" rows={5} value={formData.bio} onChange={(e) => handleInputChange("bio", e.target.value)} />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <Label htmlFor="linkedIn">LinkedIn</Label>
+                <Input id="linkedIn" value={formData.linkedIn} onChange={(e) => handleInputChange("linkedIn", e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="website">Website</Label>
+                <Input id="website" value={formData.website} onChange={(e) => handleInputChange("website", e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="instagram">Instagram</Label>
+                <Input id="instagram" value={formData.instagram} onChange={(e) => handleInputChange("instagram", e.target.value)} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Therapy Languages *</Label>
+              <ReactSelect
+                isMulti
+                options={languages.map((l) => ({ value: l, label: l }))}
+                value={formData.therapyLanguages.map((l) => ({ value: l, label: l }))}
+                onChange={(vals) => handleInputChange("therapyLanguages", (vals as any[]).map((v) => v.value))}
+                classNamePrefix="react-select"
+                placeholder="Select therapy language(s)"
+              />
             </div>
           </div>
         );
@@ -889,24 +886,32 @@ export default function RegisterTherapistPage() {
         return (
           <div className="space-y-6">
             <h3 className="text-lg font-semibold text-blue-600">Terms and Agreements</h3>
-            <p className="text-gray-600">Please read and accept the following terms to complete your registration:</p>
-            <div className="space-y-3">
-              <label className="flex items-start gap-2 text-sm">
-                <input type="checkbox" checked={formData.agreements.termsOfService} onChange={(e) => handleInputChange("agreements","termsOfService", e.target.checked)} />
-                I agree to the Terms of Service and understand my responsibilities as a healthcare provider on TheraTreat *
-              </label>
-              <label className="flex items-start gap-2 text-sm">
-                <input type="checkbox" checked={formData.agreements.privacyPolicy} onChange={(e) => handleInputChange("agreements","privacyPolicy", e.target.checked)} />
-                I agree to the Privacy Policy and consent to data processing for platform operations *
-              </label>
-              <label className="flex items-start gap-2 text-sm">
-                <input type="checkbox" checked={formData.agreements.professionalConduct} onChange={(e) => handleInputChange("agreements","professionalConduct", e.target.checked)} />
-                I agree to maintain professional conduct, patient confidentiality, and ethical standards *
-              </label>
-              <label className="flex items-start gap-2 text-sm">
-                <input type="checkbox" checked={formData.agreements.serviceAgreement} onChange={(e) => handleInputChange("agreements","serviceAgreement", e.target.checked)} />
-                I agree to the Service Agreement and understand the payment terms *
-              </label>
+            <div className="grid grid-cols-1 gap-3">
+              {([
+                ["accuracy", "I confirm that all information provided is accurate and up-to-date *"],
+                ["verification", "I agree to verification of my credentials and documents *"],
+                ["guidelines", "I agree to follow TheraTreat's professional guidelines and code of conduct *"],
+                ["confidentiality", "I agree to maintain patient confidentiality as per medical ethics *"],
+                ["independent", "I understand that I am an independent practitioner, not an employee of TheraTreat *"],
+                ["norms", "I agree to adhere to professional norms and therapy session standards *"],
+                ["conduct", "I agree to maintain professional conduct during all interactions *"],
+                ["terms", "I have read and agree to the Terms of Service *"],
+                ["digitalConsent", "I consent to digital record keeping and data processing *"],
+                ["secureDelivery", "I agree to secure delivery of therapy services through the platform *"],
+                ["declaration", "I declare that I am mentally and physically fit to provide therapy services *"],
+                ["serviceAgreement", "I agree to the Service Agreement and understand the payment terms *"],
+              ] as const).map(([key, label]) => (
+                <div key={key} className="flex items-start space-x-2">
+                  <Checkbox
+                    id={key}
+                    checked={(formData.agreements as any)[key]}
+                    onCheckedChange={(v) => handleNestedInputChange("agreements", key as any, v)}
+                  />
+                  <Label htmlFor={key} className="text-sm">
+                    {label}
+                  </Label>
+                </div>
+              ))}
             </div>
             {!isFormValid() && (
               <div className="rounded border border-yellow-200 bg-yellow-50 p-3 text-yellow-800 text-sm flex items-start gap-2">
@@ -916,8 +921,6 @@ export default function RegisterTherapistPage() {
             )}
           </div>
         );
-      default:
-        return null;
     }
   }
 
@@ -927,94 +930,104 @@ export default function RegisterTherapistPage() {
         <div className="text-center mb-8">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
             <h1 className="text-4xl font-bold text-blue-600 mb-4">Join TheraTreat as a Therapist</h1>
-            <p className="text-xl text-gray-600 max-w-3xl mx-auto">Complete your comprehensive registration to start connecting with patients and growing your practice.</p>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto">Complete your comprehensive registration to start connecting with patients and growing your practice</p>
           </motion.div>
         </div>
 
         <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.2 }} className="mb-12">
-          <div className="border-2 border-green-200 bg-gradient-to-r from-green-50 to-blue-50 rounded-xl p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <div className="space-y-2">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                    <UserCheck className="w-5 h-5 text-blue-600" />
+          <Card className="border-2 border-green-200 bg-gradient-to-r from-green-50 to-blue-50 shadow-lg">
+            <CardHeader className="text-center pb-4">
+              <CardTitle className="text-2xl font-bold text-green-600 mb-2">Why Register as a Therapist?</CardTitle>
+              <p className="text-gray-600">Join thousands of healthcare professionals transforming lives through TheraTreat</p>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                      <UserCheck className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <h3 className="font-semibold text-blue-600">Expand Your Reach</h3>
                   </div>
-                  <h3 className="font-semibold text-blue-600">Expand Your Reach</h3>
+                  <p className="text-sm text-gray-600 pl-13">Connect with thousands of patients actively seeking therapy across India.</p>
                 </div>
-                <p className="text-sm text-gray-600 pl-13">Connect with thousands of patients actively seeking therapy across India.</p>
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                    <TrendingUp className="w-5 h-5 text-green-600" />
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                      <TrendingUp className="w-5 h-5 text-green-600" />
+                    </div>
+                    <h3 className="font-semibold text-green-600">Boost Your Income</h3>
                   </div>
-                  <h3 className="font-semibold text-green-600">Boost Your Income</h3>
+                  <p className="text-sm text-gray-600 pl-13">Earn more with flexible session pricing and transparent payouts.</p>
                 </div>
-                <p className="text-sm text-gray-600 pl-13">Earn more with flexible session pricing and transparent payouts.</p>
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
-                    <Calendar className="w-5 h-5 text-purple-600" />
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
+                      <Calendar className="w-5 h-5 text-purple-600" />
+                    </div>
+                    <h3 className="font-semibold text-purple-600">Smart Scheduling</h3>
                   </div>
-                  <h3 className="font-semibold text-purple-600">Smart Scheduling</h3>
+                  <p className="text-sm text-gray-600 pl-13">Manage availability, bookings, and reschedules with one dashboard.</p>
                 </div>
-                <p className="text-sm text-gray-600 pl-13">Manage availability, bookings, and reschedules with one dashboard.</p>
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
-                    <Bot className="w-5 h-5 text-orange-600" />
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
+                      <Bot className="w-5 h-5 text-orange-600" />
+                    </div>
+                    <h3 className="font-semibold text-orange-600">AI-Powered Tools</h3>
                   </div>
-                  <h3 className="font-semibold text-orange-600">AI-Powered Tools</h3>
+                  <p className="text-sm text-gray-600 pl-13">Get intelligent insights, reminders, and support to improve efficiency and client outcomes.</p>
                 </div>
-                <p className="text-sm text-gray-600 pl-13">Get intelligent insights, reminders, and support to improve efficiency and client outcomes.</p>
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
-                    <Star className="w-5 h-5 text-yellow-600" />
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center">
+                      <Star className="w-5 h-5 text-yellow-600" />
+                    </div>
+                    <h3 className="font-semibold text-yellow-600">Build Your Reputation</h3>
                   </div>
-                  <h3 className="font-semibold text-yellow-600">Build Your Reputation</h3>
+                  <p className="text-sm text-gray-600 pl-13">Gain visibility through verified profiles, patient reviews, and featured listings.</p>
                 </div>
-                <p className="text-sm text-gray-600 pl-13">Gain visibility through verified profiles, patient reviews, and featured listings.</p>
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-teal-100 rounded-full flex items-center justify-center">
-                    <Network className="w-5 h-5 text-teal-600" />
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-teal-100 rounded-full flex items-center justify-center">
+                      <Network className="w-5 h-5 text-teal-600" />
+                    </div>
+                    <h3 className="font-semibold text-teal-600">Community & Support</h3>
                   </div>
-                  <h3 className="font-semibold text-teal-600">Community & Support</h3>
+                  <p className="text-sm text-gray-600 pl-13">Access training, workshops, and peer networking.</p>
                 </div>
-                <p className="text-sm text-gray-600 pl-13">Access training, workshops, and peer networking.</p>
               </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         </motion.div>
 
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-2xl font-bold text-blue-600">Step {currentStep} of {totalSteps}</h2>
-            <span className="px-3 py-1 border rounded-full text-sm">Therapist Registration</span>
+            <Badge variant="outline" className="px-3 py-1">Therapist Registration</Badge>
           </div>
-          <div className="h-2 w-full bg-gray-200 rounded">
-            <div className="h-2 bg-blue-600 rounded" style={{ width: `${progress}%` }} />
-          </div>
+          <Progress value={progress} className="h-2" />
         </div>
 
-        <div className="border-2 border-blue-200 rounded-xl bg-white shadow">
-          <div className="px-6 py-4 border-b">
-            <h3 className="text-blue-600 font-semibold">Step {currentStep}: {stepTitles[currentStep - 1]}</h3>
-          </div>
-          <div className="p-6">
+        <Card className="border-2 border-blue-200 shadow-xl">
+          <CardHeader>
+            <CardTitle className="text-blue-600">Step {currentStep}: {[
+              "Personal & Contact Information",
+              "Education & Credentials",
+              "Specialization & Experience",
+              "Availability & Scheduling",
+              "Session Charges & Payment",
+              "Clinic/Offline Setup",
+              "Profile Details",
+              "Agreements & Consent",
+            ][currentStep - 1]}</CardTitle>
+          </CardHeader>
+          <CardContent>
             {submitted ? (
               <div className="text-center py-12">
                 <CheckCircle className="w-12 h-12 text-green-600 mx-auto mb-4" />
                 <h3 className="text-2xl font-semibold">Registration submitted successfully!</h3>
                 <p className="text-gray-600 mt-2">We'll review your application and get back to you within 2-3 business days.</p>
-                <div className="mt-6">
-                  <Link className="text-blue-600 underline" href="/">Return to homepage</Link>
-                </div>
               </div>
             ) : (
               renderStepContent()
@@ -1022,23 +1035,23 @@ export default function RegisterTherapistPage() {
             {submitError && (
               <div className="mt-4 text-sm text-red-700 bg-red-50 border border-red-200 rounded p-3">{submitError}</div>
             )}
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
         {!submitted && (
           <div className="flex justify-between mt-8">
-            <button className="px-4 py-2 border rounded disabled:opacity-50" onClick={() => setCurrentStep((s) => Math.max(1, s - 1))} disabled={currentStep === 1 || submitting}>
-              <ArrowLeft className="inline w-4 h-4 mr-2" /> Previous
-            </button>
+            <Button className="border border-gray-300 bg-white text-gray-800" disabled={currentStep === 1 || isSubmitting} onClick={handlePrevious}>
+              <ArrowLeft className="mr-2 w-4 h-4" /> Previous
+            </Button>
             {currentStep === totalSteps ? (
-              <button className="px-4 py-2 rounded bg-green-600 text-white disabled:opacity-50" onClick={handleSubmitAll} disabled={!isFormValid() || submitting}>
-                {submitting ? "Submitting..." : "Complete Registration"}
-                <CheckCircle className="inline w-4 h-4 ml-2" />
-              </button>
+              <Button onClick={handleSubmit} className="bg-green-600 hover:bg-green-700" disabled={!isFormValid() || isSubmitting}>
+                {isSubmitting ? "Completing Registration..." : "Complete Registration"}
+                <CheckCircle className="ml-2 w-4 h-4" />
+              </Button>
             ) : (
-              <button className="px-4 py-2 rounded bg-blue-600 text-white" onClick={() => setCurrentStep((s) => Math.min(totalSteps, s + 1))}>
-                Next <ArrowRight className="inline w-4 h-4 ml-2" />
-              </button>
+              <Button onClick={handleNext} className="bg-blue-600 hover:bg-blue-700">
+                Next <ArrowRight className="ml-2 w-4 h-4" />
+              </Button>
             )}
           </div>
         )}
