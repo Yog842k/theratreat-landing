@@ -1,17 +1,22 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { Navbar } from "../components/Navbar";
 import { Footer } from "../components/Footer";
 
-const geistSans = Geist({
+// Use local fonts to avoid network fetch during build
+const geistSans = localFont({
+  src: "../assets/fonts/Inter.ttf",
   variable: "--font-geist-sans",
-  subsets: ["latin"],
+  weight: "400",
+  style: "normal",
 });
 
-const geistMono = Geist_Mono({
+const geistMono = localFont({
+  src: "../assets/fonts/Inter.ttf",
   variable: "--font-geist-mono",
-  subsets: ["latin"],
+  weight: "400",
+  style: "normal",
 });
 
 export const metadata: Metadata = {

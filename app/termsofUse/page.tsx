@@ -42,11 +42,9 @@ import {
   RefreshCw
 } from "lucide-react";
 
-interface TermsOfUseProps {
-  setCurrentView?: (view: any) => void;
-}
+type TermsOfUseProps = { setCurrentView?: (view: any) => void };
 
-export function TermsOfUse({ setCurrentView }: TermsOfUseProps) {
+function TermsOfUse({ setCurrentView }: TermsOfUseProps) {
   const [openSections, setOpenSections] = useState<string[]>(["overview"]);
 
   const toggleSection = (sectionId: string) => {

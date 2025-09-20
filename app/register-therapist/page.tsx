@@ -319,14 +319,14 @@ export default function RegisterTherapistPage() {
   });
 
   const stepTitles = [
-    "Personal Information",
-    "Professional Information",
-    "Education & Certifications",
-    "Practice Details",
-    "Availability & Pricing",
-    "Location & Service Areas",
-    "Documents & Verification",
-    "Terms & Agreements",
+    "Personal & Contact Information",
+    "Education & Credentials",
+    "Specialization & Experience",
+    "Availability & Scheduling",
+    "Session Charges & Payment",
+    "Clinic/Offline Setup",
+    "Profile Details",
+    "Agreements & Consent",
   ];
 
   function handleInputChange(section: keyof FormData, field: string, value: any) {
@@ -364,17 +364,17 @@ export default function RegisterTherapistPage() {
       case 1:
         return !!(personalInfo.firstName && personalInfo.lastName && personalInfo.email && personalInfo.phone && personalInfo.dateOfBirth && personalInfo.gender);
       case 2:
-        return !!(professionalInfo.licenseNumber && professionalInfo.licenseState && professionalInfo.primarySpecialty && professionalInfo.yearsOfExperience);
+        return !!(professionalInfo.licenseNumber && professionalInfo.licenseState && professionalInfo.primarySpecialty);
       case 3:
         return !!(education.highestDegree && education.institution && education.graduationYear);
       case 4:
-        return !!(practiceDetails.serviceTypes.length > 0 && practiceDetails.sessionFormats.length > 0);
+        return !!(practiceDetails.serviceTypes.length > 0 && practiceDetails.sessionFormats.length > 0 && professionalInfo.yearsOfExperience);
       case 5:
-        return !!(availability.workingDays.length > 0 && availability.consultationFees.videoCall && availability.timeZone);
+        return !!(availability.workingDays.length > 0 && availability.timeZone);
       case 6:
-        return !!(location.primaryAddress && location.city && location.state && location.pincode);
+        return !!(availability.consultationFees.videoCall && location.primaryAddress && location.city && location.state && location.pincode);
       case 7:
-        return true; // documents optional except basic profile picture, which we’ll make optional too
+        return true;
       case 8:
         return !!(agreements.termsOfService && agreements.privacyPolicy && agreements.professionalConduct && agreements.serviceAgreement);
       default:
@@ -568,6 +568,14 @@ export default function RegisterTherapistPage() {
                   <option value="prefer-not-to-say">Prefer not to say</option>
                 </select>
               </div>
+              <div>
+                <label className="block text-sm mb-2">Current City / Location</label>
+                <input className="w-full border rounded px-3 py-2" value={formData.location.city} onChange={(e) => handleInputChange("location", "city", e.target.value)} />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm mb-2">Residential Address</label>
+                <textarea className="w-full border rounded px-3 py-2" rows={3} value={formData.location.primaryAddress} onChange={(e) => handleInputChange("location", "primaryAddress", e.target.value)} />
+              </div>
             </div>
           </div>
         );
@@ -595,9 +603,7 @@ export default function RegisterTherapistPage() {
               <div>
                 <label className="block text-sm mb-2">Primary Specialty *</label>
                 <select className="w-full border rounded px-3 py-2" value={formData.professionalInfo.primarySpecialty} onChange={(e) => handleInputChange("professionalInfo", "primarySpecialty", e.target.value)}>
-                  
-        
-
+                  <option value="">Select</option>
                   {/* Added specialties */}
                   <option value="behavioural-therapist">Behavioural Therapist</option>
                   <option value="cognitive-behavioural-therapist">Cognitive Behavioural Therapist</option>
@@ -800,6 +806,15 @@ export default function RegisterTherapistPage() {
                 </select>
               </div>
             </div>
+            <label className="inline-flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={formData.availability.emergencyAvailability} onChange={(e) => handleInputChange("availability","emergencyAvailability", e.target.checked)} />
+              Available for emergency consultations (after hours)
+            </label>
+          </div>
+        );
+      case 6:
+        return (
+          <div className="space-y-6">
             <div>
               <label className="block text-sm mb-2">Consultation Fees (INR) *</label>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -816,15 +831,6 @@ export default function RegisterTherapistPage() {
                 ))}
               </div>
             </div>
-            <label className="inline-flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={formData.availability.emergencyAvailability} onChange={(e) => handleInputChange("availability","emergencyAvailability", e.target.checked)} />
-              Available for emergency consultations (after hours)
-            </label>
-          </div>
-        );
-      case 6:
-        return (
-          <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm mb-2">City *</label>
@@ -875,7 +881,7 @@ export default function RegisterTherapistPage() {
             </div>
             <div className="rounded border border-blue-200 bg-blue-50 p-4 text-blue-700 text-sm flex items-start gap-2">
               <FileText className="w-4 h-4 mt-0.5" />
-              <p>All documents will be securely stored and verified by our team. Only verified therapists can receive patient bookings.</p>
+              <p>All documents will be securely stored by our team. Profiles may be reviewed before enabling bookings.</p>
             </div>
           </div>
         );

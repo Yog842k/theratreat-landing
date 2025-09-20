@@ -1,4 +1,13 @@
-import { BookOpen, Brain, ShoppingCart, HeartHandshake } from "lucide-react";
+import {
+  BookOpen,
+  Brain,
+  ShoppingCart,
+  HeartHandshake,
+  Globe,
+  UserCheck,
+  Lightbulb,
+  Heart
+} from "lucide-react";
 
 export const coreModules = [
   {
@@ -52,5 +61,37 @@ export const coreModules = [
       "Live webinars"
     ],
     cta: "Start Learning"
+  }
+];
+
+// High-level benefits used by components/BenefitsGrid.tsx
+export const platformBenefits = [
+  {
+    id: "hub",
+    title: "One-Stop Therapy Hub",
+    description:
+      "From booking therapy sessions to self-help tools — get everything for well-being in one trusted place.",
+    icon: Globe
+  },
+  {
+    id: "verified",
+    title: "Verified Professionals",
+    description:
+      "Every therapist and healthcare expert is certified and verified so you receive quality care.",
+    icon: UserCheck
+  },
+  {
+    id: "personalized",
+    title: "Personalized Care",
+    description:
+      "Flexible therapy options, transparent pricing, and tailored recommendations for your needs.",
+    icon: Lightbulb
+  },
+  {
+    id: "compassion",
+    title: "Compassionate Support",
+    description:
+      "Built with empathy at its core, providing a safe and supportive environment for your journey.",
+    icon: Heart
   }
 ];
