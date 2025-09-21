@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
       createdAt: new Date(),
       status: "pending-review",
     };
-    const result = await db.collection("therapist_applications").insertOne(doc);
+  const result = await db.collection("therapists").insertOne(doc);
     return new Response(JSON.stringify({ ok: true, id: result.insertedId }), {
       status: 201,
       headers: { "Content-Type": "application/json" },
