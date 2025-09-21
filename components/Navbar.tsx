@@ -95,8 +95,8 @@ export function Navbar() {
           className={`md:hidden ${isOpen ? "block" : "hidden"}`}
           aria-hidden={!isOpen}
         >
-          <div className="absolute left-0 right-0 top-[calc(100%+8px)] z-50">
-            <div className="mx-2 rounded-2xl bg-white shadow-lg border border-gray-200 overflow-hidden">
+          <div className="absolute inset-x-0 top-[calc(100%+8px)] z-50 px-3">
+            <div className="rounded-2xl bg-white shadow-lg border border-gray-200 overflow-hidden max-w-full">
               <nav className="py-2">
                 <Link
                   href="/"
