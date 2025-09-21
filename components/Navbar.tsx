@@ -8,7 +8,7 @@ export function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <nav className="fixed w-full top-0 left-0 z-50 px-3 sm:px-6 lg:px-8 py-2 sm:py-3">
+  <nav className="fixed w-full top-0 left-0 z-50 px-3 sm:px-6 lg:px-8 py-2 sm:py-3">
       {/* Backdrop for mobile menu */}
       {isOpen && (
         <div
@@ -17,7 +17,7 @@ export function Navbar() {
           aria-hidden="true"
         />
       )}
-      <div className="relative max-w-[94vw] sm:max-w-6xl mx-auto bg-white/80 backdrop-blur-md border border-white/40 rounded-xl md:rounded-full px-3 sm:px-6 lg:px-8 shadow-xl shadow-black/10">
+  <div className="relative w-full max-w-full md:max-w-6xl md:mx-auto bg-white/30 backdrop-blur-lg md:border border-white/30 rounded-2xl md:rounded-full px-3 sm:px-6 lg:px-8 md:shadow-xl shadow-md shadow-black/10 box-border">
         <div className="flex items-center justify-between h-12 sm:h-16">
           {/* Logo and Brand Section */}
           <div className="flex items-center space-x-3">
@@ -95,7 +95,7 @@ export function Navbar() {
           className={`md:hidden ${isOpen ? "block" : "hidden"}`}
           aria-hidden={!isOpen}
         >
-          <div className="absolute inset-x-0 top-[calc(100%+6px)] z-50 px-2">
+          <div className="absolute left-0 right-0 top-[calc(100%+6px)] z-50 px-2">
             <div className="rounded-xl bg-white shadow-lg border border-gray-200 overflow-hidden max-w-full">
               <nav className="py-2">
                 <Link

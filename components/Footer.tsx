@@ -3,8 +3,8 @@ import { Phone, Mail, MapPin, Facebook, Twitter, Instagram, Youtube } from "luci
 
 export const Footer = () => {
   return (
-    <footer className="bg-blue-700 text-white">
-      <div className="max-w-7xl mx-auto px-6 py-12">
+    <footer className="bg-blue-700 text-white w-full overflow-x-hidden">
+      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 py-12">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Company Info */}
           <div className="space-y-4">
@@ -23,7 +23,7 @@ export const Footer = () => {
               </div>
               <div className="flex items-center gap-2 text-blue-100">
                 <MapPin className="w-4 h-4" />
-                <span>1503/2, Jadhav Nagar, Shikrapur, Shirur, Pune 412208, Maharashtra</span>
+                <span className="break-words max-w-full">1503/2, Jadhav Nagar, Shikrapur, Shirur, Pune 412208, Maharashtra</span>
               </div>
             </div>
           </div>
@@ -67,16 +67,16 @@ export const Footer = () => {
 
         {/* Newsletter */}
         <div className="border-t border-blue-600 mt-12 pt-8">
-          <div className="max-w-md">
+          <div className="w-full max-w-md">
             <h4 className="font-semibold mb-2">Stay Connected</h4>
             <p className="text-blue-100 mb-4">Get health tips, platform updates, and exclusive offers</p>
-            <div className="flex gap-2">
+            <div className="flex gap-2 min-w-0">
               <input 
                 type="email" 
                 placeholder="Enter your email" 
-                className="flex-1 px-4 py-2 rounded-lg bg-blue-600 border border-blue-500 text-white placeholder-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                className="w-0 flex-1 min-w-0 px-4 py-2 rounded-lg bg-blue-600 border border-blue-500 text-white placeholder-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
               />
-              <button className="bg-blue-500 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-400 transition">
+              <button className="bg-blue-500 text-white shrink-0 px-5 sm:px-6 py-2 rounded-lg font-medium hover:bg-blue-400 transition">
                 Subscribe
               </button>
             </div>
@@ -85,8 +85,8 @@ export const Footer = () => {
 
         {/* Bottom Footer */}
         <div className="border-t border-blue-600 mt-8 pt-6">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <div className="flex gap-6 text-sm text-blue-100">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4 w-full min-w-0">
+            <div className="flex flex-wrap justify-center md:justify-start gap-3 md:gap-6 text-sm text-blue-100 max-w-full">
               <Link href="/privacy" className="hover:text-white transition">Privacy Policy</Link>
               <Link href="/termsofUse" className="hover:text-white transition">Terms of Use</Link>
               <Link href="/refund" className="hover:text-white transition">Refund & Cancellation</Link>
@@ -111,7 +111,7 @@ export const Footer = () => {
             </div>
           </div>
           
-          <div className="text-center mt-6 text-blue-200 text-sm">
+          <div className="text-center mt-6 text-blue-200 text-sm px-2">
             © 2025 Theratreat. All rights reserved. | Comprehensive Healing Platform | HIPAA Compliant
           </div>
         </div>
