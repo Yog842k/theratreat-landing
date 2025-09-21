@@ -511,8 +511,10 @@ export default function RegisterTherapistPage() {
                 <Input id="fullName" value={formData.fullName} onChange={(e) => handleInputChange("fullName", e.target.value)} placeholder="Enter your full name" />
               </div>
               <div className="space-y-2">
-                <Label>Gender *</Label>
+                <Label htmlFor="gender">Gender *</Label>
                 <ReactSelect
+                  instanceId="gender"
+                  inputId="gender"
                   options={[
                     { value: "male", label: "Male" },
                     { value: "female", label: "Female" },
@@ -557,8 +559,10 @@ export default function RegisterTherapistPage() {
               <Textarea id="address" rows={3} value={formData.residentialAddress} onChange={(e) => handleInputChange("residentialAddress", e.target.value)} />
             </div>
             <div className="space-y-2">
-              <Label>Preferred Communication Language(s) *</Label>
+              <Label htmlFor="preferredLanguages">Preferred Communication Language(s) *</Label>
               <ReactSelect
+                instanceId="preferredLanguages"
+                inputId="preferredLanguages"
                 isMulti
                 options={languages.map((l) => ({ value: l, label: l }))}
                 value={formData.preferredLanguages.map((l) => ({ value: l, label: l }))}
@@ -574,8 +578,10 @@ export default function RegisterTherapistPage() {
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <Label>Highest Qualification *</Label>
+                <Label htmlFor="qualification">Highest Qualification *</Label>
                 <ReactSelect
+                  instanceId="qualification"
+                  inputId="qualification"
                   options={[
                     { value: "phd", label: "PhD" },
                     { value: "masters", label: "Master's Degree" },
@@ -601,8 +607,10 @@ export default function RegisterTherapistPage() {
                 <Input id="univ" value={formData.university} onChange={(e) => handleInputChange("university", e.target.value)} />
               </div>
               <div className="space-y-2">
-                <Label>Graduation Year *</Label>
+                <Label htmlFor="graduationYear">Graduation Year *</Label>
                 <ReactSelect
+                  instanceId="graduationYear"
+                  inputId="graduationYear"
                   options={Array.from({ length: 50 }, (_, i) => new Date().getFullYear() - i).map((y) => ({ value: String(y), label: String(y) }))}
                   value={Array.from({ length: 50 }, (_, i) => new Date().getFullYear() - i)
                     .map((y) => ({ value: String(y), label: String(y) }))
@@ -656,8 +664,10 @@ export default function RegisterTherapistPage() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <Label>Years of Experience *</Label>
+                <Label htmlFor="experience">Years of Experience *</Label>
                 <ReactSelect
+                  instanceId="experience"
+                  inputId="experience"
                   options={[
                     { value: "0-1", label: "0-1 years" },
                     { value: "2-5", label: "2-5 years" },
@@ -718,8 +728,10 @@ export default function RegisterTherapistPage() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <Label>Weekly Sessions Capacity *</Label>
+                <Label htmlFor="weeklySessions">Weekly Sessions Capacity *</Label>
                 <ReactSelect
+                  instanceId="weeklySessions"
+                  inputId="weeklySessions"
                   options={[
                     { value: "1-5", label: "1-5 sessions/week" },
                     { value: "6-10", label: "6-10 sessions/week" },
@@ -765,8 +777,10 @@ export default function RegisterTherapistPage() {
                 <Input id="sessionFee" type="number" value={formData.sessionFee} onChange={(e) => handleInputChange("sessionFee", e.target.value)} />
               </div>
               <div className="space-y-2">
-                <Label>Payment Mode Preference *</Label>
+                <Label htmlFor="paymentMode">Payment Mode Preference *</Label>
                 <ReactSelect
+                  instanceId="paymentMode"
+                  inputId="paymentMode"
                   options={[
                     { value: "bank-transfer", label: "Bank Transfer" },
                     { value: "upi", label: "UPI" },
@@ -870,8 +884,10 @@ export default function RegisterTherapistPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label>Therapy Languages *</Label>
+              <Label htmlFor="therapyLanguages">Therapy Languages *</Label>
               <ReactSelect
+                instanceId="therapyLanguages"
+                inputId="therapyLanguages"
                 isMulti
                 options={languages.map((l) => ({ value: l, label: l }))}
                 value={formData.therapyLanguages.map((l) => ({ value: l, label: l }))}
