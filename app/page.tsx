@@ -71,7 +71,7 @@ export default function Home() {
                         <Users className="w-8 h-8 text-blue-600" />
                       </div>
                       <h4 className="font-semibold text-gray-900">Dr. Yogesh Shingane</h4>
-                      <p className="text-sm text-gray-600">Occupational Psychology</p>
+                      <p className="text-sm text-gray-600">Occupational Therapist</p>
                       <div className="flex items-center gap-1 mt-1">
                         <span className="text-yellow-500">★</span>
                         <span className="text-sm text-gray-600">4.9</span>

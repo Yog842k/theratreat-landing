@@ -20,8 +20,8 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "TheraTreat - Your Mental Health Companion",
-  description: "Online Therapist booking platform for personalized mental health care.",
+  title: "TheraTreat -Your one stop therapy solution",
+  description: "Theratreat-Your one stop therapy solution",
 };
 
 export default function RootLayout({
