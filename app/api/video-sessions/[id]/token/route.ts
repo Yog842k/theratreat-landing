@@ -6,11 +6,13 @@ import { generateRoomToken } from '@/lib/hms';
 
 function json(status: number, body: any) { return NextResponse.json(body, { status }); }
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, context: any) {
+  const params = context?.params && typeof context.params.then === 'function' ? await context.params : context?.params;
+  const id: string | undefined = params?.id;
   try {
     await connectDB();
     const user = await AuthMiddleware.requireRole(req as any, ['therapist','client']);
-    const session = await VideoSession.findById(params.id);
+  const session = await VideoSession.findById(id);
     if (!session) return json(404, { error: 'Session not found' });
     const isTherapist = String(user._id) === String(session.therapistId);
     const isClient = String(user._id) === String(session.clientId);

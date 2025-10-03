@@ -5,7 +5,10 @@ import VideoSession from '@/lib/models/VideoSession';
 
 function json(status: number, body: any) { return NextResponse.json(body, { status }); }
 
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+// Use a broadly typed context to avoid ParamCheck<RouteContext> mismatch in generated Next.js types.
+export async function GET(_req: NextRequest, context: any) {
+  const params = context?.params && typeof context.params.then === 'function' ? await context.params : context?.params;
+  const id: string | undefined = params?.id;
   try {
     await connectDB();
     const session = await VideoSession.findById(params.id).lean();
@@ -16,11 +19,13 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   }
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, context: any) {
+  const params = context?.params && typeof context.params.then === 'function' ? await context.params : context?.params;
+  const id: string | undefined = params?.id;
   try {
     await connectDB();
     const user = await AuthMiddleware.requireRole(req as any, ['therapist','client']);
-    const session = await VideoSession.findById(params.id);
+  const session = await VideoSession.findById(id);
     if (!session) return json(404, { error: 'Not found' });
     // Only therapist can modify status except marking completed after end time by client for feedback flow
     const body = await req.json();

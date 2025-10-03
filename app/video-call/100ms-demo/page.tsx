@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { HMSRoomProvider, useHMSActions, useHMSStore, selectPeers, selectIsLocalAudioEnabled, selectIsLocalVideoEnabled } from "@100mslive/react-sdk";
 
 function JoinForm({ onJoin, loading }: { onJoin: (name: string, role: string) => void; loading: boolean }) {
@@ -30,12 +30,12 @@ function JoinForm({ onJoin, loading }: { onJoin: (name: string, role: string) =>
 }
 
 function VideoTile({ peer }: { peer: any }) {
-  const videoRef = useState<HTMLVideoElement | null>(null)[0];
+  const videoRef = useRef<HTMLVideoElement | null>(null);
   // 100ms SDK attaches video automatically in the background
   return (
     <div className="border rounded p-2 bg-black flex flex-col items-center">
       <video
-        ref={videoRef}
+  ref={videoRef}
         autoPlay
         muted={peer.isLocal}
         playsInline
@@ -74,8 +74,9 @@ function RoomUI({ onLeave }: { onLeave: () => void }) {
 }
 
 function RoomWrapper({ token, onLeave }: { token: string; onLeave: () => void }) {
+  // NOTE: Latest SDK HMSRoomProvider no longer accepts authToken prop directly; token is used via join action.
   return (
-    <HMSRoomProvider authToken={token}>
+    <HMSRoomProvider>
       <RoomUI onLeave={onLeave} />
     </HMSRoomProvider>
   );

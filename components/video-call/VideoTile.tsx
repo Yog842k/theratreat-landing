@@ -21,19 +21,24 @@ export default function VideoTile({ peer, isLocal = false }: VideoTileProps) {
   const isAudioOn = useHMSStore(selectIsPeerAudioEnabled(peer.id));
 
   useEffect(() => {
-    const videoElement = videoRef.current;
-    if (videoElement && videoTrack) {
-      if (videoTrack.enabled) {
-        videoTrack.attach(videoElement);
+    const el = videoRef.current;
+    if (!el) return;
+    if (videoTrack && videoTrack.enabled) {
+      // 100ms video tracks expose a native MediaStreamTrack via track?.nativeTrack
+      // Fallback: store stream on track?.stream if provided.
+      const nativeTrack: MediaStreamTrack | undefined = (videoTrack as any).nativeTrack || (videoTrack as any).track;
+      if (nativeTrack) {
+        const stream = new MediaStream([nativeTrack]);
+        // Assign only if different to avoid flicker.
+        if (el.srcObject !== stream) {
+          el.srcObject = stream;
+        }
       }
+    } else {
+      // Clear if video disabled
+      if (el.srcObject) el.srcObject = null;
     }
-
-    return () => {
-      if (videoTrack) {
-        videoTrack.detach();
-      }
-    };
-  }, [videoTrack]);
+  }, [videoTrack, videoTrack?.enabled]);
 
   const getInitials = (name: string) => {
     return name

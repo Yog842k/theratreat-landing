@@ -99,7 +99,7 @@ export default function SecureTherapyVideoPage() {
   // Show therapy room if user has joined
   if (showRoom && user && authToken) {
     return (
-      <HMSRoomProvider authToken={authToken}>
+      <HMSRoomProvider>
         <TherapyRoom
           onLeave={handleLeaveSession}
           sessionId={user.sessionId}

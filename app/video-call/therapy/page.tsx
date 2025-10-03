@@ -104,7 +104,7 @@ export default function TherapyVideoCallPage() {
 
   // User has joined, show the therapy room
   return (
-    <HMSRoomProvider authToken={authToken}>
+    <HMSRoomProvider>
       <TherapyRoom
         onLeave={handleLeaveSession}
         sessionId={user.sessionId}

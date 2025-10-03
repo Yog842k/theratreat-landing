@@ -156,7 +156,7 @@ export function EnhancedSearch({
       setIsVoiceSearching(true);
     };
 
-    recognition.onresult = (event) => {
+  recognition.onresult = (event: any) => {
       const transcript = event.results[0][0].transcript;
       setSearchQuery(transcript);
       setIsVoiceSearching(false);
