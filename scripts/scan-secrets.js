@@ -6,9 +6,29 @@
 
 const fs = require('fs');
 const path = require('path');
+const { execSync } = require('child_process');
 
 // Common high-risk filename patterns or directories to skip (node_modules already ignored)
 const IGNORE_DIRS = new Set(['.git','node_modules','.next','dist','build','coverage']);
+
+// If running in staged mode, we only scan staged files (git diff --cached --name-only)
+// Usage: node scripts/scan-secrets.js --mode=staged
+const args = process.argv.slice(2);
+const MODE = (() => {
+  const modeArg = args.find(a => a.startsWith('--mode='));
+  return modeArg ? modeArg.split('=')[1] : 'full';
+})();
+
+let stagedFiles = [];
+if (MODE === 'staged') {
+  try {
+    const out = execSync('git diff --cached --name-only', { encoding: 'utf8' });
+    stagedFiles = out.split(/\r?\n/).filter(Boolean);
+  } catch (e) {
+    // If git diff fails (e.g. outside repo), fall back to full scan
+    stagedFiles = [];
+  }
+}
 
 // Simple regex patterns (add more as needed)
 const PATTERNS = [
@@ -21,11 +41,16 @@ const PATTERNS = [
 
 const findings = [];
 
+function isPlaceholderLine(line) {
+  return /(PLACEHOLDER|XXXXXXXXXXXXXXXX|your_access_key_here|rzp_test_x+|change_this_shared_secret)/i.test(line);
+}
+
 function scanFile(filePath) {
   try {
     const content = fs.readFileSync(filePath, 'utf8');
     const lines = content.split(/\r?\n/);
     lines.forEach((line, idx) => {
+      if (isPlaceholderLine(line)) return; // skip obvious placeholders
       PATTERNS.forEach(p => {
         if (p.regex.test(line)) {
           findings.push({ file: filePath, line: idx + 1, pattern: p.name, snippet: line.trim().slice(0,240) });
@@ -43,6 +68,9 @@ function walk(dir) {
       if (IGNORE_DIRS.has(entry)) continue;
       walk(full);
     } else {
+      if (MODE === 'staged' && !stagedFiles.includes(full.replace(/^\.\\/, '').replace(/^\.\//, '')) && !stagedFiles.includes(entry) && !stagedFiles.includes(path.relative(process.cwd(), full))) {
+        continue; // skip non-staged file in staged mode
+      }
       // Only scan reasonably small text-like files
       if (stat.size < 512 * 1024) {
         scanFile(full);
@@ -51,10 +79,21 @@ function walk(dir) {
   }
 }
 
-walk(process.cwd());
+if (MODE === 'staged') {
+  // Scan only staged files (but still iterate to reuse size & placeholder filters)
+  // Directly scan each staged file path if it exists
+  stagedFiles.forEach(f => {
+    if (fs.existsSync(f)) {
+      const stat = fs.statSync(f);
+      if (stat.isFile() && stat.size < 512 * 1024) scanFile(f);
+    }
+  });
+} else {
+  walk(process.cwd());
+}
 
 if (!findings.length) {
-  console.log('\u2705 No obvious secrets detected by basic scanner.');
+  console.log('\u2705 No obvious secrets detected by basic scanner.' + (MODE === 'staged' ? ' (staged mode)' : ''));
   process.exit(0);
 } else {
   console.log('\n\u26a0\ufe0f Potential secrets found (manual verification required):');

@@ -40,8 +40,8 @@ while IFS= read -r file; do
 done < <(git diff --cached --name-only)
 
 # ------------- Secret scan -------------
-echo "Running secret scan (scripts/scan-secrets.js)..."
-if npm run --silent scan:secrets >/dev/null 2>&1; then
+echo "Running secret scan (scripts/scan-secrets.js staged mode)..."
+if node scripts/scan-secrets.js --mode=staged >/dev/null 2>&1; then
   echo -e "${GREEN}Secret scan passed.${RESET}"
 else
   code=$?
