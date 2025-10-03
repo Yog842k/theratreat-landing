@@ -1,0 +1,51 @@
+# Amplify build configuration for Next.js (App Router, Next 15)
+# Docs: https://docs.aws.amazon.com/amplify/latest/userguide/build-settings.html
+# This file aligns the artifact directory with the custom Next.js distDir (.next-build)
+# If you remove `distDir` from next.config.js change `artifacts.baseDirectory` back to `.next`.
+
+version: 1
+frontend:
+  phases:
+    preBuild:
+      commands:
+        # Print versions for easier debugging
+        - node --version
+        - npm --version
+        # Install dependencies (ci = clean reproducible install)
+        - npm ci
+        # (Optional) run env diagnostics script(s) if you have any
+        # - npm run diagnostics:100ms || true
+    build:
+      commands:
+        # Build the Next.js project (produces .next-build because of custom distDir)
+        - npm run build
+        # (Optional) run type-check or lint in CI without failing deployment
+        # - npm run type-check || true
+        # - npm run lint || true
+  artifacts:
+    # Must match the custom distDir in next.config.js
+    baseDirectory: .next-build
+    files:
+      - '**/*'
+  cache:
+    paths:
+      - node_modules/**/*
+      # Yarn/PNPM example (uncomment if you switch package managers)
+      # - .yarn/cache/**/*
+
+# (Optional) test phase example – uncomment to enable
+# test:
+#   phases:
+#     preTest:
+#       commands: []
+#     test:
+#       commands:
+#         - echo "No tests defined"
+#     postTest:
+#       commands: []
+
+# Notes:
+# 1. For environment variables (API keys, DB URIs, etc.), configure them in the Amplify console.
+# 2. If you introduce server-side features requiring Node >= 18, ensure Amplify build image supports it.
+# 3. If you later adopt Next.js standalone output (`next build --output standalone`), adjust artifacts accordingly.
+# 4. To invalidate caching issues, trigger a "Retry build with clean cache" in the Amplify console.
