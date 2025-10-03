@@ -39,12 +39,12 @@ export function Navigation() {
   ];
 
   return (
-    <header className="w-full sticky top-0 z-40 backdrop-blur-sm bg-gradient-to-r from-blue-600 to-blue-600/90 py-3 px-3 md:px-6">
+    <header className="w-full sticky top-0 z-40 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/85 border-b border-slate-200 py-2 px-3 md:px-6 shadow-sm">
       <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between rounded-full bg-gradient-to-r from-blue-400/70 via-blue-500/70 to-blue-500/70 border border-white/30 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.25)] px-4 sm:px-6 h-14">
+        <div className="flex items-center justify-between h-14 px-2 sm:px-4">
           {/* Brand */}
           <Link href="/" className="flex items-center gap-2 select-none">
-            <span className="inline-flex h-9 w-9 rounded-md items-center justify-center bg-white/25 ring-1 ring-white/40 overflow-hidden">
+            <span className="inline-flex h-9 w-9 rounded-md items-center justify-center bg-blue-50 ring-1 ring-blue-100 overflow-hidden">
               <Image src={Logo} alt="TheraTreat" width={36} height={36} className="object-contain" />
             </span>
             <span className="text-base sm:text-lg font-semibold tracking-wide text-slate-900 drop-shadow-sm">TheraTreat</span>
@@ -52,11 +52,11 @@ export function Navigation() {
           {/* Navigation Links (desktop) */}
           <nav aria-label="Main" className="hidden md:flex items-center gap-1">
             {navItems.map(item => (
-              <Link key={item.href} href={item.href} className="px-4 py-2 text-sm font-medium text-slate-800/80 hover:text-slate-900 hover:bg-white/40 rounded-md transition-colors">
+              <Link key={item.href} href={item.href} className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors">
                 {item.label}
               </Link>
             ))}
-            <Link href="/contact" className="ml-1 px-5 py-2 text-sm font-semibold rounded-md bg-blue-600 text-white shadow hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70">
+            <Link href="/contact" className="ml-1 px-5 py-2 text-sm font-semibold rounded-md bg-blue-600 text-white shadow hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200">
               Contact
             </Link>
           </nav>
@@ -64,19 +64,19 @@ export function Navigation() {
           <div className="flex items-center gap-2 md:gap-3">
             {!authUser && (
               <div className="hidden md:flex gap-2">
-                <NavButton onClick={() => router.push('/auth/login')} className="text-slate-800/80 hover:text-slate-900 hover:bg-white/40">Login</NavButton>
-                <NavButton onClick={() => router.push('/auth/signup/account-type')} className="bg-blue-600 text-white hover:bg-blue-700">Sign Up</NavButton>
+                <NavButton onClick={() => router.push('/auth/login')} className="text-slate-600 hover:text-slate-900 hover:bg-slate-100">Login</NavButton>
+                <NavButton onClick={() => router.push('/auth/signup/account-type')} className="bg-blue-600 text-white hover:bg-blue-700 shadow">Sign Up</NavButton>
               </div>
             )}
             {authUser && (
               <div className="relative" ref={ref}>
-                <NavButton onClick={() => setOpen(o => !o)} className="flex items-center gap-1 text-slate-900 hover:bg-white/40">
+                <NavButton onClick={() => setOpen(o => !o)} className="flex items-center gap-1 text-slate-900 hover:bg-slate-100">
                   <User className="w-4 h-4" />
                   <span className="hidden sm:inline max-w-[110px] truncate">{authUser.name || 'Account'}</span>
                   <ChevronDown className={`w-4 h-4 transition-transform ${open ? 'rotate-180' : ''}`} />
                 </NavButton>
                 {open && (
-                  <div className="absolute right-0 mt-2 w-56 rounded-xl border border-white/40 bg-white/90 backdrop-blur p-2 shadow-lg animate-in fade-in">
+                  <div className="absolute right-0 mt-2 w-56 rounded-xl border border-slate-200 bg-white p-2 shadow-lg animate-in fade-in">
                     <div className="px-3 py-2 text-xs text-slate-600 border-b border-slate-200">Signed in as
                       <div className="font-medium text-slate-800 truncate">{authUser.email}</div>
                     </div>
