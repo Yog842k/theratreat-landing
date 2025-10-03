@@ -12,7 +12,8 @@
     "diagnostics:100ms": "node scripts/check-100ms-env.js",
     "hms:gen-mgmt-token": "node scripts/generate-hms-management-token.js",
     "hms:rotate": "npm run hms:gen-mgmt-token -- --ttl 7200",
-    "scan:secrets": "node scripts/scan-secrets.js"
+    "scan:secrets": "node scripts/scan-secrets.js",
+    "prepare": "git config core.hooksPath .githooks || true"
   },
   "dependencies": {
     "@100mslive/react-sdk": "^0.10.38",

@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# Pre-commit safety guard
+# 1. Block accidental commit of Next.js build output or other large build artifacts
+# 2. Run lightweight secret scan
+
+set -euo pipefail
+
+RED="\033[31m"; GREEN="\033[32m"; YELLOW="\033[33m"; BOLD="\033[1m"; RESET="\033[0m"
+
+echo -e "${BOLD}Running pre-commit checks...${RESET}"
+
+# ------------- Block build artifacts -------------
+PROHIBITED_PATTERNS=("^.next-build/" "^dist/" "^build/")
+if git diff --cached --name-only | grep -E '.' > /dev/null 2>&1; then
+  while IFS= read -r file; do
+    for pat in "${PROHIBITED_PATTERNS[@]}"; do
+      if [[ $file =~ $pat ]]; then
+        echo -e "${RED}Error:${RESET} attempting to commit build artifact: $file"
+        echo -e "Add the pattern to .gitignore or unstage it: git restore --staged $file"
+        exit 1
+      fi
+    done
+  done < <(git diff --cached --name-only)
+fi
+
+# ------------- Size guard (warn >1MB, block >5MB) -------------
+BLOCK_BYTES=$((5*1024*1024))
+WARN_BYTES=$((1*1024*1024))
+while IFS= read -r file; do
+  if [[ -f $file ]]; then
+    size=$(wc -c < "$file")
+    if (( size > BLOCK_BYTES )); then
+      echo -e "${RED}Error:${RESET} staged file >5MB: $file ($(numfmt --to=iec $size 2>/dev/null || echo $size) bytes)"
+      echo "Split or remove large binaries; store artifacts externally."
+      exit 1
+    elif (( size > WARN_BYTES )); then
+      echo -e "${YELLOW}Warn:${RESET} large file staged: $file ($(numfmt --to=iec $size 2>/dev/null || echo $size) bytes)"
+    fi
+  fi
+done < <(git diff --cached --name-only)
+
+# ------------- Secret scan -------------
+echo "Running secret scan (scripts/scan-secrets.js)..."
+if npm run --silent scan:secrets >/dev/null 2>&1; then
+  echo -e "${GREEN}Secret scan passed.${RESET}"
+else
+  code=$?
+  if [[ $code -eq 2 ]]; then
+    echo -e "${RED}Secret scan failed: potential secrets detected. Aborting commit.${RESET}"
+    exit 1
+  else
+    echo -e "${YELLOW}Secret scan script error (exit $code) – allowing commit but please review.${RESET}"
+  fi
+fi
+
+echo -e "${GREEN}All pre-commit checks passed.${RESET}"
+exit 0
