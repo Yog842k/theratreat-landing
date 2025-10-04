@@ -207,7 +207,7 @@ export function HomePage({ setCurrentView }: HomePageProps) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.6 }}
-      className="space-y-16"
+  className="space-y-12 sm:space-y-16"
     >
       {/* Modern Hero Section */}
       <motion.div
@@ -221,16 +221,16 @@ export function HomePage({ setCurrentView }: HomePageProps) {
       {/* Platform Stats removed */}
 
       {/* Core Services Sections */}
-      <section className="space-y-24">
+  <section className="space-y-16 sm:space-y-24">
         <motion.div 
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.8 }}
-          className="text-center space-y-4 max-w-7xl mx-auto px-6"
+          className="text-center space-y-3 sm:space-y-4 max-w-7xl mx-auto px-4 sm:px-6"
         >
           <motion.h2 
-            className="text-4xl font-bold text-blue-600"
+            className="text-2xl sm:text-3xl md:text-4xl font-bold text-blue-600 tracking-tight"
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -239,7 +239,7 @@ export function HomePage({ setCurrentView }: HomePageProps) {
             Our Core Services
           </motion.h2>
           <motion.p 
-            className="text-xl text-muted-foreground max-w-3xl mx-auto"
+            className="text-base sm:text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto"
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -252,7 +252,7 @@ export function HomePage({ setCurrentView }: HomePageProps) {
         {services.map((service, index) => (
           <motion.div 
             key={service.id} 
-            className={`${service.bgColor} py-16 relative overflow-hidden`}
+            className={`${service.bgColor} py-12 sm:py-16 relative overflow-hidden`}
             initial={{ opacity: 0, y: 100 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true, margin: "-150px" }}
@@ -262,8 +262,8 @@ export function HomePage({ setCurrentView }: HomePageProps) {
               ease: [0.25, 0.46, 0.45, 0.94]
             }}
           >
-            <div className="max-w-7xl mx-auto px-6 relative">
-              <div className={`grid lg:grid-cols-2 gap-12 items-center ${index % 2 === 1 ? 'lg:grid-cols-2' : ''}`}>
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 relative">
+              <div className={`grid gap-10 lg:grid-cols-2 items-start lg:items-center ${index % 2 === 1 ? 'lg:grid-cols-2' : ''}`}> 
                 {/* Content Side */}
                 <motion.div 
                   className={`space-y-6 ${index % 2 === 1 ? 'lg:order-2' : ''}`}
@@ -303,12 +303,12 @@ export function HomePage({ setCurrentView }: HomePageProps) {
                       viewport={{ once: true }}
                       transition={{ duration: 0.6, delay: 0.6 }}
                     >
-                      <h3 className="text-3xl font-bold text-blue-600">{service.title}</h3>
-                      <p className="text-xl text-muted-foreground">{service.subtitle}</p>
+                      <h3 className="text-2xl sm:text-3xl font-bold text-blue-600 tracking-tight">{service.title}</h3>
+                      <p className="text-base sm:text-lg text-muted-foreground">{service.subtitle}</p>
                     </motion.div>
                     
                     <motion.p 
-                      className="text-lg leading-relaxed text-foreground"
+                      className="text-sm sm:text-base leading-relaxed text-foreground"
                       initial={{ opacity: 0, y: 20 }}
                       whileInView={{ opacity: 1, y: 0 }}
                       viewport={{ once: true }}
@@ -320,7 +320,7 @@ export function HomePage({ setCurrentView }: HomePageProps) {
 
                   {/* Features */}
                   <motion.div 
-                    className="space-y-3"
+                    className="space-y-2 sm:space-y-3"
                     initial={{ opacity: 0 }}
                     whileInView={{ opacity: 1 }}
                     viewport={{ once: true }}
@@ -329,21 +329,21 @@ export function HomePage({ setCurrentView }: HomePageProps) {
                     {service.features.map((feature, featureIndex) => (
                       <motion.div 
                         key={featureIndex}
-                        className="flex items-center space-x-3"
+                        className="flex items-start gap-2"
                         initial={{ opacity: 0, x: -20 }}
                         whileInView={{ opacity: 1, x: 0 }}
                         viewport={{ once: true }}
                         transition={{ duration: 0.4, delay: 0.8 + featureIndex * 0.1 }}
                       >
-                        <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
-                        <span className="text-foreground">{feature}</span>
+                        <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                        <span className="text-foreground text-sm sm:text-base">{feature}</span>
                       </motion.div>
                     ))}
                   </motion.div>
 
                   {/* Action Buttons */}
                   <motion.div 
-                    className="flex flex-col sm:flex-row gap-4 pt-4"
+                    className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-3 sm:pt-4"
                     initial={{ opacity: 0, y: 20 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
@@ -352,7 +352,7 @@ export function HomePage({ setCurrentView }: HomePageProps) {
                     <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                       <Button 
                         onClick={() => setCurrentView(service.id as ViewType)}
-                        className={`bg-gradient-to-r ${service.gradient} text-white hover:shadow-lg transition-all duration-300`}
+                        className={`bg-gradient-to-r ${service.gradient} text-white hover:shadow-lg transition-all duration-300 text-sm sm:text-base`}
                         size="lg"
                       >
                         {service.bookingText}
@@ -363,7 +363,7 @@ export function HomePage({ setCurrentView }: HomePageProps) {
                       <Button 
                         variant="outline" 
                         onClick={() => setCurrentView(service.id as ViewType)}
-                        className="border-2 hover:bg-blue-50 transition-all duration-300"
+                        className="border-2 hover:bg-blue-50 transition-all duration-300 text-sm sm:text-base"
                         size="lg"
                       >
                         {service.exploreText}
@@ -381,7 +381,7 @@ export function HomePage({ setCurrentView }: HomePageProps) {
                   transition={{ duration: 0.8, delay: 0.5 }}
                 >
                   {service.id === "book" && (
-                    <Card className="p-6 border-0 shadow-xl bg-white/80 backdrop-blur-sm">
+                    <Card className="p-4 sm:p-6 border-0 shadow-xl bg-white/80 backdrop-blur-sm">
                       <div className="space-y-4">
                         <div className="flex items-center justify-between">
                           <Badge variant="secondary" className="text-sm">
@@ -432,7 +432,7 @@ export function HomePage({ setCurrentView }: HomePageProps) {
                   )}
 
                   {service.id === "self-test" && (
-                    <Card className="p-6 border-0 shadow-xl bg-white/80 backdrop-blur-sm">
+                    <Card className="p-4 sm:p-6 border-0 shadow-xl bg-white/80 backdrop-blur-sm">
                       <div className="space-y-4">
                         <div className="flex items-center justify-between">
                           <Badge variant="secondary" className="text-sm">
@@ -481,7 +481,7 @@ export function HomePage({ setCurrentView }: HomePageProps) {
                   )}
 
                   {service.id === "store" && (
-                    <Card className="p-6 border-0 shadow-xl bg-white/80 backdrop-blur-sm">
+                    <Card className="p-4 sm:p-6 border-0 shadow-xl bg-white/80 backdrop-blur-sm">
                       <div className="space-y-4">
                         <div className="flex items-center justify-between">
                           <Badge variant="secondary" className="text-sm">
@@ -530,7 +530,7 @@ export function HomePage({ setCurrentView }: HomePageProps) {
                   )}
 
                   {service.id === "learn" && (
-                    <Card className="p-6 border-0 shadow-xl bg-white/80 backdrop-blur-sm">
+                    <Card className="p-4 sm:p-6 border-0 shadow-xl bg-white/80 backdrop-blur-sm">
                       <div className="space-y-4">
                         <div className="flex items-center justify-between">
                           <Badge variant="secondary" className="text-sm">
@@ -585,17 +585,17 @@ export function HomePage({ setCurrentView }: HomePageProps) {
       </section>
 
       {/* Why TheraTreat Section */}
-      <section className="py-16 bg-gradient-to-r from-blue-50 via-white to-blue-50">
-        <div className="max-w-7xl mx-auto px-6">
+      <section className="py-12 sm:py-16 bg-gradient-to-r from-blue-50 via-white to-blue-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.8 }}
-            className="text-center space-y-4 mb-16"
+            className="text-center space-y-3 sm:space-y-4 mb-10 sm:mb-16"
           >
             <motion.h2 
-              className="text-4xl font-bold text-blue-600"
+              className="text-2xl sm:text-3xl md:text-4xl font-bold text-blue-600 tracking-tight"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
@@ -604,7 +604,7 @@ export function HomePage({ setCurrentView }: HomePageProps) {
               Why TheraTreat?
             </motion.h2>
             <motion.p 
-              className="text-xl text-muted-foreground max-w-4xl mx-auto"
+              className="text-base sm:text-lg md:text-xl text-muted-foreground max-w-4xl mx-auto"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
@@ -614,7 +614,7 @@ export function HomePage({ setCurrentView }: HomePageProps) {
             </motion.p>
           </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
             {whyTheraTreatHighlights.map((highlight, index) => (
               <motion.div
                 key={index}
@@ -625,7 +625,7 @@ export function HomePage({ setCurrentView }: HomePageProps) {
                 whileHover={{ y: -5, transition: { duration: 0.2 } }}
               >
                 <Card className="h-full hover:shadow-xl transition-all duration-300 border-0 bg-white/80 backdrop-blur-sm">
-                  <CardContent className="p-6">
+                  <CardContent className="p-5 sm:p-6">
                     <motion.div
                       className={`w-12 h-12 rounded-lg bg-gradient-to-r ${highlight.gradient} p-3 mb-4`}
                       whileHover={{ 
@@ -651,14 +651,14 @@ export function HomePage({ setCurrentView }: HomePageProps) {
       </section>
 
       {/* Trust & Compliance Section */}
-      <section className="py-16 bg-gradient-to-r from-slate-50 via-blue-50 to-slate-50">
-        <div className="max-w-7xl mx-auto px-6">
+      <section className="py-12 sm:py-16 bg-gradient-to-r from-slate-50 via-blue-50 to-slate-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.8 }}
-            className="text-center space-y-4 mb-16"
+            className="text-center space-y-3 sm:space-y-4 mb-10 sm:mb-16"
           >
             <motion.div
               className="flex items-center justify-center space-x-3 mb-4"
@@ -668,10 +668,10 @@ export function HomePage({ setCurrentView }: HomePageProps) {
               transition={{ duration: 0.6, delay: 0.2 }}
             >
               <Shield className="w-8 h-8 text-blue-600" />
-              <h2 className="text-4xl font-bold text-blue-600">We Prioritize Trust & Compliance</h2>
+              <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-blue-600 tracking-tight">We Prioritize Trust & Compliance</h2>
             </motion.div>
             <motion.p 
-              className="text-xl text-muted-foreground max-w-3xl mx-auto"
+              className="text-base sm:text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
@@ -681,7 +681,7 @@ export function HomePage({ setCurrentView }: HomePageProps) {
             </motion.p>
           </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
             {complianceFeatures.map((feature, index) => (
               <motion.div
                 key={index}
@@ -692,7 +692,7 @@ export function HomePage({ setCurrentView }: HomePageProps) {
                 whileHover={{ y: -3, transition: { duration: 0.2 } }}
               >
                 <Card className="h-full hover:shadow-lg transition-all duration-300 border-green-200 hover:border-green-300 bg-white/90">
-                  <CardContent className="p-6">
+                  <CardContent className="p-5 sm:p-6">
                     <motion.div 
                       className="flex items-center space-x-3 mb-4"
                       whileHover={{ scale: 1.05, transition: { duration: 0.2 } }}
@@ -725,7 +725,7 @@ export function HomePage({ setCurrentView }: HomePageProps) {
 
       {/* Testimonials removed */}
       {/* New Era of Therapy - Comprehensive Section */}
-      <section className="relative py-24 bg-gradient-to-br from-blue-900 via-blue-800 to-indigo-900 overflow-hidden">
+  <section className="relative py-16 sm:py-24 bg-gradient-to-br from-blue-900 via-blue-800 to-indigo-900 overflow-hidden">
         {/* Background Effects */}
         <div className="absolute inset-0 bg-gradient-to-br from-blue-900/50 via-purple-900/30 to-indigo-900/50"></div>
         <div className="absolute inset-0">
@@ -758,7 +758,7 @@ export function HomePage({ setCurrentView }: HomePageProps) {
                 >
                   🌍
                 </motion.span>
-                <h2 className="text-4xl md:text-5xl font-bold">
+                <h2 className="text-2xl sm:text-4xl md:text-5xl font-bold tracking-tight">
                   A New Era of Therapy Starts With TheraTreat
                 </h2>
               </div>
@@ -772,7 +772,7 @@ export function HomePage({ setCurrentView }: HomePageProps) {
               transition={{ duration: 0.8, delay: 0.4 }}
               className="space-y-6"
             >
-              <p className="text-xl md:text-2xl font-medium leading-relaxed max-w-4xl mx-auto">
+              <p className="text-lg sm:text-xl md:text-2xl font-medium leading-relaxed max-w-4xl mx-auto">
                 We didn't build TheraTreat to follow trends —<br />
                 we built it to transform lives.
               </p>
@@ -783,7 +783,7 @@ export function HomePage({ setCurrentView }: HomePageProps) {
                 whileInView={{ opacity: 1 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.8, delay: 0.6 }}
-                className="grid md:grid-cols-3 gap-6 my-12 max-w-4xl mx-auto"
+                className="grid gap-4 sm:gap-6 my-10 sm:my-12 md:grid-cols-3 max-w-4xl mx-auto"
               >
                 <motion.div
                   whileHover={{ scale: 1.05, y: -5 }}
