@@ -8,11 +8,16 @@ frontend:
   phases:
     preBuild:
       commands:
+        # Ensure Node 20 (matches package.json engines and Next.js 15 requirements)
+        - nvm install 20 || true
+        - nvm use 20 || true
         # Print versions for easier debugging
         - node --version
         - npm --version
         # Install dependencies (ci = clean reproducible install)
         - npm ci
+        # Fail fast if required environment variables are missing
+        - npm run env:check
         # (Optional) run env diagnostics script(s) if you have any
         # - npm run diagnostics:100ms || true
     build:

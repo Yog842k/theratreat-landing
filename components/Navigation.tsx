@@ -8,6 +8,8 @@ import { useAuth } from '@/components/auth/NewAuthContext';
 import { User, ChevronDown, LayoutDashboard, Building2, UserCheck } from 'lucide-react';
 import Logo from '../logo.png';
 // MobileSubHeader removed per request (hide sub bar on mobile)
+import dynamic from 'next/dynamic';
+const MobileMenu = dynamic(()=>import('./MobileMenu'), { ssr:false });
 
 function NavButton({ className = '', ...rest }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
@@ -60,7 +62,12 @@ export function Navigation() {
           {/* (Nav links removed) */}
           {/* Auth / Profile */}
           <div className="flex items-center gap-2 md:gap-3">
-            <div className="hidden md:flex gap-2 items-center">
+            {/* Mobile menu trigger (replaces previous persistent subheader bar) */}
+            <div className="md:hidden">
+              <MobileMenu />
+            </div>
+            {/* Auth / Join / Profile now visible on mobile too */}
+            <div className="flex gap-2 items-center">
               {/* Join Us dropdown always visible */}
               <div className="relative" ref={joinRef}>
                 <NavButton onClick={() => { setJoinOpen(o => !o); setOpen(false); }}

@@ -2,6 +2,9 @@
   "name": "thera-website-ui",
   "private": true,
   "version": "0.0.0",
+  "engines": {
+    "node": "20.x"
+  },
   "scripts": {
     "dev": "cross-env NEXT_PRIVATE_OUTPUT_TRACE_WORKER=0 next dev",
     "dev:legacy-tls": "cross-env NODE_OPTIONS=--openssl-legacy-provider next dev",
@@ -11,6 +14,8 @@
     "type-check": "tsc --noEmit",
     "diagnostics:100ms": "node scripts/check-100ms-env.js",
   "diagnostics:routes": "node scripts/check-duplicate-routes.mjs",
+  "env:check": "node scripts/check-required-env.mjs",
+  "build:strict": "npm run env:check && next build",
     "hms:gen-mgmt-token": "node scripts/generate-hms-management-token.js",
     "hms:rotate": "npm run hms:gen-mgmt-token -- --ttl 7200",
     "scan:secrets": "node scripts/scan-secrets.js",
