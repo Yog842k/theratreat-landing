@@ -22,7 +22,12 @@ frontend:
         # - npm run diagnostics:100ms || true
     build:
       commands:
-        # Build the Next.js project (produces .next-build because of custom distDir)
+        # Write selected environment variables to .env.production so Next.js server code
+        # can read them at runtime (Amplify build environment -> .env.production).
+        - echo "--- Writing selected env vars to .env.production ---"
+        - env | grep -e MONGODB_URI -e MONGODB_DB -e JWT_SECRET >> .env.production || true
+        - env | grep -e NEXT_PUBLIC_ >> .env.production || true
+        # Build the Next.js project (produces next-build because of custom distDir)
         - npm run build
         # (Optional) run type-check or lint in CI without failing deployment
         # - npm run type-check || true
@@ -40,22 +45,4 @@ frontend:
   cache:
     paths:
       - node_modules/**/*
-      # Yarn/PNPM example (uncomment if you switch package managers)
-      # - .yarn/cache/**/*
-
-# (Optional) test phase example – uncomment to enable
-# test:
-#   phases:
-#     preTest:
-#       commands: []
-#     test:
-#       commands:
-#         - echo "No tests defined"
-#     postTest:
-#       commands: []
-
-# Notes:
-# 1. For environment variables (API keys, DB URIs, etc.), configure them in the Amplify console.
-# 2. If you introduce server-side features requiring Node >= 18, ensure Amplify build image supports it.
-# 3. If you later adopt Next.js standalone output (`next build --output standalone`), adjust artifacts accordingly.
-# 4. To invalidate caching issues, trigger a "Retry build with clean cache" in the Amplify console.
+     
