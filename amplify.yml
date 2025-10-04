@@ -27,9 +27,14 @@ frontend:
         # (Optional) run type-check or lint in CI without failing deployment
         # - npm run type-check || true
         # - npm run lint || true
+    postBuild:
+      commands:
+        - echo "--- Post-build: verify artifact directory ---"
+        - if [ -d "next-build" ]; then echo "Found next-build:" && ls -la next-build | sed -n '1,200p'; else echo "next-build not found. Listing root:" && ls -la | sed -n '1,200p'; fi
+        - du -sh next-build || true
   artifacts:
-    # Must match the custom distDir in next.config.js
-    baseDirectory: .next-build
+  # Must match the custom distDir in next.config.js
+  baseDirectory: next-build
     files:
       - '**/*'
   cache:

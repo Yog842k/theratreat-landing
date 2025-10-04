@@ -26,7 +26,8 @@ const nextConfig = {
     return config;
   },
   // Use a custom distDir to avoid lingering locked .next/trace file issues on Windows
-  distDir: '.next-build'
+  // Use a non-dot folder name so CI systems (like Amplify) can find the artifact directory.
+  distDir: 'next-build'
 };
 
 module.exports = nextConfig
