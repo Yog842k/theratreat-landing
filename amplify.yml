@@ -22,11 +22,10 @@ frontend:
         # - npm run diagnostics:100ms || true
     build:
       commands:
-        # Write selected environment variables to .env.production so Next.js server code
-        # can read them at runtime (Amplify build environment -> .env.production).
-        - "echo '--- Writing selected env vars to .env.production ---'"
-        - "env | grep -e MONGODB_URI -e MONGODB_DB -e JWT_SECRET >> .env.production || true"
-        - "env | grep -e NEXT_PUBLIC_ >> .env.production || true"
+        # Generate .env.production from a curated whitelist (see scripts/write-next-env.mjs)
+        # SECURITY: Anything written to .env.production is embedded in build artifacts.
+        # Remove vars from write-next-env.mjs if you do not want them stored there.
+        - "node scripts/write-next-env.mjs"
         # Build the Next.js project (produces next-build because of custom distDir)
         - "npm run build"
         # (Optional) run type-check or lint in CI without failing deployment
