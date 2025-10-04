@@ -10,6 +10,7 @@
     "lint": "next lint",
     "type-check": "tsc --noEmit",
     "diagnostics:100ms": "node scripts/check-100ms-env.js",
+  "diagnostics:routes": "node scripts/check-duplicate-routes.mjs",
     "hms:gen-mgmt-token": "node scripts/generate-hms-management-token.js",
     "hms:rotate": "npm run hms:gen-mgmt-token -- --ttl 7200",
     "scan:secrets": "node scripts/scan-secrets.js",

@@ -4,6 +4,8 @@ import { NextResponse } from 'next/server';
 // Fallback lightweight DB (auto-mocks when no MONGODB_URI)
 import database from '@/lib/database';
 
+export const runtime = 'nodejs';
+
 export async function GET(request) {
   try {
     // Primary path: use Mongoose (fast paths, population, etc.)
@@ -34,11 +36,20 @@ export async function GET(request) {
     const therapists = await Therapist.find(query)
       .sort(sort)
       .skip(skip)
-      .limit(limit);
+      .limit(limit)
+      .select('-__v');
 
   const totalCount = await Therapist.countDocuments(query);
   // Minimal debug for visibility in server logs
-  console.log(`[api/therapists] mongoose found: ${therapists.length}/${totalCount}`);
+    console.log(`[api/therapists] mongoose found: ${therapists.length}/${totalCount}`);
+    const emptyReason = (therapists.length === 0 && totalCount === 0)
+      ? await (async () => {
+          // Attempt a quick heuristic to guide debugging
+          const anyDoc = await Therapist.findOne({}).select('_id').lean();
+          if (anyDoc) return 'filtered-out';
+          return 'no-therapists-in-collection';
+        })()
+      : undefined;
     const totalPages = Math.ceil(totalCount / limit);
 
     return NextResponse.json({
@@ -54,6 +65,10 @@ export async function GET(request) {
           hasPrev: page > 1,
         },
       },
+      meta: {
+        source: 'mongoose',
+        emptyReason
+      }
     });
   } catch (error) {
     // Fallback path: use lightweight DB helper which safely mocks when URI missing
@@ -108,8 +123,7 @@ export async function GET(request) {
             hasPrev: page > 1,
           },
         },
-        // Communicate fallback mode minimally for debugging
-        meta: { source: 'fallback-db' }
+        meta: { source: 'fallback-db', primaryError: error?.message }
       });
     } catch (fallbackErr) {
       console.error('Get therapists error (fallback failed):', fallbackErr);

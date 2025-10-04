@@ -7,10 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/auth/NewAuthContext';
 import { User, ChevronDown, LayoutDashboard, Building2, UserCheck } from 'lucide-react';
 import Logo from '../logo.png';
-import dynamic from 'next/dynamic';
-
-// Lazy load mobile sub header to reduce initial JS for desktop
-const MobileSubHeader = dynamic(() => import('./MobileSubHeader'), { ssr: false });
+// MobileSubHeader removed per request (hide sub bar on mobile)
 
 function NavButton({ className = '', ...rest }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
@@ -129,8 +126,7 @@ export function Navigation() {
           </div>
         </div>
       </div>
-      {/* Mobile contextual quick nav (below primary bar) */}
-      <MobileSubHeader />
+  {/* MobileSubHeader intentionally removed so no sub bar shows on mobile */}
     </header>
   );
 }
