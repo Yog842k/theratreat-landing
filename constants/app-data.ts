@@ -124,11 +124,18 @@ export const footerSections = {
     { label: "Healthcare Compliance", href: "#" }
   ],
   legal: [
-    { label: "Privacy Policy", href: "#" },
-    { label: "Terms and Conditions", href: "#" },
-    { label: "HIPAA Compliance", href: "#" },
-    { label: "Accessibility", href: "#" },
-    { label: "Sitemap", href: "#" }
+    { label: "Privacy", href: "/policies#privacy" },
+    { label: "Cancellation", href: "/policies#cancellation" },
+    { label: "Conduct", href: "/policies#conduct" },
+    { label: "Security", href: "/policies#data-security" },
+    { label: "Liability", href: "/policies#liability" },
+    { label: "Accessibility", href: "/policies#accessibility" },
+    { label: "Misuse", href: "/policies#misuse" },
+    { label: "Disclaimer", href: "/policies#disclaimer" },
+    { label: "Copyright", href: "/policies#copyright" },
+    { label: "Disputes", href: "/policies#disputes" },
+    { label: "Cookies", href: "/policies#cookies" },
+    { label: "Account Deletion", href: "/policies#account-deletion" }
   ]
 };
 

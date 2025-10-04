@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
@@ -48,6 +48,61 @@ import {
   Shield,
   Headphones
 } from "lucide-react";
+import { useAuth } from '@/components/auth/NewAuthContext';
+
+interface DashboardBooking {
+  _id: string;
+  appointmentDate?: string; // ISO string from API
+  appointmentTime?: string; // stored label e.g. "14:00" or "02:00 PM - 03:00 PM"
+  sessionType?: string;
+  status?: string;
+  totalAmount?: number;
+  meetingLink?: string;
+  therapist?: { name?: string };
+  therapistId?: string;
+}
+
+function parseStartDate(booking: DashboardBooking): Date | null {
+  if (!booking.appointmentDate) return null;
+  try {
+    const base = new Date(booking.appointmentDate);
+    if (isNaN(base.getTime())) return null;
+    // Extract first HH:MM (24h) OR 12h time with AM/PM
+    let start = booking.appointmentTime || '';
+    let hours: number | null = null;
+    let minutes: number | null = null;
+    const explicit24 = start.match(/\b(\d{1,2}):(\d{2})\b/);
+    if (explicit24) {
+      hours = parseInt(explicit24[1]);
+      minutes = parseInt(explicit24[2]);
+    }
+    const ampm = start.match(/(\d{1,2}):(\d{2})\s?(AM|PM)/i);
+    if (ampm) {
+      let h = parseInt(ampm[1]);
+      const m = parseInt(ampm[2]);
+      const mer = ampm[3].toUpperCase();
+      if (mer === 'PM' && h !== 12) h += 12;
+      if (mer === 'AM' && h === 12) h = 0;
+      hours = h; minutes = m;
+    }
+    if (hours == null || minutes == null) return base; // fallback date only
+    base.setHours(hours, minutes, 0, 0);
+    return base;
+  } catch { return null; }
+}
+
+function formatCountdown(ms: number): string {
+  if (ms <= 0) return 'Starting';
+  const totalSeconds = Math.floor(ms / 1000);
+  const d = Math.floor(totalSeconds / 86400);
+  const h = Math.floor((totalSeconds % 86400) / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  if (d > 0) return `${d}d ${h}h ${m}m`;
+  if (h > 0) return `${h}h ${m}m ${s}s`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+}
 
 type DashboardSection = 
   | "profile" 
@@ -76,6 +131,70 @@ export function UserDashboard() {
   const [activeSection, setActiveSection] = useState<DashboardSection>("profile");
   const [isEditing, setIsEditing] = useState(false);
   const router = useRouter();
+  const { user } = useAuth();
+  const [bookings, setBookings] = useState<DashboardBooking[]>([]);
+  const [bookingsLoading, setBookingsLoading] = useState(false);
+  const [bookingsError, setBookingsError] = useState<string | null>(null);
+  const [now, setNow] = useState(Date.now());
+
+  // Poll time every second for live countdowns (lightweight)
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  // Fetch bookings for logged in patient/user
+  useEffect(() => {
+    if (!user) return; // wait for auth
+    const load = async () => {
+      try {
+        setBookingsLoading(true);
+        setBookingsError(null);
+        const res = await fetch('/api/bookings');
+        if (!res.ok) throw new Error('Failed to load bookings');
+        const json = await res.json();
+        const list: DashboardBooking[] = json?.data?.bookings || [];
+        setBookings(list);
+      } catch (e: any) {
+        setBookingsError(e.message || 'Error fetching bookings');
+      } finally {
+        setBookingsLoading(false);
+      }
+    };
+    load();
+  }, [user]);
+
+  const upcoming = useMemo(() => {
+    const items = bookings.filter(b => ['pending','confirmed'].includes((b.status||'').toLowerCase()));
+    items.sort((a,b) => {
+      const da = parseStartDate(a)?.getTime() || 0;
+      const db = parseStartDate(b)?.getTime() || 0;
+      return da - db;
+    });
+    return items;
+  }, [bookings]);
+
+  const past = useMemo(() => bookings.filter(b => ['completed','cancelled'].includes((b.status||'').toLowerCase())), [bookings]);
+
+  const canJoin = (b: DashboardBooking) => {
+    const start = parseStartDate(b);
+    if (!start) return false;
+    const diff = start.getTime() - now;
+    // allow join within 10 minutes before start and up to 1 hour after start
+    return diff <= 10 * 60 * 1000 && diff > -60 * 60 * 1000 && ['video','audio'].includes((b.sessionType||'').toLowerCase());
+  };
+
+  const timeRemaining = (b: DashboardBooking) => {
+    const start = parseStartDate(b);
+    if (!start) return '—';
+    return formatCountdown(start.getTime() - now);
+  };
+
+  const handleJoin = (b: DashboardBooking) => {
+    if (!canJoin(b)) return;
+    const link = b.meetingLink || `/video-call/lobby?bookingId=${b._id}&userRole=client&userId=${user?._id || 'me'}`;
+    router.push(link);
+  };
 
   // Mock data
   const userData = {
@@ -252,114 +371,101 @@ export function UserDashboard() {
   const renderAppointmentsSection = () => (
     <div className="space-y-6">
       <h2 className="text-therabook-primary">Appointments</h2>
-      
       <Tabs defaultValue="upcoming" className="w-full">
         <TabsList className="bg-therabook-muted">
           <TabsTrigger value="upcoming" className="data-[state=active]:bg-therabook-primary data-[state=active]:text-therabook-primary-foreground">Upcoming</TabsTrigger>
           <TabsTrigger value="history" className="data-[state=active]:bg-therabook-primary data-[state=active]:text-therabook-primary-foreground">History</TabsTrigger>
         </TabsList>
-        
         <TabsContent value="upcoming" className="space-y-4">
           <Card className="border-therabook-border">
             <CardHeader className="bg-therabook-muted">
-              <CardTitle className="text-therabook-primary">Upcoming Appointments</CardTitle>
+              <CardTitle className="text-therabook-primary flex items-center gap-2">
+                <Calendar className="w-4 h-4" /> Upcoming Appointments
+              </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Today's Appointment */}
-              <div className="p-4 bg-therabook-secondary border border-therabook-border rounded-lg">
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <h4 className="font-medium text-therabook-primary">Therapy Session - Dr. Sarah Wilson</h4>
-                    <p className="text-sm text-therabook-primary/80">Today, 2:00 PM - 3:00 PM</p>
-                    <p className="text-sm text-therabook-primary/70">Video Consultation</p>
+            <CardContent className="space-y-3">
+              {bookingsLoading && <div className="text-sm text-slate-600">Loading bookings...</div>}
+              {bookingsError && !bookingsLoading && <div className="text-sm text-red-600">{bookingsError}</div>}
+              {!bookingsLoading && !bookingsError && upcoming.length === 0 && (
+                <div className="text-sm text-slate-600">No upcoming appointments yet.</div>
+              )}
+              {upcoming.map(b => {
+                const start = parseStartDate(b);
+                const ts = start ? start.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '—';
+                const remaining = timeRemaining(b);
+                const joinAllowed = canJoin(b);
+                return (
+                  <div key={b._id} className="p-4 bg-therabook-secondary border border-therabook-border rounded-lg">
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <h4 className="font-medium text-therabook-primary">{b.sessionType ? b.sessionType.charAt(0).toUpperCase()+b.sessionType.slice(1) : 'Session'} - {b.therapist?.name || 'Therapist'}</h4>
+                        <p className="text-sm text-therabook-primary/80">{ts}</p>
+                        <p className="text-xs text-therabook-primary/70">Status: {b.status}</p>
+                      </div>
+                      <div className="flex flex-col items-end gap-1">
+                        <Badge className={joinAllowed ? 'bg-green-600 text-white' : 'bg-therabook-accent text-therabook-primary'}>{remaining}</Badge>
+                        {b.totalAmount != null && <span className="text-[11px] text-slate-500">₹{b.totalAmount}</span>}
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button 
+                        size="sm" 
+                        disabled={!joinAllowed}
+                        className="bg-therabook-primary disabled:opacity-50 hover:bg-therabook-primary/90 text-therabook-primary-foreground"
+                        onClick={() => handleJoin(b)}
+                      >
+                        <Video className="w-4 h-4 mr-2" />
+                        {joinAllowed ? 'Join Session' : 'Join Disabled'}
+                      </Button>
+                      <Button size="sm" variant="outline" className="border-therabook-border text-therabook-primary hover:bg-therabook-secondary">
+                        <Phone className="w-4 h-4 mr-2" />
+                        Contact
+                      </Button>
+                      <Button size="sm" variant="outline" className="border-therabook-border text-therabook-primary hover:bg-therabook-secondary">
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                        Reschedule
+                      </Button>
+                    </div>
                   </div>
-                  <Badge className="bg-therabook-accent text-therabook-primary">Today</Badge>
-                </div>
-                <div className="flex gap-2">
-                  <Button 
-                    size="sm" 
-                    className="bg-therabook-primary hover:bg-therabook-primary/90 text-therabook-primary-foreground"
-                    onClick={() => router.push('/video-call/lobby?bookingId=booking-123&userRole=client&userId=demo-client-1')}
-                  >
-                    <Video className="w-4 h-4 mr-2" />
-                    Join Session
-                  </Button>
-                  <Button size="sm" variant="outline" className="border-therabook-border text-therabook-primary hover:bg-therabook-secondary">
-                    <Phone className="w-4 h-4 mr-2" />
-                    Call Therapist
-                  </Button>
-                  <Button size="sm" variant="outline" className="border-therabook-border text-therabook-primary hover:bg-therabook-secondary">
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    Reschedule
-                  </Button>
-                </div>
-              </div>
-
-              {/* Future Appointments */}
-              <div className="p-4 border border-therabook-border rounded-lg">
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <h4 className="font-medium">Physical Therapy - Dr. Mike Chen</h4>
-                    <p className="text-sm text-muted-foreground">Tomorrow, 10:00 AM - 11:00 AM</p>
-                    <p className="text-sm text-muted-foreground flex items-center">
-                      <MapPin className="w-3 h-3 mr-1" />
-                      In-Person (Clinic A, Room 204)
-                    </p>
-                  </div>
-                  <Badge variant="outline" className="border-therabook-border text-therabook-primary">Tomorrow</Badge>
-                </div>
-              </div>
+                );
+              })}
             </CardContent>
           </Card>
         </TabsContent>
-        
         <TabsContent value="history" className="space-y-4">
           <Card className="border-therabook-border">
             <CardHeader className="bg-therabook-muted">
-              <CardTitle className="text-therabook-primary">Past Appointments</CardTitle>
+              <CardTitle className="text-therabook-primary flex items-center gap-2">
+                <History className="w-4 h-4" /> Past Appointments
+              </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="p-4 border border-therabook-border rounded-lg">
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <h4 className="font-medium">Therapy Session - Dr. Sarah Wilson</h4>
-                    <p className="text-sm text-muted-foreground">Feb 6, 2025 • 2:00 PM - 3:00 PM</p>
-                    <p className="text-sm text-muted-foreground">Video Consultation</p>
+            <CardContent className="space-y-3">
+              {bookingsLoading && <div className="text-sm text-slate-600">Loading...</div>}
+              {bookingsError && !bookingsLoading && <div className="text-sm text-red-600">{bookingsError}</div>}
+              {!bookingsLoading && !bookingsError && past.length === 0 && <div className="text-sm text-slate-600">No past appointments.</div>}
+              {past.map(b => {
+                const start = parseStartDate(b);
+                const ts = start ? start.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : '—';
+                return (
+                  <div key={b._id} className="p-4 border border-therabook-border rounded-lg">
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <h4 className="font-medium">{b.sessionType ? b.sessionType.charAt(0).toUpperCase()+b.sessionType.slice(1) : 'Session'} - {b.therapist?.name || 'Therapist'}</h4>
+                        <p className="text-sm text-muted-foreground">{ts}</p>
+                      </div>
+                      <Badge className={b.status === 'completed' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-700'}>{b.status}</Badge>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" className="border-therabook-border text-therabook-primary hover:bg-therabook-secondary">
+                        <FileText className="w-4 h-4 mr-2" /> Notes
+                      </Button>
+                      <Button size="sm" variant="outline" className="border-therabook-border text-therabook-primary hover:bg-therabook-secondary">
+                        <Download className="w-4 h-4 mr-2" /> Receipt
+                      </Button>
+                    </div>
                   </div>
-                  <Badge className="bg-green-100 text-green-800">Completed</Badge>
-                </div>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" className="border-therabook-border text-therabook-primary hover:bg-therabook-secondary">
-                    <FileText className="w-4 h-4 mr-2" />
-                    Session Notes
-                  </Button>
-                  <Button size="sm" variant="outline" className="border-therabook-border text-therabook-primary hover:bg-therabook-secondary">
-                    <Download className="w-4 h-4 mr-2" />
-                    Receipt
-                  </Button>
-                </div>
-              </div>
-              
-              <div className="p-4 border border-therabook-border rounded-lg">
-                <div className="flex items-start justify-between mb-3">
-                  <div>
-                    <h4 className="font-medium">Initial Assessment - Dr. Priya Sharma</h4>
-                    <p className="text-sm text-muted-foreground">Jan 30, 2025 • 11:00 AM - 12:00 PM</p>
-                    <p className="text-sm text-muted-foreground">In-Person (Clinic B, Room 105)</p>
-                  </div>
-                  <Badge className="bg-green-100 text-green-800">Completed</Badge>
-                </div>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" className="border-therabook-border text-therabook-primary hover:bg-therabook-secondary">
-                    <FileText className="w-4 h-4 mr-2" />
-                    Assessment Report
-                  </Button>
-                  <Button size="sm" variant="outline" className="border-therabook-border text-therabook-primary hover:bg-therabook-secondary">
-                    <Download className="w-4 h-4 mr-2" />
-                    Receipt
-                  </Button>
-                </div>
-              </div>
+                );
+              })}
             </CardContent>
           </Card>
         </TabsContent>

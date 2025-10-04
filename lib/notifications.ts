@@ -162,3 +162,74 @@ export function notificationsEnabled() {
     (process.env.SENDGRID_API_KEY && process.env.SENDGRID_FROM_EMAIL)
   );
 }
+
+// Basic welcome notification (email + optional SMS) after account creation
+export async function sendAccountWelcome({
+  email,
+  name,
+  phone,
+  userType
+}: { email?: string; name?: string; phone?: string; userType?: string; }): Promise<NotificationResult | null> {
+  const enabled = notificationsEnabled();
+  if (!enabled) return null;
+  const errors: string[] = [];
+  let emailSent = false; let emailMessageId: string | undefined;
+  let smsSent = false; let smsSid: string | undefined;
+  const debug = process.env.NOTIFICATIONS_DEBUG === '1';
+
+  const subject = 'Welcome to TheraTreat';
+  const safeName = name || 'there';
+  const role = userType ? userType.charAt(0).toUpperCase() + userType.slice(1) : 'User';
+  const textBody = [
+    `Hi ${safeName},`,
+    '',
+    `Your ${role} account has been created successfully on TheraTreat.`,
+    'You can now log in, update your profile and begin using the platform.',
+    '',
+    'If you did not create this account please contact support immediately.',
+    '',
+    '— TheraTreat Team'
+  ].join('\n');
+  const htmlBody = `<!doctype html><html><body style="font-family:system-ui,Arial,sans-serif;line-height:1.5;color:#111">\n<h2 style="margin:0 0 16px">Welcome to TheraTreat</h2>\n<p>Hi ${safeName},</p>\n<p>Your <strong>${role}</strong> account has been created successfully.</p>\n<p>You can now log in, complete onboarding (if pending) and start exploring the platform.</p>\n<p style="margin-top:24px;font-size:14px;color:#555">If you did not initiate this action, please contact support.</p>\n<p>Thank you,<br/>TheraTreat Team</p>\n<hr style="margin:32px 0;border:none;border-top:1px solid #eee"/>\n<p style="font-size:12px;color:#777">Automated email. Do not reply.</p>\n</body></html>`;
+
+  if (email && process.env.SENDGRID_API_KEY && process.env.SENDGRID_FROM_EMAIL) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const sgMail = require('@sendgrid/mail');
+      sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+      const res = await sgMail.send({ to: email, from: process.env.SENDGRID_FROM_EMAIL, subject, text: textBody, html: htmlBody });
+      emailSent = true;
+      emailMessageId = res?.[0]?.headers?.['x-message-id'] || res?.[0]?.body?.message_id;
+      if (debug) console.log('[notifications] welcome email sent', { emailMessageId });
+    } catch (e: any) {
+      let detail = e?.message || 'failed';
+      const status = e?.code || e?.response?.statusCode;
+      const sgErrors = e?.response?.body?.errors;
+      if (Array.isArray(sgErrors) && sgErrors.length) {
+        const msgs = sgErrors.slice(0, 2).map((er: any) => er.message || er.field || JSON.stringify(er));
+        detail += ` | ${msgs.join('; ')}`;
+      }
+      if (status) detail = `${detail} (status ${status})`;
+      errors.push('EMAIL:' + detail);
+      console.error('[notifications] welcome email error', detail);
+    }
+  }
+
+  const sanitizedPhone = phone && /^\+?[1-9]\d{7,15}$/.test(phone) ? phone : undefined;
+  if (sanitizedPhone && process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_SMS_FROM) {
+    try {
+      const client = getTwilio();
+      if (client) {
+        const body = `Hi ${safeName}, your TheraTreat account is ready. — TheraTreat`;
+        const msg = await client.messages.create({ from: process.env.TWILIO_SMS_FROM, to: sanitizedPhone, body });
+        smsSent = true; smsSid = msg.sid;
+        if (debug) console.log('[notifications] welcome sms sent', { smsSid });
+      }
+    } catch (e: any) {
+      errors.push('SMS:' + (e?.message || 'failed'));
+      console.error('[notifications] welcome sms error', e);
+    }
+  }
+
+  return { emailSent, emailMessageId, smsSent, smsSid, errors: errors.length ? errors : undefined };
+}

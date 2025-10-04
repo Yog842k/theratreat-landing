@@ -77,6 +77,8 @@ interface FormData {
   preferredLanguages: string[];
   panCard: string;
   aadhaar: string;
+  panImageUrl?: string;
+  aadhaarImageUrl?: string;
   
   // Education & Credentials
   qualification: string;
@@ -123,6 +125,10 @@ interface FormData {
   
   // Profile Details
   profilePhoto: File | null;
+  profilePhotoUrl?: string;
+  qualificationCertUrls: string[];
+  licenseDocumentUrl?: string;
+  resumeUrl?: string;
   bio: string;
   linkedIn: string;
   website: string;
@@ -163,6 +169,8 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
     preferredLanguages: [],
     panCard: "",
     aadhaar: "",
+  panImageUrl: undefined,
+  aadhaarImageUrl: undefined,
     qualification: "",
     university: "",
     graduationYear: "",
@@ -196,6 +204,10 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
     },
     hasClinic: false,
     profilePhoto: null,
+  profilePhotoUrl: undefined,
+  qualificationCertUrls: [],
+  licenseDocumentUrl: undefined,
+  resumeUrl: undefined,
     bio: "",
     linkedIn: "",
     website: "",
@@ -219,6 +231,14 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
 
   const totalSteps = 8;
   const progress = (currentStep / totalSteps) * 100;
+
+  // Upload progress trackers
+  const [uploadProgress, setUploadProgress] = useState({
+    qualification: 0,
+    license: 0,
+    resume: 0,
+    profile: 0
+  });
 
   const stepTitles = [
     "Personal & Contact Information",
@@ -399,6 +419,65 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
     });
   };
 
+  const uploadToCloud = async (file: File, cb: (url:string)=>void, kind?: keyof typeof uploadProgress) => {
+    try {
+      if (file.size > 5 * 1024 * 1024) { alert('File too large (max 5MB)'); return; }
+      const fd = new FormData(); fd.append('file', file);
+      // Use XHR to track progress since fetch doesn't expose it natively
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/api/uploads/profile');
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable && kind) {
+            const pct = Math.round((e.loaded / e.total) * 100);
+            setUploadProgress(p => ({ ...p, [kind]: pct }));
+          }
+        };
+        xhr.onload = () => {
+          try {
+            const json = JSON.parse(xhr.responseText);
+            if (json.success && json.data?.url) {
+              if (kind) setUploadProgress(p => ({ ...p, [kind]: 100 }));
+              cb(json.data.url);
+              resolve();
+            } else {
+              alert('Upload failed');
+              reject(new Error('Upload failed'));
+            }
+          } catch(err) { reject(err as any); }
+        };
+        xhr.onerror = () => reject(new Error('Network error'));
+        xhr.send(fd);
+      });
+    } catch (e) { console.error(e); alert('Upload error'); }
+  };
+
+  // Generic Cloudinary upload using existing /api/uploads/profile endpoint (could be generalized later)
+  const uploadDocumentImage = async (file: File, field: 'panImageUrl' | 'aadhaarImageUrl') => {
+    try {
+      if (file.size > 2 * 1024 * 1024) {
+        alert('File too large (max 2MB)');
+        return;
+      }
+      if (!/image\/(png|jpg|jpeg)/.test(file.type)) {
+        alert('Only JPG/PNG images allowed');
+        return;
+      }
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch('/api/uploads/profile', { method: 'POST', body: fd });
+      const json = await res.json();
+      if (json.success && json.data?.url) {
+        setFormData(prev => ({ ...prev, [field]: json.data.url }));
+      } else {
+        alert('Upload failed');
+      }
+    } catch (e) {
+      console.error('Upload error', e);
+      alert('Upload error');
+    }
+  };
+
   const handleNext = () => {
     if (currentStep < totalSteps) {
       setCurrentStep(currentStep + 1);
@@ -415,6 +494,12 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
     setIsSubmitting(true);
     
     try {
+      const bd = formData.bankDetails;
+      if (!formData.qualificationCertUrls.length || !formData.licenseDocumentUrl || !formData.resumeUrl || !formData.profilePhotoUrl || !bd.accountHolder || !bd.bankName || !bd.accountNumber || !bd.ifscCode) {
+        alert('Please complete all mandatory uploads and bank details.');
+        setIsSubmitting(false);
+        return;
+      }
       // Combine all form data for submission using formData state
       const submissionData = {
         // Account creation fields
@@ -549,6 +634,7 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
               <div className="space-y-2">
                 <Label>Gender *</Label>
                 <ReactSelect
+                  instanceId="tr-gender"
                   options={[
                     { value: "male", label: "Male" },
                     { value: "female", label: "Female" },
@@ -649,6 +735,7 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
             <div className="space-y-3">
               <Label>Preferred Communication Language(s) *</Label>
               <ReactSelect
+                instanceId="tr-comm-langs"
                 isMulti
                 options={languages.map(lang => ({ value: lang, label: lang }))}
                 value={formData.preferredLanguages.map(lang => ({ value: lang, label: lang }))}
@@ -660,28 +747,62 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <Label htmlFor="panCard">PAN Card Number * (Verification API)</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="panCard"
-                    value={formData.panCard}
-                    onChange={(e) => handleInputChange("panCard", e.target.value)}
-                    placeholder="ABCDE1234F"
-                  />
-                  <Button variant="outline">Verify</Button>
+                <Label htmlFor="panCard">PAN Card Number *</Label>
+                <Input
+                  id="panCard"
+                  value={formData.panCard}
+                  onChange={(e) => handleInputChange("panCard", e.target.value)}
+                  placeholder="ABCDE1234F"
+                />
+                <div className="mt-2">
+                  <Label className="text-xs font-medium">PAN Card Image *</Label>
+                  <div className="mt-1 border-2 border-dashed rounded p-4 text-center relative">
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/jpg"
+                      className="absolute inset-0 opacity-0 cursor-pointer"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) uploadDocumentImage(f, 'panImageUrl');
+                      }}
+                    />
+                    <Upload className="w-6 h-6 mx-auto text-gray-400 mb-1" />
+                    <p className="text-xs text-blue-600">{formData.panImageUrl ? 'Uploaded ✓' : 'Click to upload PAN image'}</p>
+                    <p className="text-[10px] text-gray-500">JPG/PNG up to 2MB</p>
+                  </div>
+                  {formData.panImageUrl && (
+                    <p className="text-xs text-green-600 mt-1 truncate">Stored: {formData.panImageUrl}</p>
+                  )}
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="aadhaar">Aadhaar Number * (Verification API)</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="aadhaar"
-                    value={formData.aadhaar}
-                    onChange={(e) => handleInputChange("aadhaar", e.target.value)}
-                    placeholder="1234 5678 9012"
-                  />
-                  <Button variant="outline">Verify</Button>
+                <Label htmlFor="aadhaar">Aadhaar Number *</Label>
+                <Input
+                  id="aadhaar"
+                  value={formData.aadhaar}
+                  onChange={(e) => handleInputChange("aadhaar", e.target.value)}
+                  placeholder="1234 5678 9012"
+                />
+                <div className="mt-2">
+                  <Label className="text-xs font-medium">Aadhaar Image *</Label>
+                  <div className="mt-1 border-2 border-dashed rounded p-4 text-center relative">
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/jpg"
+                      className="absolute inset-0 opacity-0 cursor-pointer"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0];
+                        if (f) uploadDocumentImage(f, 'aadhaarImageUrl');
+                      }}
+                    />
+                    <Upload className="w-6 h-6 mx-auto text-gray-400 mb-1" />
+                    <p className="text-xs text-blue-600">{formData.aadhaarImageUrl ? 'Uploaded ✓' : 'Click to upload Aadhaar image'}</p>
+                    <p className="text-[10px] text-gray-500">JPG/PNG up to 2MB</p>
+                  </div>
+                  {formData.aadhaarImageUrl && (
+                    <p className="text-xs text-green-600 mt-1 truncate">Stored: {formData.aadhaarImageUrl}</p>
+                  )}
                 </div>
               </div>
             </div>
@@ -700,6 +821,7 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
               <div className="space-y-2">
                 <Label>Highest Qualification *</Label>
                 <ReactSelect
+                  instanceId="tr-qualification"
                   options={[
                     { value: "phd", label: "PhD" },
                     { value: "masters", label: "Master's Degree" },
@@ -734,6 +856,7 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
               <div className="space-y-2">
                 <Label>Year of Graduation *</Label>
                 <ReactSelect
+                  instanceId="tr-grad-year"
                   options={Array.from({ length: 50 }, (_, i) => 2024 - i).map(year => ({ value: year.toString(), label: year.toString() }))}
                   value={Array.from({ length: 50 }, (_, i) => 2024 - i).map(year => ({ value: year.toString(), label: year.toString() })).find(opt => opt.value === formData.graduationYear) || null}
                   onChange={selected => handleInputChange("graduationYear", selected ? selected.value : "")}
@@ -757,15 +880,27 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
             <div className="space-y-2">
               <Label>Upload Documents</Label>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-blue-300 transition-colors cursor-pointer">
+                <div className="border-2 border-dashed border-border rounded-lg p-6 text-center transition-colors relative">
+                  <input multiple type="file" accept="application/pdf,image/png,image/jpeg" className="absolute inset-0 opacity-0 cursor-pointer"
+                    onChange={(e)=> { const files = Array.from(e.target.files||[]); files.forEach(f=> uploadToCloud(f, url => setFormData(p=>({...p, qualificationCertUrls:[...p.qualificationCertUrls, url]})), 'qualification')); }} />
                   <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                  <p className="text-sm font-medium">Upload Qualification Certificate(s) *</p>
-                  <p className="text-xs text-muted-foreground">PDF, JPG, PNG (Max 5MB)</p>
+                  <p className="text-sm font-medium">Qualification Certificate(s) *</p>
+                  <p className="text-xs text-muted-foreground">PDF / Image (Max 5MB each)</p>
+                  {formData.qualificationCertUrls.length>0 && <p className="text-xs text-green-600 mt-2">{formData.qualificationCertUrls.length} uploaded</p>}
+                  {uploadProgress.qualification>0 && uploadProgress.qualification<100 && (
+                    <div className='mt-3'><Progress value={uploadProgress.qualification} className='h-1' /></div>
+                  )}
                 </div>
-                <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-blue-300 transition-colors cursor-pointer">
+                <div className="border-2 border-dashed border-border rounded-lg p-6 text-center transition-colors relative">
+                  <input type="file" accept="application/pdf,image/png,image/jpeg" className="absolute inset-0 opacity-0 cursor-pointer"
+                    onChange={(e)=> { const f = e.target.files?.[0]; if (f) uploadToCloud(f, url => setFormData(p=>({...p, licenseDocumentUrl:url})), 'license'); }} />
                   <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                  <p className="text-sm font-medium">Upload Professional License</p>
-                  <p className="text-xs text-muted-foreground">PDF, JPG, PNG (Max 5MB)</p>
+                  <p className="text-sm font-medium">Professional License *</p>
+                  <p className="text-xs text-muted-foreground">PDF / Image (Max 5MB)</p>
+                  {formData.licenseDocumentUrl && <p className="text-xs text-green-600 mt-2">Uploaded ✓</p>}
+                  {uploadProgress.license>0 && uploadProgress.license<100 && (
+                    <div className='mt-3'><Progress value={uploadProgress.license} className='h-1' /></div>
+                  )}
                 </div>
               </div>
             </div>
@@ -822,6 +957,7 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
                 <div className="space-y-2">
                   <Label htmlFor="experience">Years of Experience *</Label>
                   <ReactSelect
+                    instanceId="tr-experience-level"
                     options={[
                       { value: "0-1", label: "0-1 years" },
                       { value: "2-5", label: "2-5 years" },
@@ -876,10 +1012,16 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
 
               <div className="space-y-2">
                 <Label>Upload Resume/CV *</Label>
-                <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-blue-300 transition-colors cursor-pointer">
+                <div className="border-2 border-dashed border-border rounded-lg p-6 text-center transition-colors relative">
+                  <input type="file" accept="application/pdf" className="absolute inset-0 opacity-0 cursor-pointer"
+                    onChange={(e)=> { const f = e.target.files?.[0]; if (f) uploadToCloud(f, url => setFormData(p=>({...p, resumeUrl:url})), 'resume'); }} />
                   <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                  <p className="text-sm font-medium">Click to upload or drag and drop</p>
+                  <p className="text-sm font-medium">Click to upload</p>
                   <p className="text-xs text-muted-foreground">PDF (Max 5MB)</p>
+                  {formData.resumeUrl && <p className="text-xs text-green-600 mt-2">Uploaded ✓</p>}
+                  {uploadProgress.resume>0 && uploadProgress.resume<100 && (
+                    <div className='mt-3'><Progress value={uploadProgress.resume} className='h-1' /></div>
+                  )}
                 </div>
               </div>
             </div>
@@ -931,6 +1073,7 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
                 <div className="space-y-2">
                   <Label>Weekly Sessions Capacity *</Label>
                   <ReactSelect
+                    instanceId="tr-days-available"
                     options={[
                       { value: "1-5", label: "1-5 sessions/week" },
                       { value: "6-10", label: "6-10 sessions/week" },
@@ -1045,6 +1188,7 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
                 <div className="space-y-2">
                   <Label>Payment Mode Preference *</Label>
                   <ReactSelect
+                    instanceId="tr-session-durations"
                     options={[
                       { value: "bank-transfer", label: "Bank Transfer" },
                       { value: "upi", label: "UPI" },
@@ -1199,10 +1343,16 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
             <div className="space-y-6">
               <div className="space-y-2">
                 <Label>Profile Photo *</Label>
-                <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-blue-300 transition-colors cursor-pointer">
+                <div className="border-2 border-dashed border-border rounded-lg p-6 text-center transition-colors relative">
+                  <input type="file" accept="image/png,image/jpeg" className="absolute inset-0 opacity-0 cursor-pointer"
+                    onChange={(e)=> { const f = e.target.files?.[0]; if (f) uploadToCloud(f, url => setFormData(p=>({...p, profilePhotoUrl:url, profilePhoto:f})), 'profile'); }} />
                   <Camera className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                  <p className="text-sm font-medium">Upload Profile Photo</p>
-                  <p className="text-xs text-muted-foreground">JPG, PNG (Max 2MB)</p>
+                  <p className="text-sm font-medium">Click to upload</p>
+                  <p className="text-xs text-muted-foreground">JPG / PNG (Max 2MB)</p>
+                  {formData.profilePhotoUrl && <p className="text-xs text-green-600 mt-2">Uploaded ✓</p>}
+                  {uploadProgress.profile>0 && uploadProgress.profile<100 && (
+                    <div className='mt-3'><Progress value={uploadProgress.profile} className='h-1' /></div>
+                  )}
                 </div>
               </div>
 
@@ -1252,6 +1402,7 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
               <div className="space-y-3">
                 <Label>Therapy Languages * [Multi-select]</Label>
                 <ReactSelect
+                  instanceId="tr-payment-mode"
                   isMulti
                   options={languages.map(lang => ({ value: lang, label: lang }))}
                   value={formData.therapyLanguages.map(lang => ({ value: lang, label: lang }))}

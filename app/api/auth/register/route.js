@@ -5,7 +5,7 @@ const { ValidationUtils, ResponseUtils } = require('@/lib/utils');
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { email, password, name, userType, phone, patientData } = body;
+  const { email, password, name, userType, phone, patientData, profileImageUrl } = body;
 
     // Debug logging
     console.log('Registration request:', { email, name, userType, phone, hasPatientData: !!patientData });
@@ -33,6 +33,7 @@ export async function POST(request) {
       password: hashedPassword,
       userType,
       phone: phone || null,
+      profileImage: profileImageUrl || null,
       isActive: true,
       isVerified: false,
       createdAt: new Date(),
@@ -111,6 +112,14 @@ export async function POST(request) {
     // Return user without password
     const { password: _, ...userWithoutPassword } = user;
     userWithoutPassword._id = result.insertedId;
+
+    // Fire-and-forget welcome notification (do not block response)
+    import('@/lib/notifications').then(mod => {
+      if (mod?.sendAccountWelcome) {
+        mod.sendAccountWelcome({ email: user.email, name: user.name, phone: user.phone, userType: user.userType })
+          .catch(e => console.warn('welcome notification failed', e?.message));
+      }
+    }).catch(() => {});
 
     return ResponseUtils.success({
       user: userWithoutPassword,

@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "./ui/carousel";
 import { ModernHero } from "./ModernHero";
-import {  platformStats, coreModules } from "../constants/app-data";
+import {  coreModules } from "../constants/app-data"; // removed platformStats per request
 import { ViewType } from "../constants/app-data";
 import { motion} from "framer-motion";
 
@@ -39,12 +39,11 @@ import {
   FileCheck,
   Building,
   Verified,
-  Quote,
   Target,
   Lightbulb,
   HeartHandshake,
   BadgeCheck
-} from "lucide-react";
+} from "lucide-react"; // Removed Quote (only used in testimonials)
 
 interface HomePageProps {
   setCurrentView: (view: ViewType) => void;
@@ -200,41 +199,8 @@ export function HomePage({ setCurrentView }: HomePageProps) {
     }
   ];
 
-  const testimonials = [
-    {
-      id: 1,
-      name: "Sarah Mitchell",
-      role: "Marketing Manager",
-      image: "https://images.unsplash.com/photo-1494790108755-2616c64c6ce6?w=80&h=80&fit=crop&crop=face",
-      rating: 5,
-      content: "TheaPheap completely transformed my approach to mental health. The AI-powered assessments gave me insights I never had before, and booking sessions with Dr. Johnson was seamless. Highly recommend!",
-      service: "TheraSelf & TheraBook",
-      location: "New York, NY",
-      date: "2 weeks ago"
-    },
-    {
-      id: 2,
-      name: "Dr. Michael Rivera",
-      role: "Physical Therapist",
-      image: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=80&h=80&fit=crop&crop=face",
-      rating: 5,
-      content: "As a healthcare professional, I'm impressed by TheraLearn's course quality. The ACLS certification program was comprehensive and the online format made it convenient to complete alongside my practice.",
-      service: "TheraLearn",
-      location: "Los Angeles, CA",
-      date: "1 month ago"
-    },
-    {
-      id: 3,
-      name: "Jennifer Adams",
-      role: "Clinic Administrator",
-      image: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=80&h=80&fit=crop&crop=face",
-      rating: 5,
-      content: "TheraStore has been a game-changer for our clinic. The medical equipment quality is excellent, and the fast delivery ensures we never run out of essential supplies. Great customer service too!",
-      service: "TheraStore",
-      location: "Chicago, IL",
-      date: "3 weeks ago"
-    }
-  ];
+  // Testimonials removed per request (placeholder if needed later)
+  // const testimonials: any[] = [];
 
   return (
     <motion.div 
@@ -252,63 +218,7 @@ export function HomePage({ setCurrentView }: HomePageProps) {
         <ModernHero setCurrentView={setCurrentView} />
       </motion.div>
 
-      {/* Platform Stats */}
-      <section className="max-w-7xl mx-auto px-6">
-        <motion.div 
-          initial={{ opacity: 0, y: 50 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true, margin: "-100px" }}
-          transition={{ duration: 0.8 }}
-          className="grid grid-cols-2 md:grid-cols-4 gap-6"
-        >
-          {platformStats.map((stat, index) => (
-            <motion.div
-              key={index}
-              initial={{ opacity: 0, y: 30, scale: 0.9 }}
-              whileInView={{ opacity: 1, y: 0, scale: 1 }}
-              viewport={{ once: true }}
-              transition={{ 
-                duration: 0.6, 
-                delay: index * 0.1,
-                ease: [0.25, 0.46, 0.45, 0.94]
-              }}
-            >
-              <motion.div
-                whileHover={{ 
-                  y: -8, 
-                  scale: 1.02,
-                  transition: { duration: 0.2, ease: "easeOut" }
-                }}
-                whileTap={{ scale: 0.98 }}
-              >
-                <Card className="text-center border-blue-200 hover:shadow-lg transition-all duration-300 hover:border-blue-300 bg-white/80 backdrop-blur-sm">
-                  <CardContent className="pt-6">
-                    <motion.div
-                      whileHover={{ 
-                        rotate: [0, -10, 10, 0],
-                        scale: 1.1
-                      }}
-                      transition={{ duration: 0.5 }}
-                    >
-                      <stat.icon className="w-12 h-12 text-blue-600 mx-auto mb-4" />
-                    </motion.div>
-                    <motion.p 
-                      className="text-3xl font-bold text-blue-600 mb-2"
-                      initial={{ scale: 0 }}
-                      whileInView={{ scale: 1 }}
-                      viewport={{ once: true }}
-                      transition={{ delay: index * 0.1 + 0.3, type: "spring", stiffness: 200 }}
-                    >
-                      {stat.number}
-                    </motion.p>
-                    <p className="text-muted-foreground">{stat.label}</p>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            </motion.div>
-          ))}
-        </motion.div>
-      </section>
+      {/* Platform Stats removed */}
 
       {/* Core Services Sections */}
       <section className="space-y-24">
@@ -813,78 +723,7 @@ export function HomePage({ setCurrentView }: HomePageProps) {
         </div>
       </section>
 
-      {/* Testimonials Section */}
-      <section className="py-16 bg-gradient-to-r from-blue-50 via-white to-purple-50">
-        <div className="max-w-7xl mx-auto px-6">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.8 }}
-            className="text-center space-y-4 mb-12"
-          >
-            <h2 className="text-4xl font-bold text-blue-600">What Our Users Say</h2>
-            <p className="text-xl text-muted-foreground max-w-3xl mx-auto">
-              Real experiences from healthcare professionals and patients who trust TheraTreat
-            </p>
-          </motion.div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {testimonials.map((testimonial, index) => (
-              <motion.div
-                key={testimonial.id}
-                initial={{ opacity: 0, y: 50 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.6, delay: index * 0.2 }}
-                whileHover={{ y: -5, transition: { duration: 0.2 } }}
-              >
-                <Card className="h-full hover:shadow-xl transition-all duration-300 border-0 bg-white/90 backdrop-blur-sm">
-                  <CardContent className="p-6">
-                    <div className="space-y-4">
-                      <div className="flex items-center space-x-3">
-                        <img
-                          src={testimonial.image}
-                          alt={testimonial.name}
-                          className="w-12 h-12 rounded-full object-cover"
-                        />
-                        <div className="flex-1">
-                          <h4 className="font-semibold text-blue-600">{testimonial.name}</h4>
-                          <p className="text-sm text-muted-foreground">{testimonial.role}</p>
-                        </div>
-                        <div className="flex items-center space-x-1">
-                          {[...Array(testimonial.rating)].map((_, i) => (
-                            <Star key={i} className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                          ))}
-                        </div>
-                      </div>
-                      
-                      <Quote className="w-8 h-8 text-blue-200" />
-                      
-                      <p className="text-muted-foreground leading-relaxed">
-                        "{testimonial.content}"
-                      </p>
-                      
-                      <div className="space-y-2 pt-4 border-t">
-                        <div className="flex items-center justify-between text-sm">
-                          <Badge variant="outline" className="text-xs">
-                            {testimonial.service}
-                          </Badge>
-                          <span className="text-muted-foreground">{testimonial.date}</span>
-                        </div>
-                        <div className="flex items-center space-x-1 text-sm text-muted-foreground">
-                          <MapPin className="w-3 h-3" />
-                          <span>{testimonial.location}</span>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* Testimonials removed */}
       {/* New Era of Therapy - Comprehensive Section */}
       <section className="relative py-24 bg-gradient-to-br from-blue-900 via-blue-800 to-indigo-900 overflow-hidden">
         {/* Background Effects */}

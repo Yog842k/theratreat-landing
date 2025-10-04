@@ -250,7 +250,10 @@ export function EnhancedSearch({
   const getContainerClasses = () => {
     switch (variant) {
       case "hero":
-        return "bg-white/10 backdrop-blur-md rounded-2xl p-6 space-y-6";
+        return "bg-white/10 backdrop-blur-md rounded-2xl p-6 space-y-6 border border-white/20 shadow-[0_8px_30px_rgb(0,0,0,0.12)]";
+      case "page":
+        // Page variant (hero usage) with elevated glass effect and tighter spacing on large screens
+        return "bg-white/70 backdrop-blur-xl rounded-2xl p-4 md:p-6 space-y-5 shadow-[0_8px_24px_-4px_rgba(0,0,0,0.12)] ring-1 ring-black/5";
       case "compact":
         return "bg-white rounded-lg shadow-lg p-4 space-y-4";
       default:
@@ -261,7 +264,9 @@ export function EnhancedSearch({
   const getInputClasses = () => {
     switch (variant) {
       case "hero":
-        return "pl-12 pr-20 bg-white/95 border-0 text-gray-700 placeholder-gray-500 rounded-xl h-14 text-lg";
+        return "pl-12 pr-20 bg-white/95 border-0 text-gray-700 placeholder-gray-500 rounded-xl h-14 text-lg shadow-inner";
+      case "page":
+        return "pl-12 pr-24 h-14 md:h-16 bg-white/90 border border-gray-200/60 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-2xl text-base md:text-lg transition-all";
       case "compact":
         return "pl-10 pr-16 h-10 border-gray-200 focus:ring-blue-500";
       default:
@@ -276,6 +281,12 @@ export function EnhancedSearch({
           <h3 className="text-white font-medium text-2xl text-center">
             Find Your Perfect Therapist
           </h3>
+        )}
+        {variant === "page" && (
+          <div className="flex flex-col items-center text-center space-y-2">
+            <h3 className="font-semibold tracking-tight text-gray-800 text-xl md:text-2xl">Find Your Perfect Therapist</h3>
+            <p className="text-sm md:text-base text-gray-600 max-w-2xl">Search by specialty, condition, location or session format. Use filters to narrow results and start your healing journey.</p>
+          </div>
         )}
 
         {/* Main Search Bar */}
@@ -328,9 +339,19 @@ export function EnhancedSearch({
 
         {/* Quick Filters - Desktop */}
         {showFilters && variant !== "compact" && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className={
+            variant === 'page'
+              ? 'grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4'
+              : 'grid grid-cols-1 md:grid-cols-4 gap-4'
+          }>
             <Select value={selectedLocation} onValueChange={setSelectedLocation}>
-              <SelectTrigger className={variant === "hero" ? "bg-white/95 border-0 h-12" : "h-10"}>
+              <SelectTrigger className={
+                variant === 'hero'
+                  ? 'bg-white/95 border-0 h-12'
+                  : variant === 'page'
+                    ? 'bg-white/90 h-12 rounded-xl border-gray-200/60'
+                    : 'h-10'
+              }>
                 <div className="flex items-center space-x-2">
                   <MapPin className="w-4 h-4 text-gray-500" />
                   <SelectValue placeholder="Location" />
@@ -347,7 +368,13 @@ export function EnhancedSearch({
             </Select>
 
             <Select value={selectedSpecialty} onValueChange={setSelectedSpecialty}>
-              <SelectTrigger className={variant === "hero" ? "bg-white/95 border-0 h-12" : "h-10"}>
+              <SelectTrigger className={
+                variant === 'hero'
+                  ? 'bg-white/95 border-0 h-12'
+                  : variant === 'page'
+                    ? 'bg-white/90 h-12 rounded-xl border-gray-200/60'
+                    : 'h-10'
+              }>
                 <div className="flex items-center space-x-2">
                   <Stethoscope className="w-4 h-4 text-gray-500" />
                   <SelectValue placeholder="Specialty" />
@@ -364,7 +391,13 @@ export function EnhancedSearch({
             </Select>
 
             <Select value={selectedDate} onValueChange={setSelectedDate}>
-              <SelectTrigger className={variant === "hero" ? "bg-white/95 border-0 h-12" : "h-10"}>
+              <SelectTrigger className={
+                variant === 'hero'
+                  ? 'bg-white/95 border-0 h-12'
+                  : variant === 'page'
+                    ? 'bg-white/90 h-12 rounded-xl border-gray-200/60'
+                    : 'h-10'
+              }>
                 <div className="flex items-center space-x-2">
                   <Calendar className="w-4 h-4 text-gray-500" />
                   <SelectValue placeholder="Date" />
@@ -379,11 +412,14 @@ export function EnhancedSearch({
               </SelectContent>
             </Select>
 
-            <Button 
+            <Button
               onClick={handleSearch}
-              className={variant === "hero" 
-                ? "bg-blue-600 hover:bg-blue-700 text-white h-12" 
-                : "bg-blue-600 hover:bg-blue-700 text-white h-10"
+              className={
+                variant === 'hero'
+                  ? 'bg-blue-600 hover:bg-blue-700 text-white h-12'
+                  : variant === 'page'
+                    ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white h-12 rounded-xl shadow'
+                    : 'bg-blue-600 hover:bg-blue-700 text-white h-10'
               }
             >
               <Search className="w-4 h-4 mr-2" />
@@ -402,11 +438,19 @@ export function EnhancedSearch({
 
         {/* Advanced Filters Toggle */}
         {showFilters && variant !== "compact" && (
-          <div className="flex items-center justify-between">
+          <div className={
+            variant === 'page'
+              ? 'flex items-center justify-between pt-1'
+              : 'flex items-center justify-between'
+          }>
             <Button
               variant="ghost"
               onClick={() => setIsAdvancedOpen(!isAdvancedOpen)}
-              className="text-sm text-gray-600 hover:text-gray-800"
+              className={
+                variant === 'page'
+                  ? 'text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-50 rounded-lg'
+                  : 'text-sm text-gray-600 hover:text-gray-800'
+              }
             >
               <Filter className="w-4 h-4 mr-2" />
               Advanced Filters
@@ -414,7 +458,15 @@ export function EnhancedSearch({
             </Button>
             
             {(selectedLocation || selectedDate || selectedSessionType || selectedSpecialty || selectedAvailability) && (
-              <Button variant="ghost" onClick={clearAllFilters} className="text-sm text-red-600 hover:text-red-800">
+              <Button
+                variant="ghost"
+                onClick={clearAllFilters}
+                className={
+                  variant === 'page'
+                    ? 'text-sm text-red-600 hover:text-red-800 hover:bg-red-50 rounded-lg'
+                    : 'text-sm text-red-600 hover:text-red-800'
+                }
+              >
                 Clear All
               </Button>
             )}
@@ -481,7 +533,7 @@ export function EnhancedSearch({
             transition={{ duration: 0.2 }}
             className="absolute top-full left-0 right-0 z-50 mt-2"
           >
-            <Card className="shadow-xl border-0">
+            <Card className="shadow-xl border border-gray-200 bg-white/95 backdrop-blur-sm rounded-xl">
               <ScrollArea className="max-h-96">
                 <div className="p-4 space-y-4">
                   {/* Filtered Suggestions */}

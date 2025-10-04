@@ -5,8 +5,7 @@ const { ObjectId } = require('mongodb');
 
 
 export async function POST(request) {
-  // Standalone therapist self-registration disabled; must be created via clinic owner flow.
-  return ResponseUtils.forbidden('Direct therapist registration disabled. Use clinic managed flow.');
+  // Direct therapist self-registration ENABLED (previously disabled). Proceed with creation logic below.
   try {
     const body = await request.json();
     const { 
@@ -154,7 +153,8 @@ export async function POST(request) {
     await therapistsColl.insertOne(therapistDoc);
 
 
-    const token = AuthUtils.generateToken(userId);
+  // JWT payload must be a plain serializable object; previously passed raw ObjectId caused error
+  const token = AuthUtils.generateToken({ userId: userId.toString(), userType: 'therapist' });
 
 
     const { password: _, ...userResponse } = user;

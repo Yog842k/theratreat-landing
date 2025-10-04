@@ -4,7 +4,6 @@ import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Navigation } from "@/components/Navigation";
 import { NavigationTabs } from "@/components/NavigationTabs";
-import { Footer } from "@/components/Footer";
 import { HomePage } from "@/components/HomePage";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle } from "lucide-react";
@@ -30,11 +29,29 @@ export default function HomeRootClient() {
   }, [searchParams]);
 
   const handleViewChange = (view: ViewType) => {
-    if (view === "book") {
-      router.push("/therabook");
-      return;
+    // Route-aware views that should navigate to dedicated (or coming soon) pages
+    switch (view) {
+      case "book":
+        router.push("/therabook");
+        return;
+      case "self-test":
+        router.push("/theraself");
+        return;
+      case "store":
+        router.push("/therastore");
+        return;
+      case "learn":
+        router.push("/theralearn");
+        return;
+      case "therapists":
+        router.push("/therapists");
+        return;
+      case "blog":
+        router.push("/blog");
+        return;
+      default:
+        setCurrentView(view);
     }
-    setCurrentView(view);
   };
 
   const renderView = () => {
@@ -66,7 +83,6 @@ export default function HomeRootClient() {
         </div>
       )}
       <main className={currentView === "home" ? "" : "max-w-7xl mx-auto px-6 py-8"}>{renderView()}</main>
-      <Footer />
     </div>
   );
 }

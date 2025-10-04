@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import ReactSelect from 'react-select';
+import INDIA_STATES from '@/constants/india-states';
 import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Progress } from '@/components/ui/progress';
@@ -21,7 +22,12 @@ import {
   CheckCircle, 
   Upload,
   ArrowLeft,
-  ArrowRight
+  ArrowRight,
+  Sunrise,
+  Sun,
+  Moon,
+  Calendar,
+  Check
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -31,6 +37,7 @@ interface OnboardingData {
   // Step 1: Personal Details
   fullName: string;
   profilePhoto?: File;
+  profileImageUrl?: string; // cloudinary URL after upload
   gender: string;
   dateOfBirth: string;
   age: string;
@@ -76,6 +83,41 @@ const steps = [
   { id: 3, title: 'Health Information', percentage: 60, icon: Heart },
   { id: 4, title: 'Emergency Contact', percentage: 80, icon: Shield },
   { id: 5, title: 'Legal Consents', percentage: 100, icon: CheckCircle }
+];
+
+// Comprehensive list of Indian regional languages (Eighth Schedule) + English
+const preferredLanguageOptions = [
+  { value: 'english', label: 'English' },
+  { value: 'assamese', label: 'Assamese' },
+  { value: 'bengali', label: 'Bengali' },
+  { value: 'bodo', label: 'Bodo' },
+  { value: 'dogri', label: 'Dogri' },
+  { value: 'gujarati', label: 'Gujarati' },
+  { value: 'hindi', label: 'Hindi' },
+  { value: 'kannada', label: 'Kannada' },
+  { value: 'kashmiri', label: 'Kashmiri' },
+  { value: 'konkani', label: 'Konkani' },
+  { value: 'maithili', label: 'Maithili' },
+  { value: 'malayalam', label: 'Malayalam' },
+  { value: 'manipuri', label: 'Manipuri (Meitei)' },
+  { value: 'marathi', label: 'Marathi' },
+  { value: 'nepali', label: 'Nepali' },
+  { value: 'odia', label: 'Odia (Oriya)' },
+  { value: 'punjabi', label: 'Punjabi' },
+  { value: 'sanskrit', label: 'Sanskrit' },
+  { value: 'santali', label: 'Santali' },
+  { value: 'sindhi', label: 'Sindhi' },
+  { value: 'tamil', label: 'Tamil' },
+  { value: 'telugu', label: 'Telugu' },
+  { value: 'urdu', label: 'Urdu' }
+];
+
+// Time slot options with icons & hints
+const timeSlotOptions = [
+  { value: 'Morning', icon: Sunrise, hint: '6 AM – 11 AM' },
+  { value: 'Afternoon', icon: Sun, hint: '11 AM – 4 PM' },
+  { value: 'Evening', icon: Moon, hint: '4 PM – 9 PM' },
+  { value: 'Weekends', icon: Calendar, hint: 'Sat & Sun' }
 ];
 
 export default function PatientOnboarding() {
@@ -178,6 +220,7 @@ export default function PatientOnboarding() {
           return;
         }
         updateData('profilePhoto', file);
+        uploadProfilePhoto(file);
       } else if (fieldName === 'medicalReports') {
         const validFiles = files.filter(file => {
           if (file.size > 5 * 1024 * 1024) {
@@ -195,6 +238,23 @@ export default function PatientOnboarding() {
     }
   };
 
+  // Upload profile photo to Cloudinary and store returned URL
+  const uploadProfilePhoto = async (file: File) => {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch('/api/uploads/profile', { method: 'POST', body: formData });
+      const json = await res.json();
+      if (json.success && json.data?.url) {
+        updateData('profileImageUrl', json.data.url);
+      } else {
+        console.error('Image upload failed', json.message);
+      }
+    } catch (err) {
+      console.error('Upload error', err);
+    }
+  };
+
   const validateStep = (step: number): boolean => {
     setError('');
     
@@ -206,6 +266,18 @@ export default function PatientOnboarding() {
         }
         if (data.password !== data.confirmPassword) {
           setError('Passwords do not match');
+          return false;
+        }
+        // Password complexity rules
+        const pwd = data.password;
+        const passwordOk = pwd.length >= 8 && /[A-Z]/.test(pwd) && /[a-z]/.test(pwd) && /[0-9]/.test(pwd) && /[^A-Za-z0-9]/.test(pwd);
+        if (!passwordOk) {
+          setError('Password must be at least 8 characters and include uppercase, lowercase, number, and special character');
+          return false;
+        }
+        // Phone number validation (India specific 10 digits)
+        if (!/^\d{10}$/.test(data.phoneNumber)) {
+          setError('Phone number must be exactly 10 digits');
           return false;
         }
         break;
@@ -265,6 +337,7 @@ export default function PatientOnboarding() {
         password: data.password,
         userType: 'patient',
         phone: data.phoneNumber,
+        profileImageUrl: data.profileImageUrl || undefined,
         // Store additional patient data in a single field
         patientData: {
           gender: data.gender,
@@ -329,7 +402,15 @@ export default function PatientOnboarding() {
 
   const renderStepContent = () => {
     switch (currentStep) {
-      case 1:
+      case 1: {
+        // Real-time password rule checks
+        const passwordValidation = {
+          length: data.password.length >= 8,
+          upper: /[A-Z]/.test(data.password),
+          lower: /[a-z]/.test(data.password),
+          number: /[0-9]/.test(data.password),
+          special: /[^A-Za-z0-9]/.test(data.password)
+        };
         return (
           <div className="space-y-6">
             <div className="flex items-center space-x-3 mb-6">
@@ -368,6 +449,7 @@ export default function PatientOnboarding() {
                           return;
                         }
                         updateData('profilePhoto', file);
+                        uploadProfilePhoto(file);
                         setError('');
                       }
                     }}
@@ -384,12 +466,12 @@ export default function PatientOnboarding() {
                   >
                     <Upload className="w-8 h-8 mx-auto text-gray-400 mb-2" />
                     <p className="text-sm text-blue-600">
-                      {data.profilePhoto ? data.profilePhoto.name : 'Click to upload or drag and drop'}
+                      {data.profilePhoto ? (data.profileImageUrl ? 'Uploaded ✓' : data.profilePhoto.name) : 'Click to upload or drag and drop'}
                     </p>
                     <p className="text-xs text-gray-500">JPG, PNG (Max 2MB)</p>
                     {data.profilePhoto && (
                       <p className="text-xs text-green-600 mt-1">
-                        ✓ {data.profilePhoto.name} ({(data.profilePhoto.size / 1024 / 1024).toFixed(1)}MB)
+                        {data.profileImageUrl ? 'Uploaded ✓' : `✓ ${data.profilePhoto.name} (${(data.profilePhoto.size / 1024 / 1024).toFixed(1)}MB)`}
                       </p>
                     )}
                   </div>
@@ -459,15 +541,21 @@ export default function PatientOnboarding() {
                   </span>
                   <Input
                     id="phoneNumber"
-                    placeholder="Enter phone number"
+                    type="tel"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={10}
+                    autoComplete="tel"
+                    placeholder="10-digit number"
                     value={data.phoneNumber}
-                    onChange={(e) => updateData('phoneNumber', e.target.value)}
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/\D/g, '').slice(0, 10);
+                      updateData('phoneNumber', digits);
+                    }}
                     className="rounded-l-none"
                   />
-                  <Button variant="outline" className="rounded-l-none border-l-0">
-                    Send OTP
-                  </Button>
                 </div>
+                <p className="mt-1 text-xs text-gray-500">Enter a 10-digit mobile number (numbers only).</p>
               </div>
 
               <div>
@@ -492,11 +580,29 @@ export default function PatientOnboarding() {
                   <Input
                     id="password"
                     type="password"
-                    placeholder="Create a strong password"
+                    placeholder="Minimum 8 characters"
                     value={data.password}
+                    autoComplete="new-password"
                     onChange={(e) => updateData('password', e.target.value)}
                     className="mt-1"
                   />
+                  <ul className="mt-2 text-xs space-y-1">
+                    <li className={passwordValidation.length ? 'text-green-600' : 'text-gray-500'}>
+                      {passwordValidation.length ? '✓' : '•'} At least 8 characters
+                    </li>
+                    <li className={passwordValidation.upper ? 'text-green-600' : 'text-gray-500'}>
+                      {passwordValidation.upper ? '✓' : '•'} One uppercase letter (A-Z)
+                    </li>
+                    <li className={passwordValidation.lower ? 'text-green-600' : 'text-gray-500'}>
+                      {passwordValidation.lower ? '✓' : '•'} One lowercase letter (a-z)
+                    </li>
+                    <li className={passwordValidation.number ? 'text-green-600' : 'text-gray-500'}>
+                      {passwordValidation.number ? '✓' : '•'} One number (0-9)
+                    </li>
+                    <li className={passwordValidation.special ? 'text-green-600' : 'text-gray-500'}>
+                      {passwordValidation.special ? '✓' : '•'} One special character (!@#$% etc.)
+                    </li>
+                  </ul>
                 </div>
 
                 <div>
@@ -506,8 +612,9 @@ export default function PatientOnboarding() {
                   <Input
                     id="confirmPassword"
                     type="password"
-                    placeholder="Confirm your password"
+                    placeholder="Re-enter password"
                     value={data.confirmPassword}
+                    autoComplete="new-password"
                     onChange={(e) => updateData('confirmPassword', e.target.value)}
                     className="mt-1"
                   />
@@ -516,6 +623,7 @@ export default function PatientOnboarding() {
             </div>
           </div>
         );
+      }
 
       case 2:
         return (
@@ -532,25 +640,16 @@ export default function PatientOnboarding() {
                     Preferred Language *
                   </Label>
                   <ReactSelect
-                    options={[
-                      { value: 'english', label: 'English' },
-                      { value: 'hindi', label: 'Hindi' },
-                      { value: 'bengali', label: 'Bengali' },
-                      { value: 'telugu', label: 'Telugu' },
-                      { value: 'tamil', label: 'Tamil' },
-                    ]}
-                    value={[
-                      { value: 'english', label: 'English' },
-                      { value: 'hindi', label: 'Hindi' },
-                      { value: 'bengali', label: 'Bengali' },
-                      { value: 'telugu', label: 'Telugu' },
-                      { value: 'tamil', label: 'Tamil' },
-                    ].find(opt => opt.value === data.preferredLanguage) || null}
+                    options={preferredLanguageOptions}
+                    value={preferredLanguageOptions.find(opt => opt.value === data.preferredLanguage) || null}
                     onChange={selected => updateData('preferredLanguage', selected ? selected.value : '')}
                     classNamePrefix="react-select"
                     placeholder="Select language"
                     isClearable
+                    // Menu is long; make it scrollable
+                    styles={{ menuList: (base) => ({ ...base, maxHeight: 220, overflowY: 'auto' }) }}
                   />
+                  <p className="mt-1 text-xs text-gray-500">Includes all officially recognized Indian languages.</p>
                 </div>
 
                 <div>
@@ -572,12 +671,14 @@ export default function PatientOnboarding() {
                   <Label htmlFor="state" className="text-sm font-medium text-gray-700">
                     State *
                   </Label>
-                  <Input
-                    id="state"
-                    placeholder="Enter your state"
-                    value={data.state}
-                    onChange={(e) => updateData('state', e.target.value)}
-                    className="mt-1"
+                  <ReactSelect
+                    options={INDIA_STATES.map(s => ({ value: s, label: s }))}
+                    value={INDIA_STATES.map(s => ({ value: s, label: s })).find(o => o.value === data.state) || null}
+                    onChange={(selected) => updateData('state', selected ? selected.value : '')}
+                    classNamePrefix="react-select"
+                    placeholder="Select state"
+                    isClearable
+                    styles={{ menuList: (base) => ({ ...base, maxHeight: 240, overflowY: 'auto' }) }}
                   />
                 </div>
 
@@ -658,18 +759,38 @@ export default function PatientOnboarding() {
                 <Label className="text-sm font-medium text-gray-700">
                   Preferred Time Slots
                 </Label>
-                <div className="grid grid-cols-4 gap-2 mt-2">
-                  {['Morning', 'Afternoon', 'Evening', 'Weekends'].map((slot) => (
-                    <Badge
-                      key={slot}
-                      variant={data.preferredTimeSlots.includes(slot) ? "default" : "outline"}
-                      className="cursor-pointer justify-center py-2"
-                      onClick={() => handleTimeSlotToggle(slot)}
-                    >
-                      {slot}
-                    </Badge>
-                  ))}
+                <p className="text-xs text-gray-500 mt-1">Select one or more time windows that usually work for you.</p>
+                <div className="mt-3 grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-4">
+                  {timeSlotOptions.map(({ value, icon: Icon, hint }) => {
+                    const selected = data.preferredTimeSlots.includes(value);
+                    return (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => handleTimeSlotToggle(value)}
+                        aria-pressed={selected}
+                        className={`relative group rounded-lg border px-3 py-3 text-left flex flex-col items-start gap-2 transition shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 bg-white/60 backdrop-blur-sm hover:border-blue-400 ${selected ? 'border-blue-600 bg-blue-50' : 'border-gray-200'} `}
+                      >
+                        <div className="flex items-center gap-2 w-full">
+                          <span className={`inline-flex items-center justify-center w-8 h-8 rounded-md border text-blue-600 bg-white ${selected ? 'border-blue-500' : 'border-gray-300'} `}>
+                            <Icon className="w-4 h-4" />
+                          </span>
+                          <span className={`font-medium text-sm ${selected ? 'text-blue-700' : 'text-gray-800'}`}>{value}</span>
+                        </div>
+                        <span className="text-[10px] uppercase tracking-wide text-gray-500 font-medium ml-0.5">{hint}</span>
+                        {selected && (
+                          <span className="absolute top-1.5 right-1.5 inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-600 text-white shadow">
+                            <Check className="w-3 h-3" />
+                          </span>
+                        )}
+                        <span className="pointer-events-none absolute inset-0 rounded-lg ring-0 ring-blue-500/0 group-hover:ring-2 group-hover:ring-blue-200 transition"></span>
+                      </button>
+                    );
+                  })}
                 </div>
+                {data.preferredTimeSlots.length > 0 && (
+                  <p className="mt-2 text-xs text-blue-600">Selected: {data.preferredTimeSlots.join(', ')}</p>
+                )}
               </div>
             </div>
           </div>
@@ -900,12 +1021,20 @@ export default function PatientOnboarding() {
                   </span>
                   <Input
                     id="emergencyContactPhone"
-                    placeholder="Enter phone number"
+                    type="tel"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={10}
+                    placeholder="10-digit number"
                     value={data.emergencyContactPhone}
-                    onChange={(e) => updateData('emergencyContactPhone', e.target.value)}
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/\D/g, '').slice(0, 10);
+                      updateData('emergencyContactPhone', digits);
+                    }}
                     className="rounded-l-none"
                   />
                 </div>
+                <p className="mt-1 text-xs text-gray-500">Enter a 10-digit mobile number.</p>
               </div>
             </div>
           </div>

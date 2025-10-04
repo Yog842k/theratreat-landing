@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/auth/NewAuthContext';
-import { User, ChevronDown, LayoutDashboard } from 'lucide-react';
+import { User, ChevronDown, LayoutDashboard, Building2, UserCheck } from 'lucide-react';
 import Logo from '../logo.png';
 
 function NavButton({ className = '', ...rest }: React.ButtonHTMLAttributes<HTMLButtonElement>) {
@@ -21,22 +21,24 @@ export function Navigation() {
   const { user: authUser, logout } = useAuth();
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [joinOpen, setJoinOpen] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
+  const joinRef = useRef<HTMLDivElement | null>(null);
 
+  // Close profile dropdown when clicking outside / pressing escape
   useEffect(() => {
-    if (!open) return;
-    const click = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
-    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    if (!open && !joinOpen) return;
+    const click = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (joinRef.current && !joinRef.current.contains(e.target as Node)) setJoinOpen(false);
+    };
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') { setOpen(false); setJoinOpen(false); } };
     document.addEventListener('mousedown', click);
     document.addEventListener('keydown', esc);
     return () => { document.removeEventListener('mousedown', click); document.removeEventListener('keydown', esc); };
-  }, [open]);
+  }, [open, joinOpen]);
 
-  const navItems = [
-    { label: 'Home', href: '/' },
-    { label: 'About', href: '/about' },
-    { label: 'Services', href: '/services' }
-  ];
+  // Removed static marketing nav links (Home/About/Services/Contact) per request.
 
   return (
     <header className="w-full sticky top-0 z-40 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/85 border-b border-slate-200 py-2 px-3 md:px-6 shadow-sm">
@@ -49,47 +51,72 @@ export function Navigation() {
             </span>
             <span className="text-base sm:text-lg font-semibold tracking-wide text-slate-900 drop-shadow-sm">TheraTreat</span>
           </Link>
-          {/* Navigation Links (desktop) */}
-          <nav aria-label="Main" className="hidden md:flex items-center gap-1">
-            {navItems.map(item => (
-              <Link key={item.href} href={item.href} className="px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 hover:bg-slate-100 rounded-md transition-colors">
-                {item.label}
-              </Link>
-            ))}
-            <Link href="/contact" className="ml-1 px-5 py-2 text-sm font-semibold rounded-md bg-blue-600 text-white shadow hover:bg-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-200">
-              Contact
-            </Link>
-          </nav>
+          {/* (Nav links removed) */}
           {/* Auth / Profile */}
           <div className="flex items-center gap-2 md:gap-3">
-            {!authUser && (
-              <div className="hidden md:flex gap-2">
-                <NavButton onClick={() => router.push('/auth/login')} className="text-slate-600 hover:text-slate-900 hover:bg-slate-100">Login</NavButton>
-                <NavButton onClick={() => router.push('/auth/signup/account-type')} className="bg-blue-600 text-white hover:bg-blue-700 shadow">Sign Up</NavButton>
-              </div>
-            )}
-            {authUser && (
-              <div className="relative" ref={ref}>
-                <NavButton onClick={() => setOpen(o => !o)} className="flex items-center gap-1 text-slate-900 hover:bg-slate-100">
-                  <User className="w-4 h-4" />
-                  <span className="hidden sm:inline max-w-[110px] truncate">{authUser.name || 'Account'}</span>
-                  <ChevronDown className={`w-4 h-4 transition-transform ${open ? 'rotate-180' : ''}`} />
+            <div className="hidden md:flex gap-2 items-center">
+              {/* Join Us dropdown always visible */}
+              <div className="relative" ref={joinRef}>
+                <NavButton onClick={() => { setJoinOpen(o => !o); setOpen(false); }}
+                  aria-haspopup="true" aria-expanded={joinOpen}
+                  className="flex items-center gap-1 text-slate-700 hover:text-slate-900 hover:bg-slate-100">
+                  Join Us
+                  <ChevronDown className={`w-4 h-4 transition-transform ${joinOpen ? 'rotate-180' : ''}`} />
                 </NavButton>
-                {open && (
-                  <div className="absolute right-0 mt-2 w-56 rounded-xl border border-slate-200 bg-white p-2 shadow-lg animate-in fade-in">
-                    <div className="px-3 py-2 text-xs text-slate-600 border-b border-slate-200">Signed in as
-                      <div className="font-medium text-slate-800 truncate">{authUser.email}</div>
-                    </div>
-                    {authUser?.userType === 'therapist' && (
-                      <button onClick={() => { setOpen(false); router.push('/therabook/dashboard/therapist'); }} className="w-full text-left px-3 py-2 rounded-md text-sm hover:bg-blue-50 flex items-center gap-2"><LayoutDashboard className='w-4 h-4 text-blue-600'/> Dashboard</button>
+                {joinOpen && (
+                  <div className="absolute right-0 mt-2 w-60 rounded-xl border border-slate-200 bg-white p-2 shadow-lg">
+                    <div className="px-3 py-2 text-xs text-slate-500 border-b border-slate-100">Select an option</div>
+                    {/* Only show Apply as Therapist if user is not already a clinic-bound therapist */}
+                    {!(authUser && authUser.userType === 'therapist' && authUser.clinicId) && (
+                      <button onClick={() => { setJoinOpen(false); router.push('/therabook/therapists/apply'); }}
+                        className="w-full text-left px-3 py-2 rounded-md text-sm hover:bg-slate-50 flex items-center gap-2">
+                        <UserCheck className="w-4 h-4 text-green-600" />
+                        Apply as Therapist
+                      </button>
                     )}
-                    <button onClick={() => { setOpen(false); router.push(authUser?.userType === 'therapist' ? '/therabook/profile/therapist' : '/therabook/profile/user'); }} className="w-full text-left px-3 py-2 rounded-md text-sm hover:bg-blue-50">Profile</button>
-                    <button onClick={() => { setOpen(false); router.push('/therabook/bookings'); }} className="w-full text-left px-3 py-2 rounded-md text-sm hover:bg-blue-50">Bookings</button>
-                    <button onClick={() => { setOpen(false); logout(); }} className="w-full text-left px-3 py-2 rounded-md text-sm hover:bg-red-50 text-red-600">Logout</button>
+                    <button onClick={() => { setJoinOpen(false); router.push('/clinics/register'); }}
+                      className="w-full text-left px-3 py-2 rounded-md text-sm hover:bg-slate-50 flex items-center gap-2">
+                      <Building2 className="w-4 h-4 text-indigo-600" />
+                      Join as Clinic
+                    </button>
+                    <button onClick={() => { setJoinOpen(false); router.push('/auth/signup/account-type'); }}
+                      className="w-full text-left mt-1 px-3 py-2 rounded-md text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100">
+                      See all account types
+                    </button>
                   </div>
                 )}
               </div>
-            )}
+              {/* Show Login/Sign Up only when not authenticated */}
+              {!authUser && (
+                <>
+                  <NavButton onClick={() => router.push('/auth/login')} className="text-slate-600 hover:text-slate-900 hover:bg-slate-100">Login</NavButton>
+                  <NavButton onClick={() => router.push('/auth/signup/account-type')} className="bg-blue-600 text-white hover:bg-blue-700 shadow">Sign Up</NavButton>
+                </>
+              )}
+              {/* User profile menu when authenticated */}
+              {authUser && (
+                <div className="relative" ref={ref}>
+                  <NavButton onClick={() => setOpen(o => !o)} className="flex items-center gap-1 text-slate-900 hover:bg-slate-100">
+                    <User className="w-4 h-4" />
+                    <span className="hidden sm:inline max-w-[110px] truncate">{authUser.name || 'Account'}</span>
+                    <ChevronDown className={`w-4 h-4 transition-transform ${open ? 'rotate-180' : ''}`} />
+                  </NavButton>
+                  {open && (
+                    <div className="absolute right-0 mt-2 w-56 rounded-xl border border-slate-200 bg-white p-2 shadow-lg animate-in fade-in">
+                      <div className="px-3 py-2 text-xs text-slate-600 border-b border-slate-200">Signed in as
+                        <div className="font-medium text-slate-800 truncate">{authUser.email}</div>
+                      </div>
+                      {authUser?.userType === 'therapist' && (
+                        <button onClick={() => { setOpen(false); router.push('/therabook/dashboard/therapist'); }} className="w-full text-left px-3 py-2 rounded-md text-sm hover:bg-blue-50 flex items-center gap-2"><LayoutDashboard className='w-4 h-4 text-blue-600'/> Dashboard</button>
+                      )}
+                      <button onClick={() => { setOpen(false); router.push(authUser?.userType === 'therapist' ? '/therabook/profile/therapist' : '/therabook/profile/user'); }} className="w-full text-left px-3 py-2 rounded-md text-sm hover:bg-blue-50">Profile</button>
+                      <button onClick={() => { setOpen(false); router.push('/therabook/bookings'); }} className="w-full text-left px-3 py-2 rounded-md text-sm hover:bg-blue-50">Bookings</button>
+                      <button onClick={() => { setOpen(false); logout(); }} className="w-full text-left px-3 py-2 rounded-md text-sm hover:bg-red-50 text-red-600">Logout</button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

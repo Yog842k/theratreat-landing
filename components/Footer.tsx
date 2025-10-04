@@ -5,13 +5,13 @@ import { footerSections } from "@/constants/app-data";
 
 export function Footer() {
   return (
-    <footer className="bg-gray-800 text-white border-t border-gray-200 pt-16">
+  <footer className="bg-gray-900 text-white border-t border-gray-800 pt-14">
       <div className="max-w-7xl mx-auto px-6 py-12">
         {/* Main Footer Content */}
-        <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-5 mb-8">
+  <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4 mb-8">
           {/* Company Info */}
           <div className="lg:col-span-2">
-            <h3 className="text-2xl font-bold mb-4 text-white">TheraTreat</h3>
+            <h3 className="text-2xl font-bold mb-4 text-white">TheraTreat<span className="align-super text-xs ml-1">™</span></h3>
             <p className="text-gray-300 mb-6 max-w-md font-medium leading-relaxed">
               Your comprehensive healthcare ecosystem - connecting patients with providers, 
               enabling self-care, facilitating learning, and providing access to quality medical equipment.
@@ -19,11 +19,11 @@ export function Footer() {
             <div className="space-y-3 text-gray-300">
               <div className="flex items-center space-x-3">
                 <Phone className="w-5 h-5 text-blue-400" />
-                <span className="font-medium">1-800-THERATREAT</span>
+                <span className="font-medium">+91 80000 00000</span>
               </div>
               <div className="flex items-center space-x-3">
                 <Mail className="w-5 h-5 text-blue-400" />
-                <span className="font-medium">support@theratreat.com</span>
+                <span className="font-medium">support@theratreat.in</span>
               </div>
               <div className="flex items-center space-x-3">
                 <MapPin className="w-5 h-5 text-blue-400" />
@@ -46,19 +46,7 @@ export function Footer() {
             </ul>
           </div>
 
-          {/* For Providers */}
-          <div>
-            <h4 className="font-semibold mb-4">For Providers</h4>
-            <ul className="space-y-2 text-sm text-blue-200">
-              {footerSections.forProviders.map((item, index) => (
-                <li key={index}>
-                  <a href={item.href} className="hover:text-white transition-colors">
-                    {item.label}
-                  </a>
-                </li>
-              ))}
-            </ul>
-          </div>
+          {/* Removed Provider section per request */}
 
           {/* Support */}
           <div>
@@ -76,26 +64,20 @@ export function Footer() {
         </div>
 
         {/* Newsletter Signup */}
-        <div className="border-t border-blue-800 pt-8 mb-8">
+  <div className="border-t border-gray-800 pt-8 mb-8">
           <div className="max-w-md">
             <h4 className="font-semibold mb-2">Stay Connected</h4>
-            <p className="text-blue-200 text-sm mb-4">Get health tips, platform updates, and exclusive offers</p>
+            <p className="text-gray-400 text-sm mb-4">Get health tips, platform updates, and exclusive offers</p>
             <div className="flex space-x-2">
-              <Input 
-                type="email" 
-                placeholder="Enter your email"
-                className="bg-blue-800 border-blue-700 text-white placeholder:text-blue-300"
-              />
-              <Button variant="secondary" className="bg-blue-600 hover:bg-blue-500 text-white">
-                Subscribe
-              </Button>
+              <Input type="email" placeholder="Enter your email" className="bg-gray-800 border-gray-700 text-white placeholder:text-gray-400" />
+              <Button variant="secondary" className="bg-blue-600 hover:bg-blue-500 text-white">Subscribe</Button>
             </div>
           </div>
         </div>
 
         {/* Bottom Footer */}
-        <div className="border-t border-blue-800 pt-8 flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
-          <div className="flex flex-wrap gap-4 text-sm text-blue-200">
+  <div className="border-t border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
+          <div className="flex flex-wrap gap-4 text-sm text-gray-400">
             {footerSections.legal.map((item, index) => (
               <a key={index} href={item.href} className="hover:text-white transition-colors">
                 {item.label}
@@ -120,8 +102,8 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="mt-6 text-center text-sm text-blue-300">
-          <p>&copy; 2025 TheaPheap. All rights reserved. | Comprehensive Healthcare Platform | HIPAA Compliant</p>
+        <div className="mt-6 text-center text-sm text-gray-500">
+          <p>&copy; 2025 TheraTreat™. All rights reserved. | Comprehensive Healthcare Platform | DPDP Compliant</p>
         </div>
       </div>
     </footer>

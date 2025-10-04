@@ -1,10 +1,7 @@
 import { useState } from "react";
-import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
 import { EnhancedSearch } from "./EnhancedSearch";
-import { 
-  Search, 
-  MapPin,
+import {
   Brain,
   ShoppingCart,
   BookOpen,
@@ -13,6 +10,7 @@ import {
   Star,
   Award
 } from "lucide-react";
+import clsx from "clsx";
 import { ViewType } from "../constants/app-data";
 
 interface ModernHeroProps {
@@ -59,44 +57,8 @@ export function ModernHero({ setCurrentView }: ModernHeroProps) {
             />
           </div>
 
-          {/* Four CTA Buttons */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 max-w-4xl mx-auto">
-            <Button 
-              size="lg" 
-              onClick={() => setCurrentView?.("book")}
-              className="bg-therabook-primary hover:bg-therabook-primary/90 text-therabook-primary-foreground border border-therabook-primary/30 backdrop-blur-md rounded-xl p-6 h-auto flex-col space-y-3 group transition-all duration-300 hover:scale-105 shadow-lg"
-            >
-              <Calendar className="w-8 h-8 group-hover:scale-110 transition-transform" />
-              <span className="font-medium">Book Consultation</span>
-            </Button>
-            
-            <Button 
-              size="lg" 
-              onClick={() => setCurrentView?.("store")}
-              className="bg-therastore-primary hover:bg-therastore-primary/90 text-therastore-primary-foreground border border-therastore-primary/30 backdrop-blur-md rounded-xl p-6 h-auto flex-col space-y-3 group transition-all duration-300 hover:scale-105 shadow-lg"
-            >
-              <ShoppingCart className="w-8 h-8 group-hover:scale-110 transition-transform" />
-              <span className="font-medium">Shop Equipment</span>
-            </Button>
-            
-            <Button 
-              size="lg" 
-              onClick={() => setCurrentView?.("self-test")}
-              className="bg-theraself-primary hover:bg-theraself-primary/90 text-theraself-primary-foreground border border-theraself-primary/30 backdrop-blur-md rounded-xl p-6 h-auto flex-col space-y-3 group transition-all duration-300 hover:scale-105 shadow-lg"
-            >
-              <Brain className="w-8 h-8 group-hover:scale-110 transition-transform" />
-              <span className="font-medium">Take Self-Test</span>
-            </Button>
-            
-            <Button 
-              size="lg" 
-              onClick={() => setCurrentView?.("learn")}
-              className="bg-theralearn-primary hover:bg-theralearn-primary/90 text-theralearn-primary-foreground border border-theralearn-primary/30 backdrop-blur-md rounded-xl p-6 h-auto flex-col space-y-3 group transition-all duration-300 hover:scale-105 shadow-lg"
-            >
-              <BookOpen className="w-8 h-8 group-hover:scale-110 transition-transform" />
-              <span className="font-medium">Enroll to Learn</span>
-            </Button>
-          </div>
+          {/* Action Tabs (refactored) */}
+          <HeroActionTabs setCurrentView={setCurrentView} />
 
           {/* Team Stats */}
           <div className="flex flex-col lg:flex-row items-center justify-center space-y-4 lg:space-y-0 lg:space-x-12 text-white/90">
@@ -137,5 +99,60 @@ export function ModernHero({ setCurrentView }: ModernHeroProps) {
         </svg>
       </div>
     </section>
+  );
+}
+
+interface HeroActionTabsProps {
+  setCurrentView?: (view: ViewType) => void;
+}
+
+function HeroActionTabs({ setCurrentView }: HeroActionTabsProps) {
+  const items: { key: ViewType; label: string; icon: JSX.Element; color: string; hover?: string }[] = [
+    {
+      key: 'book',
+      label: 'Book Consultation',
+      icon: <Calendar className="w-5 h-5" />,
+      color: 'bg-blue-600 hover:bg-blue-500'
+    },
+    {
+      key: 'store',
+      label: 'Shop Equipment',
+      icon: <ShoppingCart className="w-5 h-5" />,
+      color: 'bg-emerald-600 hover:bg-emerald-500'
+    },
+    {
+      key: 'self-test',
+      label: 'Take Self-Test',
+      icon: <Brain className="w-5 h-5" />,
+      color: 'bg-violet-600 hover:bg-violet-500'
+    },
+    {
+      key: 'learn',
+      label: 'Enroll to Learn',
+      icon: <BookOpen className="w-5 h-5" />,
+      color: 'bg-orange-600 hover:bg-orange-500'
+    }
+  ];
+
+  return (
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto">
+      {items.map(item => (
+        <button
+          key={item.key}
+            onClick={() => setCurrentView?.(item.key)}
+            className={clsx(
+              'group relative flex flex-col items-center justify-center gap-3 rounded-xl h-28 md:h-28 px-2 text-center text-white font-medium tracking-tight shadow-sm hover:shadow-md transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70',
+              item.color
+            )}
+        >
+          <span className="flex items-center justify-center w-10 h-10 rounded-md bg-white/10 group-hover:bg-white/15 transition-colors">
+            {item.icon}
+          </span>
+          <span className="text-[11px] md:text-xs leading-tight font-semibold whitespace-pre-line">
+            {item.label}
+          </span>
+        </button>
+      ))}
+    </div>
   );
 }
