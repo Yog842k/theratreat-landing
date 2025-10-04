@@ -190,38 +190,6 @@ export default function LoginPage() {
               </p>
             </div>
 
-            {/* Quick Login Options */}
-            <div className="mt-6 pt-6 border-t border-gray-200">
-              <p className="text-center text-sm text-gray-600 mb-4">Quick access for demo:</p>
-              <div className="grid grid-cols-1 gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="text-sm h-10"
-                  onClick={() => {
-                    setFormData({
-                      email: 'admin@therabook.com',
-                      password: 'Admin123!'
-                    });
-                  }}
-                >
-                  Demo Admin Account
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="text-sm h-10"
-                  onClick={() => {
-                    setFormData({
-                      email: 'user@test.com',
-                      password: 'Test123!'
-                    });
-                  }}
-                >
-                  Demo User Account
-                </Button>
-              </div>
-            </div>
           </CardContent>
         </Card>
 

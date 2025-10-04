@@ -45,17 +45,16 @@ export function Navigation() {
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between h-14 px-2 sm:px-4">
           {/* Brand */}
-          <Link href="/" className="flex items-center gap-2 select-none group" aria-label="TheraTreat Home">
-            <span className="inline-flex h-10 w-10 md:h-11 md:w-11 rounded-lg items-center justify-center bg-white ring-1 ring-blue-200 shadow-sm transition-colors group-hover:bg-blue-50">
-              <Image
-                src={Logo}
-                alt="TheraTreat Logo"
-                priority
-                sizes="44px"
-                className="w-full h-full object-contain p-1"
-              />
-            </span>
-            <span className="text-base sm:text-lg font-semibold tracking-wide text-slate-900 drop-shadow-sm leading-none">TheraTreat</span>
+          <Link href="/" className="flex items-center gap-2 select-none" aria-label="TheraTreat Home">
+            <Image
+              src={Logo}
+              alt="TheraTreat Logo"
+              priority
+              width={44}
+              height={44}
+              className="object-contain w-10 h-10 md:w-11 md:h-11"
+            />
+            <span className="text-base sm:text-lg font-semibold tracking-wide text-slate-900 leading-none">TheraTreat</span>
           </Link>
           {/* (Nav links removed) */}
           {/* Auth / Profile */}
