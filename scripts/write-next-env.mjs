@@ -11,8 +11,8 @@
  *  - Prefer using IAM roles / service integrations where possible instead of raw keys.
  */
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'node:fs';
+import path from 'node:path';
 
 // Server-side variables you explicitly want available to Next.js runtime.
 // Remove any you decide should NOT be exposed via build artifacts.
