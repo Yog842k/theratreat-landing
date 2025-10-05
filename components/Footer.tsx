@@ -1,111 +1,107 @@
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Facebook, Twitter, Instagram, Youtube, Mail, Phone, MapPin } from "lucide-react";
-import { footerSections } from "@/constants/app-data";
+"use client";
+import Link from "next/link";
+import { Phone, Mail, MapPin, Facebook, Twitter, Instagram, Youtube } from "lucide-react";
 
 export function Footer() {
   return (
-  <footer className="bg-gray-900 text-white border-t border-gray-800 pt-14">
-      <div className="max-w-7xl mx-auto px-6 py-12">
-        {/* Main Footer Content */}
-  <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-4 mb-8">
+    <footer className="bg-blue-700 text-white w-full overflow-x-hidden" role="contentinfo">
+      <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 py-12">
+  <div className="grid grid-cols-1 md:grid-cols-3 gap-10 lg:gap-12">
           {/* Company Info */}
-          <div className="lg:col-span-2">
-            <h3 className="text-2xl font-bold mb-4 text-white">TheraTreat<span className="align-super text-xs ml-1">™</span></h3>
-            <p className="text-gray-300 mb-6 max-w-md font-medium leading-relaxed">
-              Your comprehensive healthcare ecosystem - connecting patients with providers, 
-              enabling self-care, facilitating learning, and providing access to quality medical equipment.
+          <div className="space-y-4 min-w-0">
+            <h3 className="text-2xl font-bold tracking-tight">TheraTreat<span className="align-super text-xs ml-1">™</span></h3>
+            <p className="text-blue-100 leading-relaxed text-sm md:text-base max-w-md">
+              Your comprehensive healthcare ecosystem – connecting patients with providers, enabling self‑care,
+              facilitating learning, and providing access to quality therapy equipment.
             </p>
-            <div className="space-y-3 text-gray-300">
-              <div className="flex items-center space-x-3">
-                <Phone className="w-5 h-5 text-blue-400" />
-                <span className="font-medium">+91 80000 00000</span>
+            <div className="space-y-2 text-sm">
+              <div className="flex items-start gap-2 text-blue-100">
+                <Phone className="w-4 h-4 mt-0.5" />
+                <span className="select-all">+91 8446602680</span>
               </div>
-              <div className="flex items-center space-x-3">
-                <Mail className="w-5 h-5 text-blue-400" />
-                <span className="font-medium">support@theratreat.in</span>
+              <div className="flex items-start gap-2 text-blue-100">
+                <Mail className="w-4 h-4 mt-0.5" />
+                <span className="break-all">support@theratreat.in</span>
               </div>
-              <div className="flex items-center space-x-3">
-                <MapPin className="w-5 h-5 text-blue-400" />
-                <span className="font-medium">Available nationwide</span>
+              <div className="flex items-start gap-2 text-blue-100">
+                <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                <span className="break-words max-w-xs">1503/2, Jadhav Nagar, Shikrapur, Shirur, Pune 412208, Maharashtra</span>
               </div>
             </div>
           </div>
 
           {/* Core Modules */}
-          <div>
-            <h4 className="font-bold mb-4 text-white">Core Modules</h4>
-            <ul className="space-y-3 text-sm text-gray-300">
-              {footerSections.coreModules.map((item, index) => (
-                <li key={index}>
-                  <a href={item.href} className="hover:text-blue-400 transition-colors font-medium">
-                    {item.label}
-                  </a>
-                </li>
-              ))}
+          <div className="min-w-0">
+            <h4 className="font-semibold mb-4 tracking-wide text-sm uppercase">Core Modules</h4>
+            <ul className="space-y-2 text-sm">
+              <li><Link href="/therabook" className="text-blue-100 hover:text-white transition">TheraBook – Consultations</Link></li>
+              <li><Link href="/theraself" className="text-blue-100 hover:text-white transition">TheraSelf – Assessments</Link></li>
+              <li><Link href="/therastore" className="text-blue-100 hover:text-white transition">TheraStore – Equipment</Link></li>
+              <li><Link href="/theralearn" className="text-blue-100 hover:text-white transition">TheraLearn – Education</Link></li>
             </ul>
           </div>
 
-          {/* Removed Provider section per request */}
-
           {/* Support */}
-          <div>
-            <h4 className="font-semibold mb-4">Support</h4>
-            <ul className="space-y-2 text-sm text-blue-200">
-              {footerSections.support.map((item, index) => (
-                <li key={index}>
-                  <a href={item.href} className="hover:text-white transition-colors">
-                    {item.label}
-                  </a>
-                </li>
-              ))}
+          <div className="min-w-0">
+            <h4 className="font-semibold mb-4 tracking-wide text-sm uppercase">Support</h4>
+            <ul className="space-y-2 text-sm">
+              <li><Link href="/policies#privacy" className="text-blue-100 hover:text-white transition">Privacy & Policies</Link></li>
+              <li><Link href="/policies#cancellation" className="text-blue-100 hover:text-white transition">Refund & Cancellation</Link></li>
+              <li><Link href="/policies#conduct" className="text-blue-100 hover:text-white transition">Code of Conduct</Link></li>
+              <li><Link href="/policies#liability" className="text-blue-100 hover:text-white transition">Liability</Link></li>
+              <li><Link href="/policies#accessibility" className="text-blue-100 hover:text-white transition">Accessibility</Link></li>
+              <li><Link href="/policies#account-deletion" className="text-blue-100 hover:text-white transition">Account Deletion</Link></li>
             </ul>
           </div>
         </div>
 
-        {/* Newsletter Signup */}
-  <div className="border-t border-gray-800 pt-8 mb-8">
-          <div className="max-w-md">
+        {/* Newsletter */}
+        <div className="border-t border-blue-600 mt-12 pt-8">
+          <div className="w-full max-w-md">
             <h4 className="font-semibold mb-2">Stay Connected</h4>
-            <p className="text-gray-400 text-sm mb-4">Get health tips, platform updates, and exclusive offers</p>
-            <div className="flex space-x-2">
-              <Input type="email" placeholder="Enter your email" className="bg-gray-800 border-gray-700 text-white placeholder:text-gray-400" />
-              <Button variant="secondary" className="bg-blue-600 hover:bg-blue-500 text-white">Subscribe</Button>
-            </div>
+            <p className="text-blue-100 mb-4 text-sm">Get health tips, platform updates, and exclusive offers</p>
+            <form onSubmit={(e)=>{e.preventDefault();}} className="flex gap-2 min-w-0">
+              <input 
+                type="email" 
+                aria-label="Email address"
+                required
+                placeholder="Enter your email" 
+                className="w-0 flex-1 min-w-0 px-4 py-2 rounded-lg bg-blue-600 border border-blue-500 text-white placeholder-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-300"
+              />
+              <button type="submit" className="bg-white text-blue-700 shrink-0 px-5 sm:px-6 py-2 rounded-lg font-medium hover:bg-blue-50 transition">
+                Subscribe
+              </button>
+            </form>
           </div>
         </div>
 
         {/* Bottom Footer */}
-  <div className="border-t border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
-          <div className="flex flex-wrap gap-4 text-sm text-gray-400">
-            {footerSections.legal.map((item, index) => (
-              <a key={index} href={item.href} className="hover:text-white transition-colors">
-                {item.label}
-              </a>
-            ))}
+        <div className="border-t border-blue-600 mt-10 pt-6">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-5 w-full min-w-0">
+            <div className="flex flex-wrap justify-center md:justify-start gap-3 md:gap-6 text-xs sm:text-sm text-blue-100 max-w-full">
+              <Link href="/policies#privacy" className="hover:text-white transition">Privacy</Link>
+              <Link href="/policies#cancellation" className="hover:text-white transition">Cancellation</Link>
+              <Link href="/policies#conduct" className="hover:text-white transition">Conduct</Link>
+              <Link href="/policies#data-security" className="hover:text-white transition">Security</Link>
+              <Link href="/policies#liability" className="hover:text-white transition">Liability</Link>
+              <Link href="/policies#misuse" className="hover:text-white transition">Misuse</Link>
+              <Link href="/policies#accessibility" className="hover:text-white transition">Accessibility</Link>
+              <Link href="/policies#disclaimer" className="hover:text-white transition">Disclaimer</Link>
+            </div>
+            <div className="flex items-center gap-4">
+              <Link aria-label="Facebook" href="#" className="text-blue-100 hover:text-white transition"><Facebook className="w-5 h-5" /></Link>
+              <Link aria-label="Twitter" href="#" className="text-blue-100 hover:text-white transition"><Twitter className="w-5 h-5" /></Link>
+              <Link aria-label="Instagram" href="#" className="text-blue-100 hover:text-white transition"><Instagram className="w-5 h-5" /></Link>
+              <Link aria-label="Youtube" href="#" className="text-blue-100 hover:text-white transition"><Youtube className="w-5 h-5" /></Link>
+            </div>
           </div>
-          
-          {/* Social Media */}
-          <div className="flex space-x-4">
-            <a href="#" className="w-8 h-8 bg-blue-800 rounded-full flex items-center justify-center hover:bg-blue-700 transition-colors">
-              <Facebook className="w-4 h-4" />
-            </a>
-            <a href="#" className="w-8 h-8 bg-blue-800 rounded-full flex items-center justify-center hover:bg-blue-700 transition-colors">
-              <Twitter className="w-4 h-4" />
-            </a>
-            <a href="#" className="w-8 h-8 bg-blue-800 rounded-full flex items-center justify-center hover:bg-blue-700 transition-colors">
-              <Instagram className="w-4 h-4" />
-            </a>
-            <a href="#" className="w-8 h-8 bg-blue-800 rounded-full flex items-center justify-center hover:bg-blue-700 transition-colors">
-              <Youtube className="w-4 h-4" />
-            </a>
+          <div className="text-center mt-6 text-blue-200 text-xs sm:text-sm px-2 leading-relaxed">
+            © {new Date().getFullYear()} TheraTreat. All rights reserved. | Comprehensive Healthcare Platform | HIPAA / DPDP Aware
           </div>
-        </div>
-
-        <div className="mt-6 text-center text-sm text-gray-500">
-          <p>&copy; 2025 TheraTreat™. All rights reserved. | Comprehensive Healthcare Platform | DPDP Compliant</p>
         </div>
       </div>
     </footer>
   );
 }
+
+export default Footer;

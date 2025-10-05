@@ -16,7 +16,7 @@ const path = require('path');
 
 // Server-side variables you explicitly want available to Next.js runtime.
 // Remove any you decide should NOT be exposed via build artifacts.
-const SERVER_VARS = [
+let SERVER_VARS = [
   // Database / Auth
   'MONGODB_URI','MONGODB_DB','JWT_SECRET',
   // Payments
@@ -35,6 +35,25 @@ const SERVER_VARS = [
 
 // Any key beginning with these prefixes will also be written.
 const PUBLIC_PREFIXES = ['NEXT_PUBLIC_'];
+
+// Allow adding extra server vars without editing the file by setting
+// ADDITIONAL_SERVER_VARS="VAR1,VAR2" in Amplify environment variables.
+if (process.env.ADDITIONAL_SERVER_VARS) {
+  const extras = process.env.ADDITIONAL_SERVER_VARS.split(',')
+    .map(s => s.trim())
+    .filter(Boolean);
+  if (extras.length) {
+    const before = SERVER_VARS.length;
+    // de-dupe while preserving order (existing first, then new ones)
+    const set = new Set(SERVER_VARS);
+    for (const v of extras) if (!set.has(v)) {
+      SERVER_VARS.push(v); set.add(v);
+    }
+    if (process.env.ENV_DEBUG_LIST === '1') {
+      console.log(`[write-next-env] Added ${SERVER_VARS.length - before} extra SERVER_VARS via ADDITIONAL_SERVER_VARS.`);
+    }
+  }
+}
 
 const outFile = path.join(process.cwd(), '.env.production');
 let lines = [];
@@ -67,6 +86,20 @@ if (!lines.length) {
     console.log(`  - ${k}=${masked}`);
   });
   if (lines.length > 20) console.log(`  ... (${lines.length-20} more)`);
+}
+
+// Debug summary (opt‑in) — masks values and only lists presence/absence.
+if (process.env.ENV_DEBUG_LIST === '1') {
+  const present = [];
+  const missing = [];
+  for (const k of SERVER_VARS) {
+    (process.env[k] ? present : missing).push(k);
+  }
+  console.log('[write-next-env][debug] Summary:');
+  console.log('  Present server vars:', present.length ? present.join(', ') : '(none)');
+  if (missing.length) console.log('  Missing server vars:', missing.join(', '));
+  const publicVars = Object.keys(process.env).filter(k => PUBLIC_PREFIXES.some(p => k.startsWith(p)));
+  console.log(`  Public vars detected (${publicVars.length}):`, publicVars.slice(0,25).join(', ') + (publicVars.length>25 ? ' ...' : ''));
 }
 
 // Optional: warn if critical vars absent
