@@ -15,6 +15,18 @@ export function NavigationTabs({ currentView, setCurrentView }: NavigationTabsPr
   const [showLeftScroll, setShowLeftScroll] = useState(false);
   const [showRightScroll, setShowRightScroll] = useState(false);
   const [currentScrollIndex, setCurrentScrollIndex] = useState(0);
+  const [compact, setCompact] = useState(false); // ultra-small screens
+
+  // Provide shorter labels when space is extremely constrained (e.g., < 380px width)
+  const COMPACT_LABEL_MAP: Record<string, string> = {
+    "TheraBook": "Book",
+    "TheraSelf": "Self",
+    "TheraStore": "Store",
+    "TheraLearn": "Learn",
+    "Therapists": "Therapists", // unchanged (already concise)
+    "TheaBlogs": "Blog",
+    "Home": "Home"
+  };
 
   // Determine active tab based on pathname
   const getActiveTab = (): ViewType => {
@@ -65,6 +77,16 @@ export function NavigationTabs({ currentView, setCurrentView }: NavigationTabsPr
     }
   }, []);
 
+  // Listen for resize to toggle compact mode
+  useEffect(() => {
+    const handleResize = () => {
+      setCompact(window.innerWidth < 380); // threshold for very small devices
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   // Auto-scroll to active tab on mobile
   useEffect(() => {
     const container = scrollContainerRef.current;
@@ -111,7 +133,7 @@ export function NavigationTabs({ currentView, setCurrentView }: NavigationTabsPr
 
   return (
     <div className="bg-white border-b border-gray-100 shadow-sm flex justify-center items-center">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-4 w-full">
         {/* Desktop: Flex wrap layout */}
         <div className="hidden sm:flex flex-wrap gap-2">
           {navigationTabs.map((tab) => {
@@ -136,7 +158,7 @@ export function NavigationTabs({ currentView, setCurrentView }: NavigationTabsPr
         </div>
 
         {/* Mobile: Horizontal scrollable layout */}
-        <div className="sm:hidden relative">
+  <div className="sm:hidden relative -mx-2 px-1">
           {/* Left scroll indicator */}
           {showLeftScroll && (
             <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none" />
@@ -149,12 +171,13 @@ export function NavigationTabs({ currentView, setCurrentView }: NavigationTabsPr
 
           <div 
             ref={scrollContainerRef}
-            className="overflow-x-auto scrollbar-hide scroll-smooth"
+            className="overflow-x-auto scrollbar-hide scroll-smooth snap-x snap-mandatory no-scrollbar"
             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
           >
-            <div className="flex gap-3 pb-2 px-2" style={{ minWidth: 'max-content' }}>
+            <div className="flex gap-2 pb-1.5 px-2 min-w-max">
               {navigationTabs.map((tab) => {
                 const IconComponent = tab.icon;
+                const shortLabel = COMPACT_LABEL_MAP[tab.label] || tab.label;
                 return (
                   <Button
                     key={tab.key}
@@ -162,14 +185,14 @@ export function NavigationTabs({ currentView, setCurrentView }: NavigationTabsPr
                     variant={activeTab === tab.key ? "default" : "ghost"}
                     size="sm"
                     onClick={() => handleTabClick(tab)}
-                    className={`flex items-center space-x-2 whitespace-nowrap flex-shrink-0 px-4 py-2.5 rounded-xl transition-all duration-300 font-medium ${
+                    className={`flex items-center gap-1 whitespace-nowrap flex-shrink-0 snap-start rounded-lg transition-all duration-300 font-medium border ${
                       activeTab === tab.key 
-                        ? "bg-blue-500 text-white shadow-md scale-105 hover:bg-blue-600" 
-                        : "text-gray-600 hover:bg-blue-50 hover:text-blue-600 bg-white border border-gray-200 hover:border-blue-300 hover:shadow-sm"
-                    }`}
+                        ? "bg-blue-500 border-blue-500 text-white shadow-sm hover:bg-blue-600" 
+                        : "bg-white border-gray-200 text-gray-600 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300"
+                    } ${compact ? 'px-3 py-2 text-[12px]' : 'px-4 py-2.5 text-sm'}`}
                   >
-                    <IconComponent className="w-4 h-4" />
-                    <span className="text-sm font-medium">{tab.label}</span>
+                    <IconComponent className="w-4 h-4 shrink-0" />
+                    <span className="font-medium leading-none">{compact ? shortLabel : tab.label}</span>
                   </Button>
                 );
               })}
@@ -177,7 +200,7 @@ export function NavigationTabs({ currentView, setCurrentView }: NavigationTabsPr
           </div>
           
           {/* Scroll progress indicator */}
-          <div className="flex justify-center mt-3">
+          <div className="flex justify-center mt-2">
             <div className="flex space-x-2">
               {Array.from({ length: getNumberOfPages() }).map((_, index) => (
                 <button

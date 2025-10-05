@@ -44,9 +44,9 @@ export function Navigation() {
   // Removed static marketing nav links (Home/About/Services/Contact) per request.
 
   return (
-    <header className="w-full sticky top-0 z-40 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/85 border-b border-slate-200 py-2 px-3 md:px-6 shadow-sm">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between h-14 px-2 sm:px-4">
+    <header className="w-full sticky top-0 z-40 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/85 border-b border-slate-200 py-1.5 px-3 md:px-6 shadow-sm">
+      <div className="max-w-7xl mx-auto relative">
+        <div className="flex items-center justify-between h-12 sm:h-14 px-1.5 sm:px-4">
           {/* Brand */}
           <Link href="/" className="flex items-center gap-2 select-none" aria-label="TheraTreat Home">
             <Image
@@ -61,14 +61,14 @@ export function Navigation() {
           </Link>
           {/* (Nav links removed) */}
           {/* Auth / Profile */}
-          <div className="flex items-center gap-2 md:gap-3">
-            {/* Mobile menu trigger (replaces previous persistent subheader bar) */}
-            <div className="md:hidden">
+          <div className="flex items-center gap-1 sm:gap-3">
+            {/* Mobile menu trigger (compact on <640px) */}
+            <div className="sm:hidden">
               <MobileMenu />
             </div>
-            {/* Auth / Join / Profile now visible on mobile too */}
-            <div className="flex gap-2 items-center">
-              {/* Join Us dropdown always visible */}
+            {/* Auth / Join / Profile (hidden on very small screens to reduce crowding) */}
+            <div className="hidden sm:flex gap-2 items-center">
+              {/* Join Us dropdown (desktop / tablet) */}
               <div className="relative" ref={joinRef}>
                 <NavButton onClick={() => { setJoinOpen(o => !o); setOpen(false); }}
                   aria-haspopup="true" aria-expanded={joinOpen}
