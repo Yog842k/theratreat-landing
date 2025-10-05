@@ -1,12 +1,12 @@
 "use client";
 import Link from "next/link";
-import { Phone, Mail, MapPin, Facebook, Twitter, Instagram, Youtube } from "lucide-react";
+import { Phone, Mail, MapPin, Facebook, Twitter, Instagram, Youtube, Linkedin } from "lucide-react";
 
 export function Footer() {
   return (
     <footer className="bg-blue-700 text-white w-full overflow-x-hidden" role="contentinfo">
       <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 py-12">
-  <div className="grid grid-cols-1 md:grid-cols-3 gap-10 lg:gap-12">
+  <div className="grid grid-cols-1 md:grid-cols-4 gap-10 lg:gap-12">
           {/* Company Info */}
           <div className="space-y-4 min-w-0">
             <h3 className="text-2xl font-bold tracking-tight">TheraTreat<span className="align-super text-xs ml-1">™</span></h3>
@@ -41,16 +41,25 @@ export function Footer() {
             </ul>
           </div>
 
-          {/* Support */}
+          {/* Company */}
           <div className="min-w-0">
-            <h4 className="font-semibold mb-4 tracking-wide text-sm uppercase">Support</h4>
+            <h4 className="font-semibold mb-4 tracking-wide text-sm uppercase">Company</h4>
             <ul className="space-y-2 text-sm">
-              <li><Link href="/policies#privacy" className="text-blue-100 hover:text-white transition">Privacy & Policies</Link></li>
-              <li><Link href="/policies#cancellation" className="text-blue-100 hover:text-white transition">Refund & Cancellation</Link></li>
-              <li><Link href="/policies#conduct" className="text-blue-100 hover:text-white transition">Code of Conduct</Link></li>
-              <li><Link href="/policies#liability" className="text-blue-100 hover:text-white transition">Liability</Link></li>
+              <li><Link href="/about" className="text-blue-100 hover:text-white transition">About</Link></li>
+              <li><Link href="/contact" className="text-blue-100 hover:text-white transition">Contact</Link></li>
+            </ul>
+          </div>
+
+          {/* Legal & Compliance */}
+          <div className="min-w-0">
+            <h4 className="font-semibold mb-4 tracking-wide text-sm uppercase">Legal & Compliance</h4>
+            <ul className="space-y-2 text-sm">
+              <li><Link href="/privacy" className="text-blue-100 hover:text-white transition">Privacy Policy</Link></li>
+              <li><Link href="/termsofUse" className="text-blue-100 hover:text-white transition">Terms of Use</Link></li>
+              <li><Link href="/refund" className="text-blue-100 hover:text-white transition">Refund & Cancellation</Link></li>
+              <li><Link href="/compliance" className="text-blue-100 hover:text-white transition">Compliance</Link></li>
+              <li><Link href="/hipaa" className="text-blue-100 hover:text-white transition">HIPAA / Data Handling</Link></li>
               <li><Link href="/policies#accessibility" className="text-blue-100 hover:text-white transition">Accessibility</Link></li>
-              <li><Link href="/policies#account-deletion" className="text-blue-100 hover:text-white transition">Account Deletion</Link></li>
             </ul>
           </div>
         </div>
@@ -91,7 +100,8 @@ export function Footer() {
             <div className="flex items-center gap-4">
               <Link aria-label="Facebook" href="#" className="text-blue-100 hover:text-white transition"><Facebook className="w-5 h-5" /></Link>
               <Link aria-label="Twitter" href="#" className="text-blue-100 hover:text-white transition"><Twitter className="w-5 h-5" /></Link>
-              <Link aria-label="Instagram" href="#" className="text-blue-100 hover:text-white transition"><Instagram className="w-5 h-5" /></Link>
+              <Link aria-label="Instagram" href="https://www.instagram.com/Theratreat.in/" target="_blank" rel="noopener" className="text-blue-100 hover:text-white transition"><Instagram className="w-5 h-5" /></Link>
+              <Link aria-label="LinkedIn" href="https://www.linkedin.com/company/theratreat/" target="_blank" rel="noopener" className="text-blue-100 hover:text-white transition"><Linkedin className="w-5 h-5" /></Link>
               <Link aria-label="Youtube" href="#" className="text-blue-100 hover:text-white transition"><Youtube className="w-5 h-5" /></Link>
             </div>
           </div>

@@ -426,7 +426,8 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
       // Use XHR to track progress since fetch doesn't expose it natively
       await new Promise<void>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
-        xhr.open('POST', '/api/uploads/profile');
+  const endpoint = kind === 'resume' ? '/api/uploads/resume' : '/api/uploads/profile';
+  xhr.open('POST', endpoint);
         xhr.upload.onprogress = (e) => {
           if (e.lengthComputable && kind) {
             const pct = Math.round((e.loaded / e.total) * 100);
