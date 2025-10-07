@@ -44,7 +44,8 @@ export function Navigation() {
   // Removed static marketing nav links (Home/About/Services/Contact) per request.
 
   return (
-    <header className="w-full sticky top-0 z-40 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/85 border-b border-slate-200 py-1.5 px-3 md:px-6 shadow-sm">
+    <div className="w-full sticky z-[1000] flex justify-center items-center">
+    <header className="w-[90%] rounded-full bg-gray-300/25 backdrop-blur-sm supports-[backdrop-filter]:bg-white/85 border-b border-slate-200 py-1.5 px-3 md:px-6 shadow-sm">
       <div className="max-w-7xl mx-auto relative">
         <div className="flex items-center justify-between h-12 sm:h-14 px-1.5 sm:px-4">
           {/* Brand */}
@@ -57,7 +58,7 @@ export function Navigation() {
               height={44}
               className="object-contain w-10 h-10 md:w-11 md:h-11"
             />
-            <span className="text-base sm:text-lg font-semibold tracking-wide text-slate-900 leading-none">TheraTreat</span>
+            <span className="text-base sm:text-xl text-[#2379b2] leading-none font-bold "><span className='text-[#112d45]'>Thera</span>Treat</span>
           </Link>
           {/* (Nav links removed) */}
           {/* Auth / Profile */}
@@ -135,6 +136,7 @@ export function Navigation() {
       </div>
   {/* MobileSubHeader intentionally removed so no sub bar shows on mobile */}
     </header>
+    </div>
   );
 }
 

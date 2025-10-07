@@ -105,12 +105,11 @@ interface FormData {
   freeFirstSession: boolean;
   paymentMode: string;
   // Session Modes & Pricing
-  sessionModesOffered: string[]; // e.g. ['video','audio','in-clinic','chat']
+  sessionModesOffered: string[]; // e.g. ['video','audio','in-clinic']
   sessionModePrices: {
     video: string;
     audio: string;
     inClinic: string;
-    chat: string;
   };
   bankDetails: {
     accountHolder: string;
@@ -192,8 +191,7 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
     sessionModePrices: {
       video: "",
       audio: "",
-      inClinic: "",
-      chat: ""
+      inClinic: ""
     },
     bankDetails: {
       accountHolder: "",
@@ -1132,8 +1130,7 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
                   {[
                     { id: 'video', label: 'Video Session' },
                     { id: 'audio', label: 'Audio Session' },
-                    { id: 'inClinic', label: 'In-Clinic Session' },
-                    { id: 'chat', label: 'Chat / Text Support' }
+                    { id: 'inClinic', label: 'In-Clinic Session' }
                   ].map(mode => {
                     const checked = formData.sessionModesOffered.includes(mode.id === 'inClinic' ? 'in-clinic' : mode.id);
                     const storageKey = mode.id === 'inClinic' ? 'inClinic' : mode.id;
@@ -1462,7 +1459,7 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
                     onCheckedChange={(checked) => handleNestedInputChange("agreements", "guidelines", checked)}
                   />
                   <Label htmlFor="guidelines" className="text-sm">
-                    I agree to follow TheraTreat's professional guidelines and code of conduct *
+                    I agree to follow TheraTreat's <a href="/privacy">professional guidelines and code of conduct.</a> *
                   </Label>
                 </div>
 

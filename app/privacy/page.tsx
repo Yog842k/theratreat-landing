@@ -29,10 +29,9 @@ export default function PrivacyPolicyPage() {
   return (
     <div className="relative min-h-screen flex flex-col">
       <Navigation />
-      <main className="flex-1 bg-gradient-to-b from-white via-blue-50/40 to-blue-100/30">
+      <main className="flex-1 bg-white">
         {/* Decorative top band */}
-        <div className="h-40 w-full bg-[radial-gradient(circle_at_30%_40%,rgba(59,130,246,0.15),transparent_60%)]" />
-        <div className="max-w-7xl mx-auto px-5 lg:px-8 -mt-28 pb-24">
+        <div className="max-w-7xl mt-10 mx-auto px-5 lg:px-8 pb-24">
           <div className="grid lg:grid-cols-[230px_1fr] gap-10 lg:gap-16">
             {/* Sidebar TOC */}
             <aside className="hidden lg:block pt-32">

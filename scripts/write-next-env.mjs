@@ -67,7 +67,11 @@ if (!lines.length) {
   // Mask values in log for safety
   lines.slice(0, 20).forEach(l => {
     const [k,v] = l.split('=');
-    const masked = v.length > 8 ? v.slice(0,4) + '***' + v.slice(-2) : '***';
+    // New masking: show at most first 3 chars and total length; never reveal tail to reduce leakage risk
+    let masked;
+    if (!v) masked = '***';
+    else if (v.length <= 6) masked = v[0] + '***';
+    else masked = v.slice(0,3) + '***' + `(len:${v.length})`;
     console.log(`  - ${k}=${masked}`);
   });
   if (lines.length > 20) console.log(`  ... (${lines.length-20} more)`);

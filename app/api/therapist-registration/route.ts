@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb';
 const database = require('@/lib/database');
 const AuthUtils = require('@/lib/auth');
 const { ValidationUtils, ResponseUtils } = require('@/lib/utils');
+import { sendAccountWelcome } from '@/lib/notifications';
 
 export const runtime = 'nodejs';
 
@@ -134,12 +135,21 @@ export async function POST(request: NextRequest) {
     const token = AuthUtils.generateToken({ userId: userId.toString(), userType: 'therapist' });
     const { password: _pw, ...safeUser } = userDoc as any; (safeUser as any)._id = userId;
 
+    // Fire-and-forget welcome notification (email/SMS) – don't block response on failures
+    let notification: any = null;
+    try {
+      notification = await sendAccountWelcome({ email: emailLower, name: fullName, phone: phoneNumber, userType: 'therapist' });
+    } catch (notifyErr) {
+      console.warn('[therapist-registration] welcome notification failed', (notifyErr as any)?.message);
+    }
+
     return ResponseUtils.success({
       message: isCompletingRegistration ? 'Therapist registration completed successfully!' : 'Therapist account created successfully!',
       user: safeUser,
       token,
       therapist: therapistDoc,
-      registrationCompleted: isCompletingRegistration
+      registrationCompleted: isCompletingRegistration,
+      notification
     }, 'Registration successful');
   } catch (err: any) {
     if (err?.message?.includes('duplicate key') || err?.code === 11000) {
