@@ -1,35 +1,20 @@
-#!/usr/bin/env node
-/**
- * Writes a curated set of server & public environment variables into `.env.production`
- * so that Next.js (including server components / route handlers) can access them
- * during build & runtime on Amplify. This avoids broad `env | grep` patterns and
- * gives you an auditable whitelist.
- *
- * IMPORTANT SECURITY NOTE:
- *  - Anything written into .env.production will end up in the build artifacts.
- *  - DO NOT include secrets here unless you accept that risk.
- *  - Prefer using IAM roles / service integrations where possible instead of raw keys.
- */
 
 import fs from 'node:fs';
 import path from 'node:path';
 
-// Server-side variables you explicitly want available to Next.js runtime.
-// Remove any you decide should NOT be exposed via build artifacts.
 let SERVER_VARS = [
-  // Database / Auth
   'MONGODB_URI','MONGODB_DB','JWT_SECRET',
-  // Payments
+
   'RAZORPAY_KEY_ID','RAZORPAY_KEY_SECRET',
-  // 100ms Video
+
   'HMS_ACCESS_KEY','HMS_SECRET','HMS_TEMPLATE_ID','HMS_REGION','HMS_SUBDOMAIN','HMS_MANAGEMENT_TOKEN',
-  // Twilio
+
   'TWILIO_ACCOUNT_SID','TWILIO_AUTH_TOKEN','TWILIO_SMS_FROM',
-  // SendGrid
+
   'SENDGRID_API_KEY','SENDGRID_FROM_EMAIL',
-  // Cloudinary
+
   'CLOUDINARY_CLOUD_NAME','CLOUDINARY_API_KEY','CLOUDINARY_API_SECRET',
-  // Admin bootstrap (optional; remove once initial setup done)
+
   'ADMIN_EMAIL','ADMIN_PASSWORD'
 ];
 

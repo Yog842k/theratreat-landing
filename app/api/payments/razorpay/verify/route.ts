@@ -5,7 +5,11 @@ import { selectMode, resolveSecret, isSimulationEnabled } from '@/lib/razorpay-c
 import { sendBookingConfirmation, notificationsEnabled } from '@/lib/notifications';
 import { scheduleMeeting } from '@/lib/meeting-scheduler';
 const database = require('@/lib/database');
-const AuthMiddleware = require('@/lib/middleware');
+let AuthMiddleware = require('@/lib/middleware');
+// If middleware exported as default (CommonJS interop), unwrap so requireRole is accessible
+if (AuthMiddleware && AuthMiddleware.default && !AuthMiddleware.requireRole) {
+  AuthMiddleware = AuthMiddleware.default;
+}
 const { ResponseUtils, ValidationUtils } = require('@/lib/utils');
 
 export const runtime = 'nodejs';

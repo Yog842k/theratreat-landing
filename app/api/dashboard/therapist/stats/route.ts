@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Therapist from '@/lib/models/Therapist';
 import Booking from '@/lib/models/Booking';
+import TherapistEarning from '@/lib/models/TherapistEarning';
 
 export async function GET(request: NextRequest) {
   try {
@@ -59,6 +60,28 @@ export async function GET(request: NextRequest) {
       console.error('Error counting bookings:', msg);
       return NextResponse.json({ success: false, message: 'Error counting bookings', error: msg }, { status: 500 });
     }
+    // Earnings aggregation (defensive: wrap in try so stats still return if this fails)
+    let totalEarnings = 0, availableEarnings = 0, last30Days = 0;
+    try {
+      const tid = therapist._id;
+      const earnings = await TherapistEarning.aggregate([
+        { $match: { therapistId: tid } },
+        { $group: { _id: '$status', sum: { $sum: '$amount' } } }
+      ]);
+      for (const row of earnings) {
+        totalEarnings += row.sum || 0;
+        if (row._id === 'available') availableEarnings = row.sum || 0;
+      }
+      const thirtyDaysAgo = new Date(Date.now() - 30*24*60*60*1000);
+      const last30 = await TherapistEarning.aggregate([
+        { $match: { therapistId: tid, createdAt: { $gte: thirtyDaysAgo } } },
+        { $group: { _id: null, sum: { $sum: '$amount' } } }
+      ]);
+      last30Days = last30?.[0]?.sum || 0;
+    } catch (e) {
+      console.warn('Earnings aggregation warning:', (e as any)?.message);
+    }
+
     return NextResponse.json({
       success: true,
       stats: {
@@ -68,6 +91,9 @@ export async function GET(request: NextRequest) {
         cancelledSessions,
         rating: therapist.rating,
         reviewCount: therapist.reviewCount,
+        totalEarnings,
+        availableEarnings,
+        last30DaysEarnings: last30Days,
       },
       therapist: {
         displayName: therapist.displayName,

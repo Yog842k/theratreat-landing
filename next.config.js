@@ -23,6 +23,14 @@ const nextConfig = {
       '@tldraw/editor': path.resolve(__dirname, 'node_modules/@tldraw/editor'),
       '@tldraw/tldraw': path.resolve(__dirname, 'node_modules/@tldraw/tldraw'),
     };
+
+    // NOTE: Removed previous IgnorePlugin that suppressed Razorpay API route emission.
+    // It was matching the compiled route.js files and caused runtime "Cannot find module" errors
+    // when Next tried to require the built server bundle. If duplicate shadow files resurface,
+    // reintroduce a narrower ignore rule or delete the duplicates instead of ignoring all.
+    // NOTE: Previously an IgnorePlugin suppressed server compilation of Razorpay route .js outputs.
+    // It has been removed because it prevented the compiled route file (route.js) from being
+    // resolved at runtime, leading to: Cannot find module .../razorpay/order/route.js
     return config;
   },
   // Use a custom distDir to avoid lingering locked .next/trace file issues on Windows

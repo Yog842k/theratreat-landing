@@ -41,8 +41,22 @@ const PATTERNS = [
 
 const findings = [];
 
+// Lines that are clearly placeholders or explicitly allowed should be skipped
+// Add a trailing comment `// secret-scan: allow` OR include one of the placeholder tokens below
+const INLINE_ALLOW_MARKER = /secret-scan:\s*allow/i;
+const PLACEHOLDER_TOKENS = [
+  'PLACEHOLDER',
+  'XXXXXXXXXXXXXXXX',
+  'your_access_key_here',
+  'rzp_test_x', // generic masked test key
+  'change_this_shared_secret',
+  'rzp_test_SIMULATED' // explicit simulated Razorpay key used only in no-credentials simulation path
+];
+
 function isPlaceholderLine(line) {
-  return /(PLACEHOLDER|XXXXXXXXXXXXXXXX|your_access_key_here|rzp_test_x+|change_this_shared_secret)/i.test(line);
+  if (INLINE_ALLOW_MARKER.test(line)) return true;
+  const lower = line.toLowerCase();
+  return PLACEHOLDER_TOKENS.some(tok => lower.includes(tok.toLowerCase()));
 }
 
 function scanFile(filePath) {

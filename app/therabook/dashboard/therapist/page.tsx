@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '@/components/auth/NewAuthContext';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -129,7 +130,8 @@ interface TodaySession {
 }
 
 export default function TherapistDashboardPage() {
-  const { user, token, isAuthenticated, isLoading } = useAuth();
+  const { user, token, isAuthenticated, isLoading, logout } = useAuth();
+  const router = useRouter();
   // Resolve therapistId from server (therapist document) because user._id != therapist._id
   const [resolvedTherapistId, setResolvedTherapistId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("profile");
@@ -144,7 +146,8 @@ export default function TherapistDashboardPage() {
     return Number.isFinite(n) ? n : def;
   };
   const formatFixed = (v: unknown, digits = 1): string => toNumber(v, 0).toFixed(digits);
-  const formatCurrency = (v: unknown): string => `$${toNumber(v, 0).toLocaleString()}`;
+  // Display currency in INR with symbol ₹ as requested
+  const formatCurrency = (v: unknown): string => `₹${toNumber(v, 0).toLocaleString('en-IN')}`;
   // Use same-origin API by default; allow override via env if explicitly set
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
 
@@ -261,16 +264,21 @@ export default function TherapistDashboardPage() {
       }
       if (result.success && result.stats) {
         const s = result.stats || {};
+        // Verification heuristic: if isVerified flag present use 100 else ratio of completed vs total
+        const verifiedFlag = result.therapist?.isVerified;
+        const totalSessions = toNumber(s.totalSessions,0);
+        const completedSessions = toNumber(s.completedSessions,0);
+        const verificationPct = verifiedFlag ? 100 : (totalSessions > 0 ? Math.min(100, Math.round((completedSessions / totalSessions) * 60 + 40)) : 0);
         setDashboardStats({
-          totalSessions: toNumber(s.totalSessions, 0),
+          totalSessions: totalSessions,
           thisMonthSessions: toNumber(s.upcomingSessions, 0),
           averageRating: toNumber(s.rating, 0),
           totalReviews: toNumber(s.reviewCount, 0),
-          thisMonthEarnings: 0,
-          lastMonthEarnings: 0,
-          totalEarnings: 0,
-          pendingWithdrawal: 0,
-          verificationPercentage: 0
+          thisMonthEarnings: toNumber(s.last30DaysEarnings,0),
+          lastMonthEarnings: 0, // placeholder until dedicated endpoint
+          totalEarnings: toNumber(s.totalEarnings,0),
+          pendingWithdrawal: toNumber(s.availableEarnings,0),
+          verificationPercentage: verificationPct
         });
       } else {
         setError(result.message || 'Failed to load dashboard statistics');
@@ -530,15 +538,32 @@ export default function TherapistDashboardPage() {
             <RefreshCw className={`w-4 h-4 mr-2 ${isLoadingData ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
-          <Button variant="outline">
+          <Button
+            variant="outline"
+            onClick={() => {
+              // Persist original role so user can come back quickly (optional)
+              sessionStorage.setItem('originalUserType', user?.userType || 'therapist');
+              // Switch to consumer / patient dashboard (or homepage fallback)
+              router.push('/therabook/dashboard/patient');
+            }}
+            title="Use Mode lets you act like a regular user to book sessions or buy items"
+          >
             <UserCog className="w-4 h-4 mr-2" />
-            Switch to User View
+            Use Mode
           </Button>
-          <Button variant="outline">
+          <Button
+            variant="outline"
+            onClick={() => router.push('/theralearn')}
+            title="Switch to instructor (learning) workspace"
+          >
             <GraduationCap className="w-4 h-4 mr-2" />
             Instructor Mode
           </Button>
-          <Button variant="outline">
+          <Button
+            variant="outline"
+            onClick={() => { logout(); router.push('/'); }}
+            title="Sign out"
+          >
             <LogOut className="w-4 h-4 mr-2" />
             Log Out
           </Button>
@@ -663,11 +688,21 @@ export default function TherapistDashboardPage() {
                     </div>
                     <div className="text-center space-y-2">
                       <div className="flex items-center justify-center space-x-2">
-                        <Badge className="bg-green-100 text-green-800">
-                          <CheckCircle className="w-3 h-3 mr-1" />
-                          Verified
-                        </Badge>
-                        <Badge className="bg-blue-100 text-blue-800">Top Rated</Badge>
+                        {/* Only show Verified badge if backend % >= 100 */}
+                        {toNumber(dashboardStats.verificationPercentage,0) >= 100 ? (
+                          <Badge className="bg-green-100 text-green-800">
+                            <CheckCircle className="w-3 h-3 mr-1" />
+                            Verified
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-yellow-100 text-yellow-800">
+                            <AlertTriangle className="w-3 h-3 mr-1" />
+                            Not Fully Verified
+                          </Badge>
+                        )}
+                        {toNumber(dashboardStats.averageRating,0) > 0 && (
+                          <Badge className="bg-blue-100 text-blue-800">Top Rated</Badge>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -822,90 +857,39 @@ export default function TherapistDashboardPage() {
         <TabsContent value="verification">
           <div className="space-y-6">
             <h3 className="text-2xl font-semibold text-blue-600">Verification Status</h3>
-            
-            <div className="grid md:grid-cols-3 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    KYC Documents
-                    <CheckCircle className="w-5 h-5 text-green-500" />
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">Aadhaar Card</span>
-                      <Badge className="bg-green-100 text-green-800">Verified</Badge>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">PAN Card</span>
-                      <Badge className="bg-green-100 text-green-800">Verified</Badge>
-                    </div>
-                    <Button size="sm" variant="outline" className="w-full">
-                      <Upload className="w-3 h-3 mr-1" />
-                      Update Documents
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    Professional License
-                    <AlertTriangle className="w-5 h-5 text-yellow-500" />
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">Medical License</span>
-                      <Badge className="bg-yellow-100 text-yellow-800">Pending</Badge>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">State Registration</span>
-                      <Badge className="bg-green-100 text-green-800">Verified</Badge>
-                    </div>
-                    <Button size="sm" variant="outline" className="w-full">
-                      <Upload className="w-3 h-3 mr-1" />
-                      Upload License
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center justify-between">
-                    Education Credentials
-                    <CheckCircle className="w-5 h-5 text-green-500" />
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">Degree Certificate</span>
-                      <Badge className="bg-green-100 text-green-800">Verified</Badge>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm">Transcript</span>
-                      <Badge className="bg-green-100 text-green-800">Verified</Badge>
-                    </div>
-                    <Button size="sm" variant="outline" className="w-full">
-                      <Eye className="w-3 h-3 mr-1" />
-                      View Documents
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-
-            <Alert>
-              <CheckCircle className="h-4 w-4" />
-              <AlertDescription>
-                Your profile is {dashboardStats.verificationPercentage}% verified. Complete your medical license verification to unlock all features.
-              </AlertDescription>
-            </Alert>
+            {/* Simplified dynamic verification view pulling real statuses when wired */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Shield className="w-5 h-5" /> Current Verification Progress
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid md:grid-cols-3 gap-4">
+                  {['KYC','Degrees','License'].map(item => {
+                    const percent = toNumber(dashboardStats.verificationPercentage,0);
+                    const status = percent >= 100 ? 'Verified' : (percent >= 60 ? 'In Review' : 'Pending');
+                    const color = status==='Verified' ? 'bg-green-100 text-green-800' : status==='In Review' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800';
+                    return (
+                      <div key={item} className="p-4 border rounded-lg space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-medium text-sm">{item}</span>
+                          <Badge className={color}>{status}</Badge>
+                        </div>
+                        <Progress value={Math.min(100, percent)} />
+                        <Button size="sm" variant="outline" className="w-full">{status==='Verified' ? 'View' : 'Upload'}</Button>
+                      </div>
+                    );
+                  })}
+                </div>
+                <Alert className="mt-2">
+                  {toNumber(dashboardStats.verificationPercentage,0) >= 100 ? <CheckCircle className="h-4 w-4" /> : <AlertTriangle className="h-4 w-4" />}
+                  <AlertDescription>
+                    {toNumber(dashboardStats.verificationPercentage,0) >= 100 ? 'All verification steps complete.' : 'Complete pending steps to unlock full platform functionality.'}
+                  </AlertDescription>
+                </Alert>
+              </CardContent>
+            </Card>
           </div>
         </TabsContent>
 
@@ -1102,30 +1086,6 @@ export default function TherapistDashboardPage() {
             <div className="grid md:grid-cols-2 gap-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Withdrawal History</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {[
-                      { amount: 2400, date: "Jan 15, 2024", status: "Completed" },
-                      { amount: 3200, date: "Dec 15, 2023", status: "Completed" },
-                      { amount: 2800, date: "Nov 15, 2023", status: "Completed" }
-                    ].map((withdrawal, index) => (
-                      <div key={index} className="flex items-center justify-between p-3 border rounded">
-                        <div>
-                          <p className="font-medium">${withdrawal.amount}</p>
-                          <p className="text-sm text-muted-foreground">{withdrawal.date}</p>
-                        </div>
-                        <Badge className="bg-green-100 text-green-800">{withdrawal.status}</Badge>
-                      </div>
-                    ))}
-                  </div>
-                  <Button className="w-full mt-4" variant="outline">View All Transactions</Button>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
                   <CardTitle>Request Withdrawal</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -1159,41 +1119,11 @@ export default function TherapistDashboardPage() {
         <TabsContent value="courses">
           <div className="space-y-6">
             <h3 className="text-2xl font-semibold text-blue-600">Courses & Certifications</h3>
-            <div className="grid md:grid-cols-2 gap-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Completed Courses</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between p-3 border rounded">
-                      <div>
-                        <p className="font-medium">Advanced CBT Techniques</p>
-                        <p className="text-sm text-muted-foreground">Completed: Jan 2024</p>
-                      </div>
-                      <Button size="sm" variant="outline">
-                        <Download className="w-3 h-3 mr-1" />
-                        Certificate
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle>Available Courses</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    <div className="p-3 border rounded">
-                      <p className="font-medium">Trauma-Informed Care</p>
-                      <p className="text-sm text-muted-foreground">Duration: 8 hours</p>
-                      <Button size="sm" className="mt-2">Enroll Now</Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+            <Card>
+              <CardContent className="p-6 text-sm text-muted-foreground">
+                Course tracking and certificates will appear here once you enroll via TheraLearn. No course data yet.
+              </CardContent>
+            </Card>
           </div>
         </TabsContent>
 

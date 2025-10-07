@@ -1,6 +1,8 @@
 import type { NextRequest } from 'next/server';
 const { ResponseUtils } = require('@/lib/utils');
 
+export const runtime = 'nodejs';
+
 function selectMode(): 'test'|'live' {
   const explicit = (process.env.RAZORPAY_MODE || '').trim().toLowerCase();
   if (explicit === 'live') return 'live';

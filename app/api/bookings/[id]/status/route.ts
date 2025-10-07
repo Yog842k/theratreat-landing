@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Booking from '@/lib/models/Booking';
 import Therapist from '@/lib/models/Therapist';
+import TherapistEarning from '@/lib/models/TherapistEarning';
 const AuthMiddleware = require('@/lib/middleware');
 
 export async function PATCH(
@@ -54,8 +55,42 @@ export async function PATCH(
       );
     }
 
+    const previousStatus = booking.status;
     booking.status = status;
     await booking.save();
+
+    // Auto-create earning when a session is marked completed AND payment is paid.
+    // Conditions:
+    // - Transition to 'completed' (was not previously completed)
+    // - booking.paymentStatus === 'paid'
+    // - No existing TherapistEarning for this booking (idempotent)
+    if (status === 'completed' && previousStatus !== 'completed' && booking.paymentStatus === 'paid') {
+      try {
+        const existing = await TherapistEarning.findOne({ bookingId: booking._id });
+        if (!existing) {
+          // Optional platform fee calculation (placeholder: 10%)
+          const platformFeePct = parseFloat(process.env.PLATFORM_FEE_PCT || '10');
+            const rawAmount = booking.amount || 0;
+            const platformFee = Math.round(rawAmount * (platformFeePct / 100));
+            const therapistAmount = rawAmount - platformFee;
+
+          await TherapistEarning.create({
+            therapistId: booking.therapistId,
+            bookingId: booking._id,
+            amount: therapistAmount < 0 ? 0 : therapistAmount,
+            currency: 'INR',
+            status: 'available',
+            meta: {
+              platformFee,
+              notes: `Auto release after session completion. Gross: ${rawAmount}`
+            },
+            releasedAt: new Date()
+          });
+        }
+      } catch (e) {
+        console.warn('Earning creation warning:', (e as any)?.message);
+      }
+    }
 
     return NextResponse.json({ success: true, booking });
   } catch (error) {
