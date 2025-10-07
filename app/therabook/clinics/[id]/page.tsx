@@ -6,7 +6,11 @@ export const metadata = {
   description: 'View clinic details, therapists, services, and book a session.'
 };
 
-export default async function ClinicProfilePage({ params }: { params: { id: string } }) {
-  // In a future iteration we can server-fetch minimal SEO data for the clinic here.
-  return <ClinicProfileClient clinicId={params.id} />;
+interface ClinicPageProps {
+  params?: any; // loosen to avoid Next PageProps constraint mismatch in build
+}
+
+export default function ClinicProfilePage({ params }: ClinicPageProps) {
+  const id = params?.id as string;
+  return <ClinicProfileClient clinicId={id} />;
 }
