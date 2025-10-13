@@ -46,6 +46,19 @@ Amplify deployment checklist
   - JWT secret
   - Razorpay keys
   - Twilio, SendGrid, Cloudinary, 100ms keys
+
+6) Notifications & Reminder Scheduler
+------------------------------------
+- Add env vars for notifications:
+  - SENDGRID_API_KEY, SENDGRID_FROM_EMAIL
+  - TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_SMS_FROM (and optionally TWILIO_WHATSAPP_FROM)
+  - NEXT_PUBLIC_BASE_URL (e.g., https://your-domain.com)
+  - CRON_SECRET (required by /api/cron/send-reminders)
+- Schedule a recurring job to POST to `/api/cron/send-reminders` with header `x-cron-key: $CRON_SECRET` every 5–10 minutes.
+  - Vercel: Project → Settings → Cron Jobs → Add POST job to `/api/cron/send-reminders`
+  - Amplify/Render: Use their scheduled tasks to call the URL with the header.
+  - Self-hosted: OS cron + curl/PowerShell Invoke-RestMethod.
+- See NOTIFICATIONS.md for detailed steps and test instructions.
 - After rotation, remove `.env.local` from your machine or keep it out of git by adding to `.gitignore`.
 
 5) Optional: enforce in CI

@@ -199,6 +199,29 @@ export async function POST(request) {
     // attach _id for client convenience
     booking._id = result.insertedId;
 
+    // Fire & forget immediate receipt notification (email/SMS) if configured
+    try {
+      const { notificationsEnabled, sendBookingReceipt } = require('@/lib/notifications');
+      if (notificationsEnabled && notificationsEnabled()) {
+        queueMicrotask(async () => {
+          try {
+            const fullUser = await database.findOne('users', { _id: new ObjectId(user._id) });
+            const therapistDoc = therapistProfile || (therapistProfileId ? await database.findOne('therapists', { _id: therapistProfileId }) : null);
+            await sendBookingReceipt({
+              bookingId: booking._id.toString(),
+              userEmail: fullUser?.email,
+              userName: fullUser?.name,
+              userPhone: fullUser?.phone,
+              therapistName: therapistDoc?.displayName || therapistUser?.name,
+              sessionType: booking.sessionType,
+              date: booking.appointmentDate?.toISOString?.(),
+              timeSlot: booking.appointmentTime
+            });
+          } catch (e) { console.error('sendBookingReceipt failed', e); }
+        });
+      }
+    } catch (e) { /* ignore */ }
+
     return ResponseUtils.success({
       bookingId: result.insertedId,
       booking

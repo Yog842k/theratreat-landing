@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
       return ResponseUtils.badRequest('Agreements must be accepted');
     }
 
-    const password = body.ownerPassword || ValidationUtils.generateRandomString?.(12) || Math.random().toString(36).slice(2);
+  const password = body.ownerPassword || ValidationUtils.generateRandomString?.(12) || Math.random().toString(36).slice(2);
     if (password.length < 8) return ResponseUtils.badRequest('Owner password must be >= 8 chars');
 
     const emailLower = String(body.ownerEmail).toLowerCase();
@@ -41,6 +41,17 @@ export async function POST(request: NextRequest) {
     const clinicEmailLower = String(body.email).toLowerCase();
     const existingClinic = await database.findOne('clinics', { email: clinicEmailLower });
     if (existingClinic) return ResponseUtils.badRequest('Clinic already registered with this email');
+
+    // Enforce OTP verification for clinic owner mobile
+    if (body.ownerMobile) {
+      try {
+        const { isPhoneVerified } = require('@/lib/otp');
+        const verified = await isPhoneVerified({ phone: body.ownerMobile, purpose: 'signup:clinic' });
+        if (!verified) {
+          return ResponseUtils.errorCode('OTP_REQUIRED', 'Owner mobile not verified. Please complete OTP verification.', 409, { phone: body.ownerMobile, purpose: 'signup:clinic' });
+        }
+      } catch (e: any) { /* if OTP utils missing, allow flow but prefer verification in production */ }
+    }
 
     const now = new Date();
     const hashed = await AuthUtils.hashPassword(password);

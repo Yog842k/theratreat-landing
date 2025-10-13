@@ -44,7 +44,7 @@ export function Navigation() {
   // Removed static marketing nav links (Home/About/Services/Contact) per request.
 
   return (
-    <div className="w-full sticky z-[1000] flex justify-center items-center">
+    <div className="w-full sticky top-2 md:top-4 z-[1000] flex justify-center items-center">
     <header className="w-[90%] rounded-full bg-gray-300/25 backdrop-blur-sm supports-[backdrop-filter]:bg-white/85 border-b border-slate-200 py-1.5 px-3 md:px-6 shadow-sm">
       <div className="max-w-7xl mx-auto relative">
         <div className="flex items-center justify-between h-12 sm:h-14 px-1.5 sm:px-4">

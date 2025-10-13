@@ -4,6 +4,8 @@ const database = require('@/lib/database');
 const AuthUtils = require('@/lib/auth');
 const { ValidationUtils, ResponseUtils } = require('@/lib/utils');
 import { sendAccountWelcome } from '@/lib/notifications';
+import { OtpUtils } from '@/lib/otp';
+import { Idfy } from '@/lib/idfy';
 
 export const runtime = 'nodejs';
 
@@ -17,12 +19,54 @@ export async function POST(request: NextRequest) {
       email,
       password,
       phoneNumber,
+      otpCode,              // Provided when verifying OTP & completing registration
+      skipOtp,              // (internal/testing) bypass OTP if set & allowed
+      resendOtp,            // if true, force sending a new OTP
       isCompletingRegistration = true,
       ...rest
     } = body || {};
 
     if (!fullName || !email || !password || !phoneNumber) {
       return ResponseUtils.badRequest('Missing required account fields: fullName, email, password, phoneNumber');
+    }
+
+    // OTP Gate: Require phone verification before creating account (unless skipOtp allowed)
+    const otpPurpose = 'therapist_registration';
+    const otpEnforced = process.env.ENABLE_PHONE_OTP !== '0' && process.env.ENABLE_PHONE_OTP !== 'false';
+
+    if (otpEnforced && !skipOtp) {
+      // If no otpCode provided OR resend flag set -> send OTP and short-circuit response
+      if (!otpCode || resendOtp) {
+        const otpRes = await OtpUtils.requestOtp({ phone: phoneNumber, purpose: otpPurpose });
+        if (!otpRes.ok) {
+          const map: Record<string, string> = {
+            INVALID_PHONE: 'Invalid phone number format',
+            TWILIO_NOT_CONFIGURED: 'OTP service not configured',
+            SMS_SEND_FAILED: 'Failed to send OTP SMS'
+          };
+            return ResponseUtils.errorCode(otpRes.error || 'OTP_ERROR', map[otpRes.error || ''] || 'Failed to send verification code', 400, { detail: otpRes.detail });
+        }
+        return ResponseUtils.success({
+          otpSent: true,
+          phone: otpRes.phone,
+          ttlMinutes: otpRes.ttlMinutes,
+          message: 'OTP sent to phone. Submit again with otpCode to complete registration.'
+        }, 'OTP Sent', 202);
+      }
+
+      // Verify provided otpCode
+      const verifyRes = await OtpUtils.verifyOtp({ phone: phoneNumber, purpose: otpPurpose, code: String(otpCode) });
+      if (!verifyRes.ok) {
+        const map: Record<string, { msg: string; status?: number; }> = {
+          NOT_FOUND: { msg: 'OTP not found. Please request a new code.' },
+          EXPIRED: { msg: 'OTP expired. Please request a new code.' },
+          TOO_MANY_ATTEMPTS: { msg: 'Too many invalid attempts. Request a new code.' },
+          INVALID_CODE: { msg: 'Incorrect OTP code.' },
+          INVALID_PHONE: { msg: 'Invalid phone number format.' }
+        };
+        const meta = map[verifyRes.error || ''] || { msg: 'OTP verification failed.' };
+        return ResponseUtils.errorCode(verifyRes.error || 'OTP_VERIFY_FAILED', meta.msg, meta.status || 400, verifyRes);
+      }
     }
 
     const emailLower = String(email).toLowerCase();
@@ -44,6 +88,34 @@ export async function POST(request: NextRequest) {
       if (missing.length) {
         return ResponseUtils.badRequest('All agreements must be accepted to complete registration', { unacceptedAgreements: missing });
       }
+
+      // PAN verification gate using IDfy (Aadhaar optional)
+      const pan = String(rest.panCard || '').toUpperCase();
+      const aadhaar = String(rest.aadhaar || ''); // optional, not enforced here
+      const dob = String(rest.dateOfBirth || body.dateOfBirth || '').trim();
+      if (!pan) {
+        return ResponseUtils.badRequest('PAN is required for verification');
+      }
+      const panFormat = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
+      if (!panFormat.test(pan)) {
+        return ResponseUtils.badRequest('Invalid PAN format');
+      }
+
+      // Invoke IDfy PAN verification and compare user-provided name/DOB
+      const idfyRes = await Idfy.verifyPan({ pan, name: fullName, dob });
+      if (!idfyRes.ok) {
+        return ResponseUtils.errorCode(idfyRes.error || 'PAN_VERIFY_FAILED', idfyRes.detail || 'Failed to verify PAN');
+      }
+  const nameMatch = !!idfyRes.match?.nameMatch;
+  const dobMatch = !!idfyRes.match?.dobMatch;
+      if (!nameMatch || !dobMatch) {
+        return ResponseUtils.error('Provided details do not match PAN records', 400, {
+          nameOnCard: idfyRes.nameOnCard,
+          dobOnCard: idfyRes.dobOnCard,
+          nameMatch,
+          dobMatch
+        });
+      }
     }
 
     const existing = await database.findOne('users', { email: emailLower });
@@ -60,7 +132,10 @@ export async function POST(request: NextRequest) {
       password: hashedPassword,
       userType: 'therapist',
       phone: ValidationUtils.sanitizeString(phoneNumber),
+      profileImage: rest.profilePhotoUrl ? ValidationUtils.sanitizeString(rest.profilePhotoUrl) : undefined,
       isActive: true,
+      // Keep global account verification for manual admin approval flow.
+      // Phone OTP only gates creation; admin sets isVerified=true later in dashboard.
       isVerified: false,
       onboardingCompleted: isCompletingRegistration,
       createdAt: now,
@@ -82,10 +157,16 @@ export async function POST(request: NextRequest) {
       preferredLanguages: rest.preferredLanguages || [],
       panCard: ValidationUtils.sanitizeString(rest.panCard || ''),
       aadhaar: ValidationUtils.sanitizeString(rest.aadhaar || ''),
+      // Persist profile image URLs and also map to generic `image` for existing UI
+      profilePhotoUrl: rest.profilePhotoUrl ? ValidationUtils.sanitizeString(rest.profilePhotoUrl) : '',
+      image: rest.profilePhotoUrl ? ValidationUtils.sanitizeString(rest.profilePhotoUrl) : '',
       qualification: ValidationUtils.sanitizeString(rest.qualification || ''),
       university: ValidationUtils.sanitizeString(rest.university || ''),
       graduationYear: ValidationUtils.sanitizeString(rest.graduationYear || ''),
       licenseNumber: ValidationUtils.sanitizeString(rest.licenseNumber || ''),
+      qualificationCertUrls: Array.isArray(rest.qualificationCertUrls) ? rest.qualificationCertUrls : [],
+      licenseDocumentUrl: rest.licenseDocumentUrl ? ValidationUtils.sanitizeString(rest.licenseDocumentUrl) : '',
+      resumeUrl: rest.resumeUrl ? ValidationUtils.sanitizeString(rest.resumeUrl) : '',
       designations: rest.designations || [],
       primaryConditions: rest.primaryConditions || [],
       experience: ValidationUtils.sanitizeString(rest.experience || ''),

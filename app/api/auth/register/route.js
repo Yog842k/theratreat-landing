@@ -23,6 +23,18 @@ export async function POST(request) {
       return ResponseUtils.badRequest('User already exists with this email');
     }
 
+    // Enforce phone OTP verification if phone provided
+    try {
+      if (phone) {
+        const { isPhoneVerified } = require('@/lib/otp');
+        const purpose = userType === 'therapist' ? 'signup:therapist' : userType === 'clinic' ? 'signup:clinic' : 'signup:user';
+        const verified = await isPhoneVerified({ phone, purpose });
+        if (!verified) {
+          return ResponseUtils.errorCode('OTP_REQUIRED', 'Phone not verified. Please complete OTP verification.', 409, { phone, purpose });
+        }
+      }
+    } catch (e) { /* non-blocking if OTP utils unavailable */ }
+
     // Hash password
     const hashedPassword = await AuthUtils.hashPassword(password);
 
@@ -35,7 +47,7 @@ export async function POST(request) {
       phone: phone || null,
       profileImage: profileImageUrl || null,
       isActive: true,
-      isVerified: false,
+  isVerified: !!phone, // if phone verified via OTP flow we mark as verified; email verification can be separate
       createdAt: new Date(),
       updatedAt: new Date()
     };

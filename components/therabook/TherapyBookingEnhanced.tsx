@@ -105,15 +105,28 @@ export function TherapyBookingEnhanced({ therapistId }: TherapyBookingProps) {
   const [patientEmergency, setPatientEmergency] = useState('');
   const [hasTherapyBefore, setHasTherapyBefore] = useState(false);
 
+  // In-Home visit details (only required when session type is 'home')
+  const [inHomeAddressLine1, setInHomeAddressLine1] = useState('');
+  const [inHomeAddressLine2, setInHomeAddressLine2] = useState('');
+  const [inHomeCity, setInHomeCity] = useState('');
+  const [inHomePincode, setInHomePincode] = useState('');
+  const [inHomeContactName, setInHomeContactName] = useState('');
+  const [inHomeContactPhone, setInHomeContactPhone] = useState('');
+
   const isValidObjectId = (id: string) => /^[a-fA-F0-9]{24}$/.test(id);
   const therapistIdValid = isValidObjectId(therapistId);
 
   const canProceedFromStep1 = true; // Step 1 is just therapist review
   const canProceedFromStep2 = useMemo(() => !!(selectedDate && selectedTime), [selectedDate, selectedTime]);
   const canProceedFromStep3 = useMemo(() => !!selectedSessionType, [selectedSessionType]);
-  const canProceedFromStep4 = useMemo(() => (
-    !!(patientFullName && patientEmail && patientPhone && patientConcerns)
-  ), [patientFullName, patientEmail, patientPhone, patientConcerns]);
+  const inHomeSelected = useMemo(() => selectedSessionType === 'home', [selectedSessionType]);
+  const canProceedFromStep4 = useMemo(() => {
+    const baseOk = !!(patientFullName && patientEmail && patientPhone && patientConcerns);
+    if (!inHomeSelected) return baseOk;
+    const pinOk = /^\d{6}$/.test(inHomePincode.trim());
+    const phoneOk = inHomeContactPhone.trim().length >= 10; // simple length check
+    return baseOk && !!(inHomeAddressLine1 && inHomeCity) && pinOk && phoneOk;
+  }, [patientFullName, patientEmail, patientPhone, patientConcerns, inHomeSelected, inHomeAddressLine1, inHomeCity, inHomePincode, inHomeContactPhone]);
   const canBook = useMemo(() => (
     !!(therapistIdValid && selectedSessionType && selectedDate && selectedTime && canProceedFromStep4)
   ), [therapistIdValid, selectedSessionType, selectedDate, selectedTime, canProceedFromStep4]);
@@ -205,7 +218,7 @@ export function TherapyBookingEnhanced({ therapistId }: TherapyBookingProps) {
     setIsBooking(true);
     setBookingError(null);
     try {
-      const patientDetails = {
+      const patientDetails: any = {
         fullName: patientFullName,
         email: patientEmail,
         phone: patientPhone,
@@ -215,6 +228,17 @@ export function TherapyBookingEnhanced({ therapistId }: TherapyBookingProps) {
         emergencyContact: patientEmergency,
         hasTherapyBefore
       };
+
+      if (inHomeSelected) {
+        patientDetails.inHomeService = {
+          addressLine1: inHomeAddressLine1,
+          addressLine2: inHomeAddressLine2,
+          city: inHomeCity,
+          pincode: inHomePincode,
+          contactName: inHomeContactName,
+          contactPhone: inHomeContactPhone
+        };
+      }
 
       const bookingData: BookingData = {
         therapistId: therapistId,
@@ -676,6 +700,50 @@ export function TherapyBookingEnhanced({ therapistId }: TherapyBookingProps) {
                     </div>
                   </div>
 
+                  {/* In-Home fields only when 'Home' is selected */}
+                  {inHomeSelected && (
+                    <div className="mt-6 p-4 border rounded-2xl bg-orange-50 border-orange-200">
+                      <h4 className="font-semibold text-orange-800 mb-2">Home Visit Address & Contact</h4>
+                      <p className="text-sm text-orange-700 mb-4">Please provide the address and contact details for the home visit.</p>
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <div className="md:col-span-2">
+                          <label className="text-sm font-medium">Address Line 1 *</label>
+                          <input className="mt-1 w-full border rounded-lg h-10 px-3" value={inHomeAddressLine1} onChange={(e)=>setInHomeAddressLine1(e.target.value)} placeholder="House/Flat, Street" />
+                        </div>
+                        <div className="md:col-span-2">
+                          <label className="text-sm font-medium">Address Line 2</label>
+                          <input className="mt-1 w-full border rounded-lg h-10 px-3" value={inHomeAddressLine2} onChange={(e)=>setInHomeAddressLine2(e.target.value)} placeholder="Landmark, Area (optional)" />
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium">City *</label>
+                          <input className="mt-1 w-full border rounded-lg h-10 px-3" value={inHomeCity} onChange={(e)=>setInHomeCity(e.target.value)} placeholder="City" />
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium">Pincode *</label>
+                          <input className="mt-1 w-full border rounded-lg h-10 px-3" value={inHomePincode} onChange={(e)=>{
+                            const val = e.target.value.replace(/[^0-9]/g, '').slice(0,6);
+                            setInHomePincode(val);
+                          }} inputMode="numeric" placeholder="6-digit pincode" />
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium">On-site Contact Name</label>
+                          <input className="mt-1 w-full border rounded-lg h-10 px-3" value={inHomeContactName} onChange={(e)=>setInHomeContactName(e.target.value)} placeholder="Person at the location" />
+                        </div>
+                        <div>
+                          <label className="text-sm font-medium">On-site Contact Phone *</label>
+                          <input className="mt-1 w-full border rounded-lg h-10 px-3" value={inHomeContactPhone} onChange={(e)=>{
+                            const val = e.target.value.replace(/[^0-9]/g, '').slice(0,13);
+                            setInHomeContactPhone(val);
+                          }} inputMode="tel" placeholder="10+ digit phone" />
+                        </div>
+                      </div>
+                      {/* Simple guidance/errors */}
+                      {!canProceedFromStep4 && (
+                        <p className="text-xs text-red-700 mt-3">Please complete all required fields for home visit (Address Line 1, City, 6-digit Pincode, and Contact Phone).</p>
+                      )}
+                    </div>
+                  )}
+
                   <div className="flex justify-between gap-4 mt-6">
                     <Button variant="outline" onClick={back}>Previous</Button>
                     <Button
@@ -768,6 +836,24 @@ export function TherapyBookingEnhanced({ therapistId }: TherapyBookingProps) {
                       Time
                     </h5>
                     <p className="text-purple-700 font-medium">{selectedTime}</p>
+                  </div>
+                )}
+
+                {/* Home visit summary */}
+                {inHomeSelected && (
+                  <div className="p-4 bg-orange-50 rounded-2xl border border-orange-200">
+                    <h5 className="font-semibold text-orange-900 mb-2 flex items-center">
+                      <MapPin className="w-4 h-4 mr-2" />
+                      Home Visit Address
+                    </h5>
+                    <div className="text-orange-800 text-sm">
+                      <div>{inHomeAddressLine1 || '—'}</div>
+                      {inHomeAddressLine2 ? <div>{inHomeAddressLine2}</div> : null}
+                      <div>{[inHomeCity, inHomePincode].filter(Boolean).join(' - ') || '—'}</div>
+                      {inHomeContactPhone ? (
+                        <div className="mt-1">Contact: {inHomeContactName ? `${inHomeContactName} • ` : ''}{inHomeContactPhone}</div>
+                      ) : null}
+                    </div>
                   </div>
                 )}
 

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -54,7 +54,8 @@ import {
   Baby,
   Hand,
   MessageCircle,
-  CreditCard as BankIcon
+  CreditCard as BankIcon,
+  Loader2
 } from "lucide-react";
 
 
@@ -76,9 +77,6 @@ interface FormData {
   state: string;
   preferredLanguages: string[];
   panCard: string;
-  aadhaar: string;
-  panImageUrl?: string;
-  aadhaarImageUrl?: string;
   
   // Education & Credentials
   qualification: string;
@@ -109,7 +107,7 @@ interface FormData {
   sessionModePrices: {
     video: string;
     audio: string;
-    inClinic: string;
+    inHome: string;
   };
   bankDetails: {
     accountHolder: string;
@@ -153,8 +151,27 @@ interface FormData {
 
 
 export function TherapistRegistration({ setCurrentView }: TherapistRegistrationProps) {
-  const [currentStep, setCurrentStep] = useState(1);
+  const [currentStep, setCurrentStep] = useState<number>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [panVerified, setPanVerified] = useState<boolean>(false);
+  const [panVerifyLoading, setPanVerifyLoading] = useState<boolean>(false);
+  const [panVerifyMsg, setPanVerifyMsg] = useState<string>("");
+  const [panVerifyErr, setPanVerifyErr] = useState<string>("");
+  const [panVerifyDetails, setPanVerifyDetails] = useState<{
+    nameOnCard?: string;
+    dobOnCard?: string;
+    match?: { nameMatch?: boolean; dobMatch?: boolean; score?: number };
+    provider?: any;
+  } | null>(null);
+  // OTP state for phone verification
+  const [otpCode, setOtpCode] = useState<string>("");
+  const [otpSent, setOtpSent] = useState<boolean>(false);
+  const [otpSending, setOtpSending] = useState<boolean>(false);
+  const [otpVerifying, setOtpVerifying] = useState<boolean>(false);
+  const [otpVerified, setOtpVerified] = useState<boolean>(false);
+  const [otpInfo, setOtpInfo] = useState<string>("");
+  const [otpError, setOtpError] = useState<string>("");
+  const [resendSeconds, setResendSeconds] = useState<number>(0);
   const [formData, setFormData] = useState<FormData>({
     fullName: "",
     gender: "",
@@ -167,9 +184,6 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
   state: "",
     preferredLanguages: [],
     panCard: "",
-    aadhaar: "",
-  panImageUrl: undefined,
-  aadhaarImageUrl: undefined,
     qualification: "",
     university: "",
     graduationYear: "",
@@ -191,7 +205,7 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
     sessionModePrices: {
       video: "",
       audio: "",
-      inClinic: ""
+      inHome: ""
     },
     bankDetails: {
       accountHolder: "",
@@ -391,6 +405,12 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
   const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
   const timeSlots = ["Morning", "Afternoon", "Evening", "Late Night"];
   const sessionDurations = ["30 min sessions", "45 min sessions", "60 min sessions"];
+  // Note: In-home address/contact details are captured at booking time only.
+
+  const panFormatValid = useMemo(() => {
+    const pan = (formData.panCard || '').toUpperCase();
+    return /^[A-Z]{5}[0-9]{4}[A-Z]$/.test(pan);
+  }, [formData.panCard]);
 
   const handleInputChange = (field: string, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -451,33 +471,101 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
     } catch (e) { console.error(e); alert('Upload error'); }
   };
 
-  // Generic Cloudinary upload using existing /api/uploads/profile endpoint (could be generalized later)
-  const uploadDocumentImage = async (file: File, field: 'panImageUrl' | 'aadhaarImageUrl') => {
+  // Aadhaar image upload removed; Aadhaar verification is done via IDfy
+
+  // Handle resend countdown for OTP
+  useEffect(() => {
+    if (resendSeconds <= 0) return;
+    const t = setInterval(() => setResendSeconds((s) => (s > 0 ? s - 1 : 0)), 1000);
+    return () => clearInterval(t);
+  }, [resendSeconds]);
+
+  const canSendOtp = useMemo(() => {
+    return Boolean(
+      formData.fullName &&
+      formData.email &&
+      formData.password && formData.password.length >= 8 &&
+      formData.phoneNumber
+    );
+  }, [formData.fullName, formData.email, formData.password, formData.phoneNumber]);
+
+  const sendOtp = async () => {
+    if (!canSendOtp || otpSending) return;
+    setOtpSending(true);
+    setOtpError("");
+    setOtpInfo("");
+    setOtpVerified(false);
     try {
-      if (file.size > 2 * 1024 * 1024) {
-        alert('File too large (max 2MB)');
-        return;
-      }
-      if (!/image\/(png|jpg|jpeg)/.test(file.type)) {
-        alert('Only JPG/PNG images allowed');
-        return;
-      }
-      const fd = new FormData();
-      fd.append('file', file);
-      const res = await fetch('/api/uploads/profile', { method: 'POST', body: fd });
+      const res = await fetch('/api/therapist-registration', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fullName: formData.fullName,
+          email: formData.email,
+          password: formData.password,
+          phoneNumber: formData.phoneNumber,
+          resendOtp: true,
+          isCompletingRegistration: false
+        })
+      });
       const json = await res.json();
-      if (json.success && json.data?.url) {
-        setFormData(prev => ({ ...prev, [field]: json.data.url }));
+      if (res.status === 202 && json?.otpSent) {
+        setOtpSent(true);
+        setOtpInfo(`OTP sent to ${json?.phone || formData.phoneNumber}. Expires in ${json?.ttlMinutes ?? 5} min.`);
+        setResendSeconds(60);
+      } else if (!res.ok) {
+        throw new Error(json?.message || 'Failed to send OTP');
       } else {
-        alert('Upload failed');
+        // Unexpected success path; treat as sent
+        setOtpSent(true);
+        setOtpInfo('OTP sent. Please check your phone.');
+        setResendSeconds(60);
       }
-    } catch (e) {
-      console.error('Upload error', e);
-      alert('Upload error');
+    } catch (e: any) {
+      setOtpError(e?.message || 'Failed to send OTP');
+    } finally {
+      setOtpSending(false);
+    }
+  };
+
+  const verifyOtpCode = async () => {
+    if (!formData.phoneNumber || !otpCode || otpVerifying) return;
+    setOtpVerifying(true);
+    setOtpError("");
+    setOtpInfo("");
+    try {
+      const res = await fetch('/api/otp/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: formData.phoneNumber, code: otpCode, purpose: 'therapist_registration' })
+      });
+      const json = await res.json();
+      if (!res.ok || !json?.success) {
+        throw new Error(json?.message || 'OTP verification failed');
+      }
+      setOtpVerified(true);
+      setOtpInfo('OTP verified successfully.');
+    } catch (e: any) {
+      setOtpVerified(false);
+      setOtpError(e?.message || 'OTP verification failed');
+    } finally {
+      setOtpVerifying(false);
     }
   };
 
   const handleNext = () => {
+    // Gate Step 1 by PAN verification
+    if (currentStep === 1) {
+      const pan = (formData.panCard || '').trim();
+      if (!pan) {
+        alert('Please enter PAN to proceed.');
+        return;
+      }
+      if (!panVerified) {
+        alert('Please verify your PAN before proceeding.');
+        return;
+      }
+    }
     if (currentStep < totalSteps) {
       setCurrentStep(currentStep + 1);
     }
@@ -494,6 +582,7 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
     
     try {
       const bd = formData.bankDetails;
+      // In-home specific address/contact is not required during registration
       if (!formData.qualificationCertUrls.length || !formData.licenseDocumentUrl || !formData.resumeUrl || !formData.profilePhotoUrl || !bd.accountHolder || !bd.bankName || !bd.accountNumber || !bd.ifscCode) {
         alert('Please complete all mandatory uploads and bank details.');
         setIsSubmitting(false);
@@ -506,6 +595,7 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
         email: formData.email,
         password: formData.password,
         phoneNumber: formData.phoneNumber,
+        otpCode: otpCode || undefined,
         
         // Personal information
         gender: formData.gender,
@@ -515,7 +605,6 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
   state: formData.state,
         preferredLanguages: formData.preferredLanguages,
         panCard: formData.panCard,
-        aadhaar: formData.aadhaar,
         
         // Education & credentials
         qualification: formData.qualification,
@@ -556,6 +645,12 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
         // Agreements
         agreements: formData.agreements,
         
+        // Uploaded assets (Cloudinary)
+        profilePhotoUrl: formData.profilePhotoUrl,
+        qualificationCertUrls: formData.qualificationCertUrls,
+        licenseDocumentUrl: formData.licenseDocumentUrl,
+        resumeUrl: formData.resumeUrl,
+
         // Indicate this is complete registration
         isCompletingRegistration: true
       };
@@ -572,7 +667,16 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
       });
       
       const result = await response.json();
-      
+      // If OTP was just sent (no code provided), inform user to enter OTP and re-submit
+      if (response.status === 202 && result?.otpSent) {
+        setOtpSent(true);
+        setOtpInfo(`OTP sent to ${result?.phone || formData.phoneNumber}. Expires in ${result?.ttlMinutes ?? 5} min.`);
+        setResendSeconds(60);
+        setIsSubmitting(false);
+        alert('We sent you an OTP. Please enter the code and submit again to complete registration.');
+        return;
+      }
+
       if (!response.ok) {
         throw new Error(result.message || 'Registration failed');
       }
@@ -665,12 +769,37 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
 
               <div className="space-y-2">
                 <Label htmlFor="phoneNumber">Phone Number * [+91 - ]</Label>
-                <Input
-                  id="phoneNumber"
-                  value={formData.phoneNumber}
-                  onChange={(e) => handleInputChange("phoneNumber", e.target.value)}
-                  placeholder="+91 "
-                />
+                <div className="space-y-2">
+                  <Input
+                    id="phoneNumber"
+                    value={formData.phoneNumber}
+                    onChange={(e) => handleInputChange("phoneNumber", e.target.value)}
+                    placeholder="+91 "
+                  />
+                  <div className="flex items-center gap-2">
+                    <Button type="button" variant="outline" size="sm" disabled={!canSendOtp || otpSending || resendSeconds > 0} onClick={sendOtp}>
+                      {otpSending ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Sending…</>) : (otpSent ? (resendSeconds > 0 ? `Resend OTP (${resendSeconds})` : 'Resend OTP') : 'Send OTP')}
+                    </Button>
+                    <Input
+                      id="otpCode"
+                      value={otpCode}
+                      onChange={(e) => setOtpCode(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))}
+                      placeholder="Enter 6-digit OTP"
+                      className="w-44"
+                    />
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      disabled={!otpCode || otpCode.length < 6 || !formData.phoneNumber || otpVerifying}
+                      onClick={verifyOtpCode}
+                    >
+                      {otpVerifying ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Verifying…</>) : (otpVerified ? 'Verified' : 'Verify OTP')}
+                    </Button>
+                  </div>
+                  {otpInfo && <p className="text-xs text-green-700">{otpInfo}</p>}
+                  {otpError && <p className="text-xs text-red-600">{otpError}</p>}
+                </div>
               </div>
 
               <div className="space-y-2">
@@ -750,60 +879,107 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
                 <Input
                   id="panCard"
                   value={formData.panCard}
-                  onChange={(e) => handleInputChange("panCard", e.target.value)}
+                  onChange={(e) => {
+                    const raw = e.target.value.toUpperCase();
+                    const clean = raw.replace(/[^A-Z0-9]/g, '').slice(0, 10);
+                    handleInputChange("panCard", clean);
+                    setPanVerified(false);
+                    setPanVerifyMsg("");
+                    setPanVerifyErr("");
+                    setPanVerifyDetails(null);
+                  }}
                   placeholder="ABCDE1234F"
                 />
-                <div className="mt-2">
-                  <Label className="text-xs font-medium">PAN Card Image *</Label>
-                  <div className="mt-1 border-2 border-dashed rounded p-4 text-center relative">
-                    <input
-                      type="file"
-                      accept="image/png,image/jpeg,image/jpg"
-                      className="absolute inset-0 opacity-0 cursor-pointer"
-                      onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        if (f) uploadDocumentImage(f, 'panImageUrl');
-                      }}
-                    />
-                    <Upload className="w-6 h-6 mx-auto text-gray-400 mb-1" />
-                    <p className="text-xs text-blue-600">{formData.panImageUrl ? 'Uploaded ✓' : 'Click to upload PAN image'}</p>
-                    <p className="text-[10px] text-gray-500">JPG/PNG up to 2MB</p>
-                  </div>
-                  {formData.panImageUrl && (
-                    <p className="text-xs text-green-600 mt-1 truncate">Stored: {formData.panImageUrl}</p>
+                <p className="text-xs text-muted-foreground mt-1">Format: AAAAA9999A. Ensure your Name and DOB match your PAN card.</p>
+                {formData.panCard && !panFormatValid && (
+                  <p className="text-xs text-red-600 mt-1">PAN format is invalid.</p>
+                )}
+                <div className="flex items-center gap-3 mt-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={panVerifyLoading || !formData.panCard || !formData.fullName || !formData.dateOfBirth || !panFormatValid}
+                    onClick={async () => {
+                      try {
+                        setPanVerifyLoading(true);
+                        setPanVerified(false);
+                        setPanVerifyMsg("");
+                        setPanVerifyErr("");
+                        setPanVerifyDetails(null);
+                        const res = await fetch('/api/kyc/verify-pan', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            pan: formData.panCard,
+                            name: formData.fullName,
+                            dob: formData.dateOfBirth,
+                          })
+                        });
+                        const json = await res.json();
+                        if (!json?.success) {
+                          throw new Error(json?.message || 'PAN verification failed');
+                        }
+                        const nameMatch = !!json?.data?.match?.nameMatch;
+                        const dobMatch = !!json?.data?.match?.dobMatch;
+                        setPanVerifyDetails({
+                          nameOnCard: json?.data?.nameOnCard,
+                          dobOnCard: json?.data?.dobOnCard,
+                          match: json?.data?.match,
+                          provider: json?.data?.provider
+                        });
+                        if (nameMatch && dobMatch) {
+                          setPanVerified(true);
+                          setPanVerifyMsg('PAN Verified.');
+                        } else {
+                          setPanVerified(false);
+                          setPanVerifyErr('PAN details do not match. Please ensure your name and DOB match the PAN records.');
+                        }
+                      } catch (e: any) {
+                        setPanVerified(false);
+                        setPanVerifyErr(e?.message || 'PAN verification failed');
+                      } finally {
+                        setPanVerifyLoading(false);
+                      }
+                    }}
+                  >
+                    {panVerifyLoading ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Verifying…</>) : 'Verify PAN'}
+                  </Button>
+                  {panVerified && (
+                    <span className="inline-flex items-center text-green-700 text-xs"><CheckCircle className="w-4 h-4 mr-1"/>Verified</span>
                   )}
                 </div>
+                {panVerifyMsg && (
+                  <p className="text-xs text-green-700 mt-1">{panVerifyMsg}</p>
+                )}
+                {panVerifyErr && (
+                  <p className="text-xs text-red-600 mt-1">{panVerifyErr}</p>
+                )}
+                {panVerifyDetails && (
+                  <div className="mt-3 rounded-md border border-border bg-white/50 p-3 text-sm">
+                    <div className="mt-0 flex flex-wrap gap-2 text-xs">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full ${panVerifyDetails.match?.nameMatch ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                        <CheckCircle className="w-3 h-3 mr-1" /> Name {panVerifyDetails.match?.nameMatch ? 'match' : 'mismatch'}
+                      </span>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full ${panVerifyDetails.match?.dobMatch ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                        <CheckCircle className="w-3 h-3 mr-1" /> DOB {panVerifyDetails.match?.dobMatch ? 'match' : 'mismatch'}
+                      </span>
+                      {typeof panVerifyDetails.provider?.panStatus === 'string' && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">PAN Status: {String(panVerifyDetails.provider.panStatus)}</span>
+                      )}
+                      {typeof panVerifyDetails.provider?.aadhaarSeedingStatus === 'boolean' && (
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full ${panVerifyDetails.provider.aadhaarSeedingStatus ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                          Aadhaar seeding: {panVerifyDetails.provider.aadhaarSeedingStatus ? 'Yes' : 'No'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+                <div className="mt-2">
+                {/* PAN card image upload removed: IDfy verification is used instead */}
               </div>
+            </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="aadhaar">Aadhaar Number *</Label>
-                <Input
-                  id="aadhaar"
-                  value={formData.aadhaar}
-                  onChange={(e) => handleInputChange("aadhaar", e.target.value)}
-                  placeholder="1234 5678 9012"
-                />
-                <div className="mt-2">
-                  <Label className="text-xs font-medium">Aadhaar Image *</Label>
-                  <div className="mt-1 border-2 border-dashed rounded p-4 text-center relative">
-                    <input
-                      type="file"
-                      accept="image/png,image/jpeg,image/jpg"
-                      className="absolute inset-0 opacity-0 cursor-pointer"
-                      onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        if (f) uploadDocumentImage(f, 'aadhaarImageUrl');
-                      }}
-                    />
-                    <Upload className="w-6 h-6 mx-auto text-gray-400 mb-1" />
-                    <p className="text-xs text-blue-600">{formData.aadhaarImageUrl ? 'Uploaded ✓' : 'Click to upload Aadhaar image'}</p>
-                    <p className="text-[10px] text-gray-500">JPG/PNG up to 2MB</p>
-                  </div>
-                  {formData.aadhaarImageUrl && (
-                    <p className="text-xs text-green-600 mt-1 truncate">Stored: {formData.aadhaarImageUrl}</p>
-                  )}
-                </div>
-              </div>
             </div>
           </div>
         );
@@ -1130,10 +1306,10 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
                   {[
                     { id: 'video', label: 'Video Session' },
                     { id: 'audio', label: 'Audio Session' },
-                    { id: 'inClinic', label: 'In-Clinic Session' }
+                    { id: 'inHome', label: 'In-Home Session' }
                   ].map(mode => {
-                    const checked = formData.sessionModesOffered.includes(mode.id === 'inClinic' ? 'in-clinic' : mode.id);
-                    const storageKey = mode.id === 'inClinic' ? 'inClinic' : mode.id;
+                    const checked = formData.sessionModesOffered.includes(mode.id === 'inHome' ? 'in-home' : mode.id);
+                    const storageKey = mode.id === 'inHome' ? 'inHome' : mode.id;
                     return (
                       <div key={mode.id} className="flex items-end gap-3 border rounded p-3 bg-white/50 dark:bg-neutral-900/40">
                         <div className="flex items-center gap-2 flex-1">
@@ -1141,7 +1317,7 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
                             id={`mode-${mode.id}`}
                             checked={checked}
                             onCheckedChange={() => {
-                              handleArrayToggle('sessionModesOffered', mode.id === 'inClinic' ? 'in-clinic' : mode.id);
+                              handleArrayToggle('sessionModesOffered', mode.id === 'inHome' ? 'in-home' : mode.id);
                             }}
                           />
                           <Label htmlFor={`mode-${mode.id}`} className="text-sm">{mode.label}</Label>
@@ -1169,20 +1345,10 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
                 {formData.sessionModesOffered.length === 0 && (
                   <p className="text-xs text-amber-600">Select at least one mode and add a price.</p>
                 )}
+                {/* In-Home address/contact details are collected during booking, not registration */}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label htmlFor="sessionFee">Session Fee (₹) *</Label>
-                  <Input
-                    id="sessionFee"
-                    value={formData.sessionFee}
-                    onChange={(e) => handleInputChange("sessionFee", e.target.value)}
-                    placeholder="Enter session fee"
-                    type="number"
-                  />
-                </div>
-
                 <div className="space-y-2">
                   <Label>Payment Mode Preference *</Label>
                   <ReactSelect

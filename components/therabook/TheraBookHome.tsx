@@ -29,6 +29,9 @@ import {
   Activity,
   Home,
   HelpCircle,
+  CheckCircle,
+  Clock,
+  Award,
 } from 'lucide-react'
 
 export default function TheraBookHome() {
@@ -185,6 +188,24 @@ export default function TheraBookHome() {
               </motion.div>
             ))}
           </motion.div>
+
+          {/* View More button to navigate to therapists page */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            whileInView={{ opacity: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6, delay: 0.8 }}
+            className="text-center mt-8"
+          >
+            <Button
+              variant="outline"
+              className="text-therabook-primary border-therabook-border hover:bg-therabook-secondary"
+              onClick={() => goSearch({})}
+            >
+              View More
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
+          </motion.div>
         </div>
       </section>
 
@@ -294,6 +315,76 @@ export default function TheraBookHome() {
                     <Button className={`w-full bg-gradient-to-r ${session.color} text-white hover:shadow-lg transition-all duration-300`} onClick={() => handleSessionFormatSearch(session.formatId)}>
                       Find Therapists
                     </Button>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Why Choose TheraBook? */}
+      <section className="py-16 px-6 bg-gradient-to-br from-blue-50 via-white to-blue-50">
+        <div className="max-w-6xl mx-auto">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8 }}
+            className="text-center space-y-4 mb-12"
+          >
+            <h2 className="text-4xl font-bold text-blue-700">Why Choose TheraBook?</h2>
+            <p className="text-xl text-slate-600 max-w-3xl mx-auto">
+              We're committed to providing the highest quality therapy experience with trust, convenience, and professional excellence
+            </p>
+          </motion.div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[{
+              icon: CheckCircle,
+              title: 'Easy Booking',
+              description: 'No waiting, instant appointment confirmations with flexible rescheduling options',
+            }, {
+              icon: UserCheck,
+              title: 'Verified Professionals',
+              description: 'All therapists are licensed, trained, and verified through our rigorous vetting process',
+            }, {
+              icon: Shield,
+              title: 'Quality Assured',
+              description: 'Regular quality checks and outcome tracking ensure the highest standards',
+            }, {
+              icon: Clock,
+              title: 'Flexible Scheduling',
+              description: 'Book appointments that fit your schedule with 24/7 availability',
+            }, {
+              icon: Heart,
+              title: 'Follow-up Support',
+              description: 'Continuous care coordination and progress tracking throughout your journey',
+            }, {
+              icon: Award,
+              title: 'Personalized Care',
+              description: 'Tailored treatment plans based on your specific needs and goals',
+            }].map((f, index) => (
+              <motion.div
+                key={f.title}
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.6, delay: index * 0.1 }}
+                whileHover={{ y: -3, transition: { duration: 0.2 } }}
+              >
+                <Card className="relative h-full border border-blue-100 bg-white/95 backdrop-blur-sm rounded-2xl hover:shadow-xl hover:shadow-blue-100 transition-all duration-300">
+                  {/* Blue rounded corner arcs (motif) */}
+                  <div className="pointer-events-none absolute inset-0 rounded-2xl">
+                    <div className="absolute left-0 top-0 w-8 h-8 border-t-2 border-l-2 border-blue-500 rounded-tl-2xl" />
+                    <div className="absolute right-0 top-0 w-8 h-8 border-t-2 border-r-2 border-blue-500 rounded-tr-2xl" />
+                  </div>
+                  <CardContent className="p-6">
+                    <div className="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center mb-4 shadow-sm">
+                      <f.icon className="w-5 h-5 text-white" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-blue-700 mb-2">{f.title}</h3>
+                    <p className="text-sm text-slate-600 leading-relaxed">{f.description}</p>
                   </CardContent>
                 </Card>
               </motion.div>

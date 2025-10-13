@@ -106,7 +106,7 @@ export async function GET(request, context) {
         homeVisits: toBool(therapist.homeVisits, false)
       },
       documents: {
-        profilePicture: safeStr(therapist.profilePhoto || therapist.image || therapist.profilePicture)
+        profilePicture: safeStr(therapist.profilePhotoUrl || therapist.profilePhoto || therapist.image || therapist.profilePicture)
       },
       agreements: therapist.agreements || {},
       createdAt: therapist.createdAt || new Date(),
@@ -125,6 +125,11 @@ export async function GET(request, context) {
         'user.name': 1
       }
     });
+
+    // Prefer profilePhotoUrl as main image for compatibility with UI
+    if (!therapist.image && therapist.profilePhotoUrl) {
+      therapist.image = therapist.profilePhotoUrl;
+    }
 
     return ResponseUtils.success({
       therapist,
