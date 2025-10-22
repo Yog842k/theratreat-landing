@@ -251,6 +251,10 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
     resume: 0,
     profile: 0
   });
+  // Bank verification state
+  const [bankVerifying, setBankVerifying] = useState(false);
+  const [bankVerifyMsg, setBankVerifyMsg] = useState<string>("");
+  const [bankVerifyErr, setBankVerifyErr] = useState<string>("");
 
   const stepTitles = [
     "Personal & Contact Information",
@@ -439,13 +443,22 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
 
   const uploadToCloud = async (file: File, cb: (url:string)=>void, kind?: keyof typeof uploadProgress) => {
     try {
-      if (file.size > 5 * 1024 * 1024) { alert('File too large (max 5MB)'); return; }
+      // Decide endpoint by file type and kind
+      const isPdf = file.type === 'application/pdf';
+      const endpoint = (kind === 'resume' || isPdf) ? '/api/uploads/resume' : '/api/uploads/profile';
+
+      // Enforce size limits matching server routes
+      const maxBytes = endpoint === '/api/uploads/profile' ? 2 * 1024 * 1024 : 5 * 1024 * 1024;
+      if (file.size > maxBytes) {
+        alert(`File too large (max ${endpoint === '/api/uploads/profile' ? '2MB' : '5MB'})`);
+        return;
+      }
+
       const fd = new FormData(); fd.append('file', file);
       // Use XHR to track progress since fetch doesn't expose it natively
       await new Promise<void>((resolve, reject) => {
         const xhr = new XMLHttpRequest();
-  const endpoint = kind === 'resume' ? '/api/uploads/resume' : '/api/uploads/profile';
-  xhr.open('POST', endpoint);
+        xhr.open('POST', endpoint);
         xhr.upload.onprogress = (e) => {
           if (e.lengthComputable && kind) {
             const pct = Math.round((e.loaded / e.total) * 100);
@@ -512,8 +525,15 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
       if (res.status === 202 && json?.otpSent) {
         setOtpSent(true);
         setOtpInfo(`OTP sent to ${json?.phone || formData.phoneNumber}. Expires in ${json?.ttlMinutes ?? 5} min.`);
-        setResendSeconds(60);
+        const next = (json?.nextSendSeconds ?? json?.retryAfter);
+        setResendSeconds(typeof next === 'number' && next > 0 ? next : 60);
       } else if (!res.ok) {
+        if (res.status === 429) {
+          const retry = (json?.data?.retryAfter ?? json?.retryAfter);
+          setResendSeconds(typeof retry === 'number' && retry > 0 ? retry : 60);
+          setOtpError(json?.message || 'Please wait before requesting another OTP');
+          return;
+        }
         throw new Error(json?.message || 'Failed to send OTP');
       } else {
         // Unexpected success path; treat as sent
@@ -691,8 +711,8 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
       
       setIsSubmitting(false);
       
-      // Show success message
-      alert('Registration completed successfully! Welcome to TheraBook.');
+  // Show success message (as requested)
+  alert('Welcome to Therabook. Your Registration has been completed, and you will receive a notification once verified.');
       
       // Navigate to therapist dashboard
       setCurrentView("therapist-dashboard");
@@ -732,6 +752,7 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
                   onChange={(e) => handleInputChange("fullName", e.target.value)}
                   placeholder="Enter your full name"
                 />
+                <p className="text-xs text-slate-600">Please enter your name exactly as it appears on your PAN card for verification. You can update your display name later from your dashboard settings.</p>
               </div>
 
               <div className="space-y-2">
@@ -1445,6 +1466,73 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
                       placeholder="Enter UPI ID"
                     />
                   </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={bankVerifying || !formData.bankDetails.accountNumber || !formData.bankDetails.ifscCode}
+                    onClick={async () => {
+                      setBankVerifyErr("");
+                      setBankVerifyMsg("");
+                      setBankVerifying(true);
+                      try {
+                        const rawAcct = String(formData.bankDetails.accountNumber || '');
+                        const acct = rawAcct.replace(/\D/g, ''); // keep digits only
+                        const rawIfsc = String(formData.bankDetails.ifscCode || '');
+                        const ifsc = rawIfsc.replace(/\s|-/g, '').toUpperCase();
+                        const validAcct = /^\d{9,20}$/.test(acct);
+                        const validIfsc = /^[A-Z]{4}0[0-9A-Z]{6}$/.test(ifsc);
+                        if (!validAcct || !validIfsc) {
+                          if (!validAcct && !validIfsc) {
+                            setBankVerifyErr('Please enter a valid account number (9–20 digits) and IFSC (e.g., HDFC0001234).');
+                          } else if (!validAcct) {
+                            setBankVerifyErr(`Account number looks invalid after formatting. Got ${acct.length} digits; expected 9–20.`);
+                          } else {
+                            setBankVerifyErr('IFSC must be 11 characters like ABCD0XXXXXX (5th char is zero).');
+                          }
+                          return;
+                        }
+                        const res = await fetch('/api/idfy/verify-bank', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            accountNumber: acct,
+                            ifsc,
+                            name: formData.bankDetails.accountHolder || formData.fullName
+                          })
+                        });
+                        const json = await res.json();
+                        if (!res.ok || !json.ok) {
+                          const code = (json?.error || '').toString();
+                          let msg = json?.detail || json?.message || '';
+                          if (!msg) {
+                            msg = code === 'IDFY_NOT_CONFIGURED' ? 'Bank verification service is not configured.'
+                              : code === 'IDFY_ENDPOINT_NOT_FOUND' ? 'Bank verification endpoint not available for this account. Please contact support.'
+                              : code === 'IDFY_HTTP_ERROR' ? 'Bank verification service error. Please try again.'
+                              : 'Verification failed. Please confirm your details.';
+                          }
+                          setBankVerifyErr(msg);
+                        } else {
+                          const status: string = json.accountStatus || 'verified';
+                          const matched: boolean = !!(json.match?.nameMatch);
+                          setBankVerifyMsg(`Bank ${status}${matched ? ' • Name matches' : ''}${json.nameOnAccount ? ` • Name on account: ${json.nameOnAccount}` : ''}`);
+                        }
+                      } catch (e: any) {
+                        setBankVerifyErr(e?.message || 'Network error');
+                      } finally {
+                        setBankVerifying(false);
+                      }
+                    }}
+                  >
+                    {bankVerifying ? 'Verifying…' : 'Verify Bank'}
+                  </Button>
+                  {bankVerifyMsg && (
+                    <span className="text-sm text-green-700">{bankVerifyMsg}</span>
+                  )}
+                  {bankVerifyErr && (
+                    <span className="text-sm text-red-600">{bankVerifyErr}</span>
+                  )}
                 </div>
               </div>
             </div>

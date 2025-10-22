@@ -39,17 +39,20 @@ export async function POST(request: NextRequest) {
       if (!otpCode || resendOtp) {
         const otpRes = await OtpUtils.requestOtp({ phone: phoneNumber, purpose: otpPurpose });
         if (!otpRes.ok) {
-          const map: Record<string, string> = {
-            INVALID_PHONE: 'Invalid phone number format',
-            TWILIO_NOT_CONFIGURED: 'OTP service not configured',
-            SMS_SEND_FAILED: 'Failed to send OTP SMS'
+          const map: Record<string, { msg: string; status?: number; }> = {
+            INVALID_PHONE: { msg: 'Invalid phone number format', status: 400 },
+            TWILIO_NOT_CONFIGURED: { msg: 'OTP service not configured', status: 503 },
+            SMS_SEND_FAILED: { msg: 'Failed to send OTP SMS', status: 502 },
+            RATE_LIMITED: { msg: (otpRes as any)?.detail || 'Please wait before requesting another OTP', status: 429 },
           };
-            return ResponseUtils.errorCode(otpRes.error || 'OTP_ERROR', map[otpRes.error || ''] || 'Failed to send verification code', 400, { detail: otpRes.detail });
+          const meta = map[otpRes.error as string] || { msg: 'Failed to send verification code', status: 400 };
+          return ResponseUtils.errorCode(otpRes.error || 'OTP_ERROR', meta.msg, meta.status || 400, { detail: (otpRes as any).detail, retryAfter: (otpRes as any).retryAfter });
         }
         return ResponseUtils.success({
           otpSent: true,
-          phone: otpRes.phone,
-          ttlMinutes: otpRes.ttlMinutes,
+          phone: (otpRes as any).phone,
+          ttlMinutes: (otpRes as any).ttlMinutes,
+          channel: (otpRes as any).channel,
           message: 'OTP sent to phone. Submit again with otpCode to complete registration.'
         }, 'OTP Sent', 202);
       }
@@ -216,12 +219,28 @@ export async function POST(request: NextRequest) {
     const token = AuthUtils.generateToken({ userId: userId.toString(), userType: 'therapist' });
     const { password: _pw, ...safeUser } = userDoc as any; (safeUser as any)._id = userId;
 
-    // Fire-and-forget welcome notification (email/SMS) – don't block response on failures
+    // Fire-and-forget welcome notification (email/SMS) – never block response
     let notification: any = null;
     try {
-      notification = await sendAccountWelcome({ email: emailLower, name: fullName, phone: phoneNumber, userType: 'therapist' });
+      if (process.env.NOTIFICATIONS_DISABLE === '1') {
+        // Explicitly disabled via env; skip sending
+      } else {
+        // Kick off in background with a short timeout guard
+        (async () => {
+          try {
+            const timeoutMs = Number(process.env.NOTIFICATIONS_TIMEOUT_MS || 2000);
+            const race = await Promise.race([
+              sendAccountWelcome({ email: emailLower, name: fullName, phone: phoneNumber, userType: 'therapist' }),
+              new Promise<null>((resolve) => setTimeout(() => resolve(null), timeoutMs))
+            ]);
+            if (race) notification = race;
+          } catch (e: any) {
+            console.warn('[therapist-registration] welcome notification failed (background)', e?.message);
+          }
+        })();
+      }
     } catch (notifyErr) {
-      console.warn('[therapist-registration] welcome notification failed', (notifyErr as any)?.message);
+      console.warn('[therapist-registration] welcome notification setup failed', (notifyErr as any)?.message);
     }
 
     return ResponseUtils.success({

@@ -107,7 +107,7 @@ export function PatientRegistration({ onSuccess, setCurrentView }: Props) {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="state">State *</Label>
-                <select id="state" value={stateVal} onChange={e=>setStateVal(e.target.value)} className="w-full border rounded px-3 py-2 text-sm bg-background">
+                <select id="state" value={stateVal} onChange={e=>setStateVal(e.target.value)} className="w-full h-9 border rounded-md px-3 py-2 text-sm bg-white text-slate-900 border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-500">
                   <option value="">Select State</option>
                   {INDIA_STATES.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>

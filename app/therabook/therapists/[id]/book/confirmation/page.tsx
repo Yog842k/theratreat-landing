@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { CheckCircle, Calendar, Clock, Video, Download, Phone, Building } from "lucide-react";
+import { CheckCircle, Calendar, Clock, Video, Download, Phone, Building, Lock } from "lucide-react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from '@/components/auth/NewAuthContext';
@@ -24,6 +24,8 @@ export default function ConfirmationPage(_props: any) {
   const [isLoading, setIsLoading] = useState(true);
   const [therapist, setTherapist] = useState<any>(therapistFallback);
   const [error, setError] = useState<string | null>(null);
+  const [now, setNow] = useState<number>(Date.now());
+  const [unlockAt, setUnlockAt] = useState<number | null>(null);
   const searchParams = useSearchParams();
   const bookingId = searchParams.get('bookingId');
   const { token, isAuthenticated, isLoading: authLoading } = useAuth();
@@ -50,6 +52,16 @@ export default function ConfirmationPage(_props: any) {
     try {
       const bookingData = await bookingService.getBooking(bookingId, token || undefined);
       setBooking(bookingData);
+      // Compute unlock time: T-10 minutes from session start
+      try {
+        const d = new Date(bookingData.appointmentDate);
+        const [hh, mm] = String(bookingData.appointmentTime || '00:00').split(':').map((s: string) => parseInt(s, 10));
+        if (!Number.isNaN(hh)) d.setHours(hh);
+        if (!Number.isNaN(mm)) d.setMinutes(mm);
+        d.setSeconds(0, 0);
+        const unlock = d.getTime() - 10 * 60 * 1000; // 10 minutes before
+        setUnlockAt(unlock);
+      } catch {}
       // Fetch therapist details (best effort)
       try {
         const res = await fetch(`/api/therapists/${bookingData.therapistId}`);
@@ -71,6 +83,12 @@ export default function ConfirmationPage(_props: any) {
       setIsLoading(false);
     }
   };
+
+  // Tick timer every 15 seconds to update countdown and button enabled state
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 15000);
+    return () => clearInterval(id);
+  }, []);
 
   const getSessionIcon = (type: string) => {
     switch (type) {
@@ -168,22 +186,32 @@ export default function ConfirmationPage(_props: any) {
             </div>
 
     {/* Optional meeting link if backend provides it */}
-    {(booking as any).meetingLink && (
+    {/* Join gating: unlock button 10 minutes before session start */}
+    {((booking as any).meetingUrl || (booking as any).meetingLink) && (
               <div className="mt-4 p-4 bg-blue-50 rounded-lg">
                 <h4 className="font-medium text-blue-900 mb-2">Join Your Session</h4>
-                <p className="text-sm text-blue-700 mb-3">
-                  Use this link to join your video/audio session:
-                </p>
-                <Button 
-                  variant="outline" 
-                  className="w-full border-blue-200 text-blue-700 hover:bg-blue-100"
-      onClick={() => window.open((booking as any).meetingLink, '_blank')}
+                {unlockAt && now < unlockAt ? (
+                  <div className="mb-3 text-sm text-blue-700 flex items-center">
+                    <Lock className="w-4 h-4 mr-2" />
+                    Join button unlocks 10 minutes before your session.
+                  </div>
+                ) : (
+                  <p className="text-sm text-blue-700 mb-3">Use this link to join your video/audio session:</p>
+                )}
+                <Button
+                  variant="outline"
+                  className="w-full border-blue-200 text-blue-700 hover:bg-blue-100 disabled:opacity-60"
+                  disabled={Boolean(unlockAt && now < unlockAt)}
+                  onClick={() => {
+                    const url = (booking as any).meetingUrl || (booking as any).meetingLink;
+                    if (url) window.open(url, '_blank');
+                  }}
                 >
                   Join Session
                 </Button>
               </div>
             )}
-            {!(booking as any).meetingLink && (
+            {!((booking as any).meetingUrl || (booking as any).meetingLink) && (
               <div className="mt-4 p-4 bg-indigo-50 rounded-lg">
                 <h4 className="font-medium text-indigo-900 mb-2">Join Now (Demo Link)</h4>
                 <p className="text-sm text-indigo-700 mb-3">Use this demo RoomKit link to enter the session immediately. Share it with the participant.</p>

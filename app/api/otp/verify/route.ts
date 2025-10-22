@@ -16,7 +16,9 @@ export async function POST(request: NextRequest) {
 
     const res = await OtpUtils.verifyOtp({ phone, purpose, code });
     if (!res.ok) {
-      return ResponseUtils.errorCode(res.error || 'OTP_VERIFY_FAILED', res.detail || 'Verification failed', 400, res);
+      const map: Record<string, number> = { NOT_FOUND: 404, EXPIRED: 410, TOO_MANY_ATTEMPTS: 429, INVALID_PHONE: 400, INVALID_CODE: 400 };
+      const status = map[(res as any).error] || 400;
+      return ResponseUtils.errorCode(res.error || 'OTP_VERIFY_FAILED', res.detail || 'Verification failed', status, res);
     }
     return ResponseUtils.success({ verified: true, purpose }, 'OTP verified');
   } catch (err: any) {

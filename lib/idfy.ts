@@ -109,6 +109,7 @@ async function realIdfyPanVerify({ pan, name, dob }: PanVerifyInput): Promise<Pa
   const auth = hasBasic ? Buffer.from(`${cid}:${secret}`).toString('base64') : '';
   const url = `${base.replace(/\/$/, '')}${endpoint}`;
   
+  
   // Build common headers once
   const baseHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
   if (hasHeader) {
@@ -345,9 +346,9 @@ export async function verifyPan(input: PanVerifyInput): Promise<PanVerifyResult>
   const hasBasic = !!(process.env.IDFY_CLIENT_ID && process.env.IDFY_CLIENT_SECRET);
   const hasHeader = !!process.env.IDFY_API_KEY; // ACCOUNT_ID optional
   const hasCreds = hasBasic || hasHeader;
-  if (mode === 'mock' || !hasCreds) {
-    return mockPanVerify(input);
-  }
+  const fallbackMock = (process.env.IDFY_FALLBACK_TO_MOCK === '1' || (process.env.IDFY_FALLBACK_TO_MOCK || '').toLowerCase() === 'true');
+  if (mode === 'mock') return mockPanVerify(input);
+  if (!hasCreds) return { ok: false, error: 'IDFY_NOT_CONFIGURED', detail: 'Missing IDfy credentials for PAN verification' };
   return realIdfyPanVerify(input);
 }
 
@@ -355,7 +356,261 @@ export async function verifyPanMock(input: PanVerifyInput): Promise<PanVerifyRes
   return mockPanVerify(input);
 }
 
-export const Idfy = { verifyPan, verifyPanMock };
+export const Idfy = { verifyPan, verifyPanMock, verifyBankAccount, verifyBankAccountMock };
+
+// ---------------- Bank Account verification (IDfy) ----------------
+type BankVerifyInput = {
+  accountNumber: string;
+  ifsc: string;
+  name?: string; // account holder name for match
+};
+
+type BankVerifyResult = {
+  ok: boolean;
+  accountStatus?: string;
+  nameOnAccount?: string;
+  match?: {
+    nameMatch: boolean;
+    score: number;
+  };
+  provider?: any;
+  raw?: any;
+  error?: string;
+  detail?: string;
+  httpStatus?: number;
+};
+
+function normalizeIfsc(ifsc: string) {
+  return String(ifsc || '').toUpperCase().replace(/\s/g, '');
+}
+
+function acctRegexValid(ac: string) {
+  const s = String(ac || '').replace(/\s|-/g, '');
+  // Indian bank account numbers vary (9-18 digits typically); require 9+ digits
+  return /^\d{9,18}$/.test(s);
+}
+
+async function mockBankVerify({ accountNumber, ifsc, name }: BankVerifyInput): Promise<BankVerifyResult> {
+  const valid = acctRegexValid(accountNumber) && /^[A-Z]{4}0[0-9A-Z]{6}$/.test(normalizeIfsc(ifsc));
+  const nn = normalizeName(name || '');
+  const score = nn ? 1 : 0;
+  return {
+    ok: valid,
+    accountStatus: valid ? 'active' : 'unknown',
+    nameOnAccount: nn || 'MOCK ACCOUNT NAME',
+    match: { nameMatch: score >= 0.5, score },
+    raw: { mode: 'mock' }
+  };
+}
+
+async function realIdfyBankVerify({ accountNumber, ifsc, name }: BankVerifyInput): Promise<BankVerifyResult> {
+  const base = process.env.IDFY_BASE_URL || 'https://eve.idfy.com/v3';
+  const endpointPrimary = process.env.IDFY_BANK_ENDPOINT || '/tasks/async/verify_with_source/ind_bank_account';
+  const preferExact = !!process.env.IDFY_BANK_ENDPOINT; // if provided, do NOT try fallbacks
+  const cid = process.env.IDFY_CLIENT_ID;
+  const secret = process.env.IDFY_CLIENT_SECRET;
+  const apiKey = process.env.IDFY_API_KEY;
+  const accountId = process.env.IDFY_ACCOUNT_ID;
+  const hasBasic = !!(cid && secret);
+  const hasHeader = !!apiKey;
+  if (!hasBasic && !hasHeader) {
+    return { ok: false, error: 'IDFY_NOT_CONFIGURED', detail: 'Missing credentials for IDfy bank verify' };
+  }
+
+  // Prefer Bearer token flow as per IDfy docs
+  let bearerToken: string | null = null;
+  if (hasBasic) {
+    try {
+      const authUrl = `${base.replace(/\/$/, '')}/auth/token`;
+      const authRes = await fetch(authUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ client_id: cid, client_secret: secret })
+      });
+      const authJson: any = await authRes.json().catch(() => ({}));
+      if (authRes.ok && authJson?.access_token) {
+        bearerToken = String(authJson.access_token);
+        dbg('AUTH token acquired', { expires_in: authJson?.expires_in });
+      } else {
+        // If bearer fetch fails, we will fallback to header api-key below
+        dbg('AUTH token failed', { status: authRes.status, bodyKeys: Object.keys(authJson || {}) });
+      }
+    } catch (e: any) {
+      dbg('AUTH token exception', e?.message);
+    }
+  }
+
+  const baseHeaders: Record<string, string> = { 'Content-Type': 'application/json' };
+  if (accountId) baseHeaders['account-id'] = accountId;
+  if (bearerToken) {
+    baseHeaders['Authorization'] = `Bearer ${bearerToken}`;
+  } else if (hasHeader) {
+    baseHeaders['api-key'] = apiKey as string;
+  } else {
+    // Last resort: try Basic (older tenants). Not preferred.
+    const basic = Buffer.from(`${cid}:${secret}`).toString('base64');
+    baseHeaders['Authorization'] = `Basic ${basic}`;
+  }
+
+  async function postAndParse(postUrl: string, payload: any) {
+    dbg('POST', postUrl, { kind: 'bank_verify', payloadKeys: Object.keys(payload || {}) });
+    const res = await fetch(postUrl, { method: 'POST', headers: baseHeaders, body: JSON.stringify(payload) });
+    const json: any = await res.json().catch(() => ({}));
+    dbg('POST result', { status: res.status, request_id: json?.request_id, task_id: json?.task_id, statusText: (json?.status || json?.result?.status) });
+    return { res, json, sent: payload };
+  }
+  async function getJson(getUrl: string) {
+    dbg('GET', getUrl);
+    const res = await fetch(getUrl, { headers: baseHeaders, method: 'GET' });
+    const json: any = await res.json().catch(() => ({}));
+    dbg('GET result', { status: res.status, statusText: json?.status, request_id: json?.request_id, task_id: json?.task_id });
+    return { res, json };
+  }
+  function extractCandidate(src: any) { return src?.result || src?.response || src?.data || src; }
+  function looksFinal(obj: any) {
+    const r = extractCandidate(obj);
+    const so = r?.source_output || r?.result?.source_output;
+    const hasAcct = so?.account_exists || so?.result || r?.account_status || so?.account_status;
+    const status = r?.status || obj?.status;
+    return Boolean(hasAcct || (typeof status === 'string' && /completed|success/i.test(status)));
+  }
+  async function pollForFinal(initial: any): Promise<any | null> {
+    const r = extractCandidate(initial);
+    const taskId = initial?.task_id || r?.task_id || initial?.id || r?.id;
+    const requestId = initial?.request_id || r?.request_id;
+    const maxAttempts = 10; const delayMs = 700;
+    for (let i = 0; i < maxAttempts; i++) {
+      try {
+        if (taskId) { const { res, json } = await getJson(`${base.replace(/\/$/, '')}/tasks/${encodeURIComponent(taskId)}`); if (res.ok && looksFinal(json)) return json; }
+        if (requestId) { const { res, json } = await getJson(`${base.replace(/\/$/, '')}/tasks?request_id=${encodeURIComponent(requestId)}`); if (res.ok && looksFinal(json)) return json; }
+      } catch {}
+      await new Promise(r => setTimeout(r, delayMs));
+    }
+    return null;
+  }
+
+  const uuid = (() => {
+    try { return (globalThis as any).crypto?.randomUUID?.() || require('crypto').randomUUID(); } catch { /* no-op */ }
+    return `00000000-0000-4000-8000-${Date.now().toString().padStart(12,'0').slice(-12)}`;
+  })();
+  const ac = String(accountNumber || '').replace(/\s|-/g, '');
+  const ifscNorm = normalizeIfsc(ifsc);
+  const fullName = name ? String(name).trim() : undefined;
+
+  const shapes: any[] = [];
+  // Spec-compliant async shape (as per docs)
+  shapes.push({ task_id: uuid, group_id: uuid, data: { account_number: ac, ifsc: ifscNorm, name: fullName } });
+  // Alternate common shape with explicit consent/account_name
+  shapes.push({ task_id: uuid, group_id: uuid, data: { account_number: ac, ifsc: ifscNorm, account_name: fullName, consent: 'Y', consent_text: 'I authorize bank account verification for payouts.' } });
+  // Alternate keys
+  shapes.push({ task_id: uuid, group_id: uuid, data: { id_number: ac, ifsc_code: ifscNorm, full_name: fullName } });
+  shapes.push({ task_id: uuid, group_id: uuid, data: { account: ac, ifsc: ifscNorm } });
+
+  const errors: any[] = [];
+  const endpoints = preferExact
+    ? [endpointPrimary]
+    : [
+        endpointPrimary,
+        '/tasks/async/verify_with_source/ind_bank_account_name',
+        '/tasks/async/verify_with_source/ind_bank_account_v2',
+        '/tasks/async/ind_bank_account',
+        '/tasks/verify_with_source/ind_bank_account'
+      ];
+
+  for (const ep of endpoints) {
+    const postUrl = `${base.replace(/\/$/, '')}${ep}`;
+    for (const payload of shapes) {
+      try {
+        const { res, json, sent } = await postAndParse(postUrl, payload);
+      if (!res.ok) {
+        const msg = (json?.message || json?.error || res.statusText || '').toString();
+        const code = (json?.code || json?.error_code || '').toString();
+        const detail = [code, msg].filter(Boolean).join(': ');
+        errors.push({ httpStatus: res.status, detail, raw: json, sent, endpointTried: ep });
+        if (res.status === 400 || res.status === 422) continue;
+        // For other statuses, try next endpoint if 404; otherwise fail fast
+        if (res.status !== 404) {
+          return { ok: false, error: 'IDFY_HTTP_ERROR', detail, raw: { response: json, sent, endpoint: ep }, httpStatus: res.status };
+        }
+        // if 404, break to try next endpoint
+        break;
+      }
+      let finalJson = json;
+      if (!looksFinal(json) && (json?.task_id || json?.request_id)) {
+        const polled = await pollForFinal(json);
+        if (polled) finalJson = polled;
+      }
+        const result = extractCandidate(finalJson);
+      const so = result?.source_output || result?.result?.source_output || result;
+      const status = result?.account_status || so?.account_status || result?.status || 'success';
+      const exists = so?.account_exists ?? true;
+      const nameOnAccount = so?.account_name || so?.beneficiary_name || so?.name_on_account || so?.name || result?.name || result?.full_name;
+      const nameMatchResult = (so?.name_match_result || so?.match_result || result?.name_match_result) as string | undefined;
+      const bankName = so?.bank_name || result?.bank_name;
+      const ifscResp = so?.ifsc || result?.ifsc;
+
+      const nn = normalizeName(fullName || '');
+      const nc = normalizeName(nameOnAccount || '');
+      let score = nn && nc ? nameTokenScore(nn, nc) : 0;
+      let nameMatch = score >= 0.5;
+      if (typeof so?.name_match === 'boolean') nameMatch = so.name_match;
+      // If name_match_result present, map it to score/boolean
+      if (typeof nameMatchResult === 'string') {
+        const nmr = nameMatchResult.toUpperCase();
+        if (nmr === 'MATCHED') { nameMatch = true; score = Math.max(score, 1); }
+        else if (nmr === 'PARTIAL_MATCH') { nameMatch = true; score = Math.max(score, 0.6); }
+        else if (nmr === 'NOT_MATCHED' || nmr === 'ACCOUNT_NOT_FOUND') { nameMatch = false; score = Math.min(score, 0); }
+      }
+
+      return {
+        ok: !!exists,
+        accountStatus: String(status || (exists ? 'active' : 'not_found')),
+        nameOnAccount,
+        match: { nameMatch, score },
+        provider: {
+          requestId: finalJson?.request_id || result?.request_id,
+          taskId: finalJson?.task_id || result?.task_id,
+          bankName,
+          ifsc: ifscResp,
+          nameMatchResult,
+          input: { accountNumber: ac, ifsc: ifscNorm, name: fullName }
+        },
+        raw: finalJson,
+      };
+      } catch (err: any) {
+        errors.push({ httpStatus: 0, detail: err?.message || 'request_failed', sent: payload, endpointTried: ep });
+        continue;
+      }
+    }
+  }
+  const last = errors[errors.length - 1] || {};
+  const any404 = errors.some((e: any) => e.httpStatus === 404);
+  if (any404) {
+    return { ok: false, error: 'IDFY_ENDPOINT_NOT_FOUND', detail: 'IDfy bank verification endpoint not found for this tenant. Confirm product enablement or set IDFY_BANK_ENDPOINT.', raw: { attempts: errors }, httpStatus: 404 };
+  }
+  return { ok: false, error: 'IDFY_HTTP_ERROR', detail: last?.detail || 'All payload shapes and endpoints failed', raw: { attempts: errors }, httpStatus: last?.httpStatus || 400 };
+}
+
+export async function verifyBankAccount(input: BankVerifyInput): Promise<BankVerifyResult> {
+  const mode = (process.env.IDFY_MODE || '').toLowerCase();
+  const hasBasic = !!(process.env.IDFY_CLIENT_ID && process.env.IDFY_CLIENT_SECRET);
+  const hasHeader = !!process.env.IDFY_API_KEY;
+  const hasCreds = hasBasic || hasHeader;
+  const fallbackMock = (process.env.IDFY_FALLBACK_TO_MOCK === '1' || (process.env.IDFY_FALLBACK_TO_MOCK || '').toLowerCase() === 'true');
+  if (mode === 'mock') return mockBankVerify(input);
+  if (!hasCreds) return { ok: false, error: 'IDFY_NOT_CONFIGURED', detail: 'Missing IDfy credentials for bank verification' };
+  const real = await realIdfyBankVerify(input);
+  if (!real.ok && (real.error === 'IDFY_ENDPOINT_NOT_FOUND' || real.httpStatus === 404) && fallbackMock) {
+    const mock = await mockBankVerify(input);
+    mock.provider = { ...(mock.provider || {}), fallback: 'mock_due_to_endpoint_not_found' };
+    return mock;
+  }
+  return real;
+}
+
+export async function verifyBankAccountMock(input: BankVerifyInput): Promise<BankVerifyResult> {
+  return mockBankVerify(input);
+}
 
 // ---------------- Aadhaar verification (IDfy) ----------------
 type AadhaarVerifyInput = {

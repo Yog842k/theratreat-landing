@@ -167,6 +167,17 @@ export async function POST(request) {
     // Consultation fee precedence: separate profile -> embedded -> 0
     const consultationFee = (therapistProfile && therapistProfile.consultationFee) || (therapistUser.therapistProfile && therapistUser.therapistProfile.consultationFee) || 0;
 
+    // Determine base price using session type (server-side dynamic pricing)
+    // Matches UI defaults: video=999, audio=499, clinic=699, home=1299
+    let baseAmount = Number(consultationFee || 0);
+    try {
+      const { getSessionBasePrice } = require('@/lib/pricing');
+      baseAmount = getSessionBasePrice(sessionType, consultationFee);
+    } catch (e) {
+      // If pricing module missing for any reason, keep consultationFee
+      console.warn('pricing module unavailable, using consultationFee', e?.message || e);
+    }
+
     // Check for existing booking at the same time
     const existingBooking = await database.findOne('bookings', {
       therapistId: therapistUser._id, // always store user _id to keep legacy aggregation working
@@ -189,7 +200,7 @@ export async function POST(request) {
       sessionType,
       notes: ValidationUtils.sanitizeString(notes || ''),
       status: 'pending',
-      totalAmount: consultationFee,
+      totalAmount: baseAmount,
       paymentStatus: 'pending',
       createdAt: new Date(),
       updatedAt: new Date()

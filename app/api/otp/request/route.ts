@@ -13,11 +13,12 @@ export async function POST(request: NextRequest) {
     const purpose = body?.purpose || 'signup:user';
     if (!phone) return ResponseUtils.badRequest('phone is required');
 
-    const res = await OtpUtils.requestOtp({ phone, purpose });
+  const res = await OtpUtils.requestOtp({ phone, purpose });
     if (!res.ok) {
-      return ResponseUtils.errorCode(res.error || 'OTP_ERROR', res.detail || 'Failed to send verification code', 400, res);
+      const status = (res as any).error === 'RATE_LIMITED' ? 429 : 400;
+      return ResponseUtils.errorCode(res.error || 'OTP_ERROR', res.detail || 'Failed to send verification code', status, res);
     }
-    return ResponseUtils.success({ otpSent: true, phone: res.phone, ttlMinutes: res.ttlMinutes, purpose }, 'OTP sent', 202);
+  return ResponseUtils.success({ otpSent: true, phone: res.phone, ttlMinutes: (res as any).ttlMinutes, purpose, channel: (res as any).channel, nextSendSeconds: Number(process.env.OTP_RESEND_INTERVAL_SEC || 60) }, 'OTP sent', 202);
   } catch (err: any) {
     return ResponseUtils.error(`Failed to request OTP. ${err?.message || ''}`, 500);
   }

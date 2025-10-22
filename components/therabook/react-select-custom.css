@@ -51,7 +51,13 @@
   background-color: #fff !important;
   border-radius: 0.5rem !important;
   box-shadow: 0 8px 32px 0 rgba(31, 41, 55, 0.12);
+  z-index: 60; /* ensure above cards/headers */
   animation: fadeInMenu 0.25s;
+}
+
+/* If menu is rendered in a portal */
+.react-select__menu-portal {
+  z-index: 60;
 }
 @keyframes fadeInMenu {
   from { opacity: 0; transform: translateY(-8px); }

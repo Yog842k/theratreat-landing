@@ -191,6 +191,26 @@ export default function DebugPage() {
               </Button>
             </div>
 
+            {/* Bank Verification Test */}
+            <div className="space-y-4">
+              <h3 className="font-semibold">Extra: Bank Verification Test</h3>
+              <div className="text-sm text-slate-600">Open a test utility to verify bank account + IFSC via IDfy.</div>
+              <div className="grid grid-cols-2 gap-4">
+                <Button 
+                  onClick={() => router.push('/debug/bank-verification')} 
+                  variant="outline"
+                >
+                  Open Bank Verification
+                </Button>
+                <Button 
+                  onClick={() => router.push('/debug/idfy')} 
+                  variant="outline"
+                >
+                  Open PAN/Aadhaar Test
+                </Button>
+              </div>
+            </div>
+
             {/* Messages */}
             {error && (
               <Alert className="border-red-200 bg-red-50">

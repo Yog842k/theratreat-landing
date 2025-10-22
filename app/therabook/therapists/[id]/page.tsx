@@ -48,6 +48,7 @@ export default function TherapistProfilePage({}: TherapistProfileProps) {
     const title = fp?.professionalInfo?.primarySpecialty || t.title || "Therapist";
     const languages = fp?.practiceDetails?.languages || t.languages || [];
     const specs = t.specializations || (fp?.professionalInfo?.primarySpecialty ? [fp.professionalInfo.primarySpecialty] : []);
+    const conditions = Array.isArray(t.primaryConditions) ? t.primaryConditions : [];
     const rating = t.rating ?? 0;
     const reviewCount = t.reviewCount ?? 0;
     const sessions = t.totalSessions ?? 0;
@@ -63,7 +64,7 @@ export default function TherapistProfilePage({}: TherapistProfileProps) {
     const sessionTypes = fp?.practiceDetails?.sessionFormats || t.sessionTypes || [];
     const nextAvailable = ""; // unknown for now
     const weeklySlots = Array.isArray(t.availability) ? t.availability.reduce((acc: number, d: any) => acc + (Array.isArray(d.slots) ? d.slots.filter((s: any) => s?.isAvailable).length : 0), 0) : 0;
-    return { name, title, languages, specs, rating, reviewCount, sessions, experienceText, location, price, image, bio, education, certifications, sessionTypes, nextAvailable, weeklySlots };
+    return { name, title, languages, specs, conditions, rating, reviewCount, sessions, experienceText, location, price, image, bio, education, certifications, sessionTypes, nextAvailable, weeklySlots };
   }, [api]);
 
   if (loading) return <div className="min-h-screen flex items-center justify-center text-slate-600">Loading therapist…</div>;
@@ -180,27 +181,30 @@ export default function TherapistProfilePage({}: TherapistProfileProps) {
                   </div>
                 </motion.div>
 
-                {/* Specializations */}
+                {/* Conditions treated (preferred) or Specializations (fallback) */}
                 <motion.div 
                   initial={{ y: 20, opacity: 0 }}
                   animate={{ y: 0, opacity: 1 }}
                   transition={{ delay: 0.6 }}
                   className="space-y-3"
                 >
-                  <h3 className="text-lg font-semibold text-gray-800">Specializations</h3>
+                  <h3 className="text-lg font-semibold text-gray-800">Conditions treated</h3>
                   <div className="flex flex-wrap gap-2">
-                    {display.specs.map((spec: string, index: number) => (
+                    {(display.conditions?.length ? display.conditions : display.specs).map((tag: string, index: number) => (
                       <motion.div
-                        key={spec}
+                        key={`${tag}-${index}`}
                         initial={{ scale: 0, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
                         transition={{ delay: 0.7 + index * 0.1 }}
                       >
                         <Badge variant="secondary" className="px-3 py-1.5 bg-gradient-to-r from-blue-100 to-purple-100 text-blue-800 border-0 rounded-full">
-                          {spec}
+                          {tag}
                         </Badge>
                       </motion.div>
                     ))}
+                    {(!display.conditions || display.conditions.length === 0) && display.specs.length === 0 && (
+                      <span className="text-sm text-gray-500">Anxiety • Autism • Pain</span>
+                    )}
                   </div>
                 </motion.div>
 
@@ -256,15 +260,7 @@ export default function TherapistProfilePage({}: TherapistProfileProps) {
                 </div>
               </div>
 
-              <div>
-                <h4 className="font-semibold text-gray-900 mb-2">Treatment Approaches</h4>
-                <ul className="list-disc list-inside text-gray-700 space-y-1">
-                  <li>Cognitive Behavioral Therapy (CBT)</li>
-                  <li>Trauma-Informed Care</li>
-                  <li>Mindfulness-Based Interventions</li>
-                  <li>Solution-Focused Brief Therapy</li>
-                </ul>
-              </div>
+              {/* Approaches section removed per requirement */}
             </CardContent>
           </Card>
         </TabsContent>

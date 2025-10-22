@@ -27,6 +27,23 @@ interface OtpRecord {
 const DEFAULT_LEN = Number(process.env.OTP_LENGTH || 6);
 const DEFAULT_TTL_MIN = Number(process.env.OTP_EXP_MIN || 10); // minutes
 const DEFAULT_MAX_ATTEMPTS = Number(process.env.OTP_MAX_ATTEMPTS || 5);
+const OTP_DEBUG = (process.env.OTP_DEBUG || '').toString() === '1';
+const RESEND_INTERVAL_SEC = Number(process.env.OTP_RESEND_INTERVAL_SEC || 60);
+
+let indexesEnsured = false;
+async function ensureIndexes() {
+  if (indexesEnsured) return;
+  try {
+    const coll = await database.getCollection('otp_codes');
+    // TTL on expiresAt; expires immediately after time passed
+    try { await database.createIndex('otp_codes', { expiresAt: 1 }, { expireAfterSeconds: 0 }); } catch {}
+    // Helpful index on phone+purpose for lookups
+    try { await database.createIndex('otp_codes', { phone: 1, purpose: 1 }); } catch {}
+    indexesEnsured = true;
+  } catch {
+    // ignore if DB mocked
+  }
+}
 
 function randomNumeric(length: number) {
   let s = '';
@@ -68,7 +85,19 @@ function getTwilio() {
   return twilioClient;
 }
 
+function getSmsFrom(): string | null {
+  // Remove inline comments or accidental extra text (e.g., "+123...  # comment")
+  let from = String(process.env.TWILIO_SMS_FROM || '').split('#')[0].trim();
+  if (!from) return null;
+  // Basic E.164-ish validation: must start with + and be digits thereafter
+  if (!/^\+[1-9]\d{5,15}$/.test(from)) {
+    return null;
+  }
+  return from;
+}
+
 export async function requestOtp({ phone, purpose }: { phone: string; purpose: string; }) {
+  await ensureIndexes();
   const normalized = normalizePhone(phone);
   if (!normalized) {
     return { ok: false, error: 'INVALID_PHONE' };
@@ -76,6 +105,21 @@ export async function requestOtp({ phone, purpose }: { phone: string; purpose: s
 
   const client = getTwilio();
   const verifySid = process.env.TWILIO_VERIFY_SERVICE_SID;
+
+  // Rate limit resends per phone+purpose
+  try {
+    const coll = await database.getCollection('otp_codes');
+    const existing: WithId<Document> | null = await coll.findOne({ phone: normalized, purpose });
+    if (existing?.lastSentAt) {
+      const last = new Date(existing.lastSentAt).getTime();
+      const now = Date.now();
+      const elapsed = Math.floor((now - last) / 1000);
+      const remain = RESEND_INTERVAL_SEC - elapsed;
+      if (remain > 0) {
+        return { ok: false, error: 'RATE_LIMITED', detail: `Please wait ${remain}s before requesting a new code`, retryAfter: remain };
+      }
+    }
+  } catch { /* ignore if DB missing */ }
 
   // Prefer Twilio Verify if configured
   if (client && verifySid) {
@@ -91,8 +135,9 @@ export async function requestOtp({ phone, purpose }: { phone: string; purpose: s
           { upsert: true }
         );
       } catch { /* non-blocking */ }
-      // TTL is managed by Verify; we surface configured default if provided
-      return { ok: true, phone: normalized, ttlMinutes: DEFAULT_TTL_MIN };
+  // TTL is managed by Verify; we surface configured default if provided
+  if (OTP_DEBUG) console.log('[OTP] Verify sent', { to: normalized });
+  return { ok: true, phone: normalized, ttlMinutes: DEFAULT_TTL_MIN, channel: 'verify' } as any;
     } catch (err: any) {
       // Map common Verify errors
       const code = (err && (err.code || err.status)) || 'VERIFY_SEND_FAILED';
@@ -137,15 +182,24 @@ export async function requestOtp({ phone, purpose }: { phone: string; purpose: s
   try {
     if (!client) throw new Error('Twilio client init failed');
     const body = `Your verification code is ${code}. It expires in ${DEFAULT_TTL_MIN} minutes. — TheraTreat`;
-    await client.messages.create({ from: process.env.TWILIO_SMS_FROM, to: normalized, body });
+    const from = getSmsFrom();
+    if (!from) {
+      return { ok: false, error: 'TWILIO_NOT_CONFIGURED', detail: 'Invalid TWILIO_SMS_FROM format. Use E.164 like +1234567890' };
+    }
+    const msg = await client.messages.create({ from, to: normalized, body });
+    if (OTP_DEBUG) console.log('[OTP] SMS queued', { sid: msg?.sid, from, to: normalized });
+    if ((process.env.OTP_DEV_ECHO || '') === '1') {
+      console.log('[OTP][dev] code', { to: normalized, purpose, code });
+    }
   } catch (err: any) {
     return { ok: false, error: 'SMS_SEND_FAILED', detail: err?.message };
   }
 
-  return { ok: true, phone: normalized, ttlMinutes: DEFAULT_TTL_MIN };
+  return { ok: true, phone: normalized, ttlMinutes: DEFAULT_TTL_MIN, channel: 'sms' } as any;
 }
 
 export async function verifyOtp({ phone, purpose, code }: { phone: string; purpose: string; code: string; }) {
+  await ensureIndexes();
   const normalized = normalizePhone(phone);
   if (!normalized) return { ok: false, error: 'INVALID_PHONE' };
 

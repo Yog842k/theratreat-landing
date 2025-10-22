@@ -157,6 +157,7 @@ export async function sendBookingConfirmation(payload: BookingNotificationPayloa
 }
 
 export function notificationsEnabled() {
+  if (process.env.NOTIFICATIONS_DISABLE === '1') return false;
   return !!(
     (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && (process.env.TWILIO_SMS_FROM || process.env.TWILIO_WHATSAPP_FROM)) ||
     (process.env.SENDGRID_API_KEY && process.env.SENDGRID_FROM_EMAIL)

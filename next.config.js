@@ -33,9 +33,8 @@ const nextConfig = {
     // resolved at runtime, leading to: Cannot find module .../razorpay/order/route.js
     return config;
   },
-  // Use a custom distDir to avoid lingering locked .next/trace file issues on Windows
-  // Use a non-dot folder name so CI systems (like Amplify) can find the artifact directory.
-  distDir: 'next-build'
+  // Use default .next in dev to avoid Windows EPERM on next-build/trace; keep custom dist in prod/CI
+  distDir: process.env.NEXT_DIST_DIR || (process.env.NODE_ENV === 'production' ? 'next-build' : '.next')
 };
 
 module.exports = nextConfig

@@ -3,6 +3,9 @@ import crypto from 'crypto';
 import { ObjectId } from 'mongodb';
 import { selectMode, resolveSecret, isSimulationEnabled } from '@/lib/razorpay-creds';
 import { sendBookingConfirmation, notificationsEnabled } from '@/lib/notifications';
+// Lazy import to avoid type resolution issues in certain build modes
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { sendTenMinuteReminder } = require('@/lib/ten-minute-reminder');
 import { scheduleMeeting } from '@/lib/meeting-scheduler';
 const database = require('@/lib/database');
 let AuthMiddleware = require('@/lib/middleware');
@@ -87,6 +90,38 @@ export async function POST(request: NextRequest) {
               timeSlot: fresh?.timeSlot,
               roomCode: fresh?.roomCode // if later stored
             });
+            // Optional in-process 10-minute reminder (best-effort; enable with NOTIFICATIONS_IN_PROCESS_SCHEDULER=1)
+            try {
+              if (process.env.NOTIFICATIONS_IN_PROCESS_SCHEDULER === '1') {
+                const start = new Date(fresh?.appointmentDate || fresh?.date || new Date());
+                try {
+                  const [hh, mm] = String(fresh?.appointmentTime || fresh?.timeSlot || '00:00').split(':').map((s: string) => parseInt(s, 10));
+                  if (!Number.isNaN(hh)) start.setHours(hh);
+                  if (!Number.isNaN(mm)) start.setMinutes(mm);
+                } catch {}
+                start.setSeconds(0, 0);
+                const fireAt = start.getTime() - 10 * 60 * 1000; // T-10m
+                const delay = fireAt - Date.now();
+                if (delay > 0 && delay < 7 * 24 * 60 * 60 * 1000) {
+                  setTimeout(async () => {
+                    try {
+                      await sendTenMinuteReminder({
+                        bookingId,
+                        userEmail: userDoc?.email,
+                        userName: userDoc?.name,
+                        userPhone: userDoc?.phone,
+                        therapistName: therapistDoc?.displayName,
+                        sessionType: fresh?.sessionType,
+                        date: fresh?.appointmentDate?.toString?.() || fresh?.date?.toString?.(),
+                        timeSlot: fresh?.appointmentTime || fresh?.timeSlot,
+                        roomCode: fresh?.roomCode,
+                        meetingUrl: fresh?.meetingUrl
+                      });
+                    } catch (e) { console.error('10-min reminder dispatch failed', e); }
+                  }, delay);
+                }
+              }
+            } catch (e) { console.warn('10-min reminder scheduling skipped', (e as any)?.message); }
           } catch (e) { console.error('notify(simulated) failed', e); }
         });
       }
@@ -142,6 +177,38 @@ export async function POST(request: NextRequest) {
             timeSlot: fresh?.timeSlot,
             roomCode: fresh?.roomCode
           });
+          // Optional in-process 10-minute reminder
+          try {
+            if (process.env.NOTIFICATIONS_IN_PROCESS_SCHEDULER === '1') {
+              const start = new Date(fresh?.appointmentDate || fresh?.date || new Date());
+              try {
+                const [hh, mm] = String(fresh?.appointmentTime || fresh?.timeSlot || '00:00').split(':').map((s: string) => parseInt(s, 10));
+                if (!Number.isNaN(hh)) start.setHours(hh);
+                if (!Number.isNaN(mm)) start.setMinutes(mm);
+              } catch {}
+              start.setSeconds(0, 0);
+              const fireAt = start.getTime() - 10 * 60 * 1000; // T-10m
+              const delay = fireAt - Date.now();
+              if (delay > 0 && delay < 7 * 24 * 60 * 60 * 1000) {
+                setTimeout(async () => {
+                  try {
+                    await sendTenMinuteReminder({
+                      bookingId,
+                      userEmail: userDoc?.email,
+                      userName: userDoc?.name,
+                      userPhone: userDoc?.phone,
+                      therapistName: therapistDoc?.displayName,
+                      sessionType: fresh?.sessionType,
+                      date: fresh?.appointmentDate?.toString?.() || fresh?.date?.toString?.(),
+                      timeSlot: fresh?.appointmentTime || fresh?.timeSlot,
+                      roomCode: fresh?.roomCode,
+                      meetingUrl: fresh?.meetingUrl
+                    });
+                  } catch (e) { console.error('10-min reminder dispatch failed', e); }
+                }, delay);
+              }
+            }
+          } catch (e) { console.warn('10-min reminder scheduling skipped', (e as any)?.message); }
         } catch (e) { console.error('notify(real) failed', e); }
       });
     }
