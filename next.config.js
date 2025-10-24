@@ -13,7 +13,6 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   webpack: (config) => {
-    // Force single instance of tldraw state libs to avoid whiteboard runtime warning
     config.resolve = config.resolve || {};
     config.resolve.alias = {
       ...(config.resolve.alias || {}),
@@ -22,6 +21,7 @@ const nextConfig = {
       '@tldraw/tlschema': path.resolve(__dirname, 'node_modules/@tldraw/tlschema'),
       '@tldraw/editor': path.resolve(__dirname, 'node_modules/@tldraw/editor'),
       '@tldraw/tldraw': path.resolve(__dirname, 'node_modules/@tldraw/tldraw'),
+      '@/components': path.resolve(__dirname, 'components'),
     };
 
     // NOTE: Removed previous IgnorePlugin that suppressed Razorpay API route emission.
