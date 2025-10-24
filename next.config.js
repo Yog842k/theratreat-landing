@@ -25,6 +25,7 @@ const nextConfig = {
   '@/logo.png': path.resolve(__dirname, 'logo.png'),
   '@/constants': path.resolve(__dirname, 'constants'),
   '@/lib': path.resolve(__dirname, 'lib'),
+  '@/utils/constants': path.resolve(__dirname, 'utils/constants.ts'),
     };
 
     // NOTE: Removed previous IgnorePlugin that suppressed Razorpay API route emission.
