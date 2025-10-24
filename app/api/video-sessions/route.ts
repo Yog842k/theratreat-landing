@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import AuthMiddleware from '@/lib/middleware';
 import VideoSession from '@/lib/models/VideoSession';
-import { createHmsRoom } from '@/lib/hms';
+import { createRoom } from '@/lib/hms';
 
 function json(status: number, body: any) { return NextResponse.json(body, { status }); }
 
@@ -43,8 +43,8 @@ export async function POST(req: NextRequest) {
     if (!templateId) return json(500, { error: 'HMS_TEMPLATE_ID missing (required for server room creation)' });
     // Room name strategy: therabook-<therapist>-<timestamp>
     const safeTherapist = String(user._id).slice(-6);
-    const roomName = `session-${safeTherapist}-${Date.now().toString(36)}`;
-    const room = await createHmsRoom(roomName, 'Therapy session');
+  const roomName = `session-${safeTherapist}-${Date.now().toString(36)}`;
+  const room = await createRoom(roomName, templateId, 'Therapy session');
     const sessionDoc = await VideoSession.create({
       therapistId: user._id,
       clientId,

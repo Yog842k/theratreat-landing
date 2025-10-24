@@ -21,7 +21,10 @@ const nextConfig = {
       '@tldraw/tlschema': path.resolve(__dirname, 'node_modules/@tldraw/tlschema'),
       '@tldraw/editor': path.resolve(__dirname, 'node_modules/@tldraw/editor'),
       '@tldraw/tldraw': path.resolve(__dirname, 'node_modules/@tldraw/tldraw'),
-      '@/components': path.resolve(__dirname, 'components'),
+  '@/components': path.resolve(__dirname, 'components'),
+  '@/logo.png': path.resolve(__dirname, 'logo.png'),
+  '@/constants': path.resolve(__dirname, 'constants'),
+  '@/lib': path.resolve(__dirname, 'lib'),
     };
 
     // NOTE: Removed previous IgnorePlugin that suppressed Razorpay API route emission.

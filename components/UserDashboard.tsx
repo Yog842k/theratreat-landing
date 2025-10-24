@@ -9,7 +9,6 @@ import { Progress } from "./ui/progress";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
-import VideoCallDashboard from "./video-call/VideoCallDashboard";
 import { Switch } from "./ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
@@ -1074,9 +1073,6 @@ export function UserDashboard() {
         <div className="flex-1 p-8">
           {activeSection === "profile" && renderProfileSection()}
           {activeSection === "appointments" && renderAppointmentsSection()}
-          {activeSection === "video-calls" && (
-            <VideoCallDashboard userRole="client" userId="demo-client-1" />
-          )}
           {activeSection === "self-tests" && renderSelfTestsSection()}
           {activeSection === "payments" && renderPaymentsSection()}
           {activeSection === "orders" && renderOrdersSection()}
