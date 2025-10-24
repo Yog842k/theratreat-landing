@@ -14,9 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { 
   Calendar, 
-  Clock, 
   FileText, 
-  TrendingUp, 
   Bell, 
   Settings, 
   User, 
