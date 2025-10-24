@@ -13,10 +13,10 @@
     "lint": "next lint",
     "type-check": "tsc --noEmit",
     "diagnostics:100ms": "node scripts/check-100ms-env.js",
-  "diagnostics:routes": "node scripts/check-duplicate-routes.mjs",
-  "env:check": "node scripts/check-required-env.mjs",
+    "diagnostics:routes": "node scripts/check-duplicate-routes.mjs",
+    "env:check": "node scripts/check-required-env.mjs",
     "diagnostics:route-stubs": "node scripts/check-duplicate-route-stubs.mjs",
-  "build:strict": "npm run env:check && next build",
+    "build:strict": "npm run env:check && next build",
     "hms:gen-mgmt-token": "node scripts/generate-hms-management-token.js",
     "hms:rotate": "npm run hms:gen-mgmt-token -- --ttl 7200",
     "scan:secrets": "node scripts/scan-secrets.js",
@@ -25,6 +25,7 @@
   "dependencies": {
     "@100mslive/react-sdk": "^0.10.38",
     "@100mslive/roomkit-react": "^0.3.38",
+    "@100mslive/server-sdk": "^0.3.0",
     "@100mslive/types-prebuilt": "^0.12.12",
     "@aws-sdk/client-ses": "^3.899.0",
     "@aws-sdk/client-sns": "^3.899.0",
@@ -110,10 +111,6 @@
     "typescript": "^5.5.4"
   },
   "overrides": {
-    "@tldraw/state": "2.0.0-alpha.19",
-    "@tldraw/store": "2.0.0-alpha.19",
-    "@tldraw/tlschema": "2.0.0-alpha.19",
-    "@tldraw/editor": "2.0.0-alpha.19",
-    "@tldraw/tldraw": "2.0.0-alpha.19"
+    "@tldraw/state": "2.0.0-alpha.19"
   }
 }

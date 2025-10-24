@@ -1,6 +1,7 @@
 "use client";
 import React, { useState } from 'react';
 import INDIA_STATES from '@/constants/india-states';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -106,11 +107,19 @@ export function PatientRegistration({ onSuccess, setCurrentView }: Props) {
                 <Input id="city" value={city} onChange={e=>setCity(e.target.value)} placeholder="Your city" />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="state">State *</Label>
-                <select id="state" value={stateVal} onChange={e=>setStateVal(e.target.value)} className="w-full h-9 border rounded-md px-3 py-2 text-sm bg-white text-slate-900 border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-500">
-                  <option value="">Select State</option>
-                  {INDIA_STATES.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
+                    <Label htmlFor="state">State *</Label>
+                    {/* Improved dropdown using custom Select */}
+                    <Select value={stateVal} onValueChange={setStateVal}>
+                      <SelectTrigger id="state" className="w-full" aria-label="State">
+                        <SelectValue placeholder="Select State" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">Select State</SelectItem>
+                        {INDIA_STATES.map(s => (
+                          <SelectItem key={s} value={s}>{s}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
               </div>
             </div>
             <div>

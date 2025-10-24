@@ -1,46 +1,84 @@
-/** Lightweight 100ms server helpers for server-managed (room ID) flow. */
+
+import { SDK } from '@100mslive/server-sdk';
+
+const hms = new SDK();
+
+
+export async function createRoom(name: string, template_id: string, description?: string) {
+  return await hms.rooms.create({ name, template_id, description });
+}
+export async function listRooms(limit = 10) {
+  return await hms.rooms.list({ limit });
+}
+
+
+/**
+ * Delete a room using the 100ms REST API (SDK does not support this)
+ */
 import fetch from 'node-fetch';
-
-interface CreateRoomResult { id: string; name: string; }
-
-function requireEnv(name: string): string {
-  const v = (process.env[name] || '').trim();
-  if (!v) throw new Error(`ENV_MISSING:${name}`);
-  return v;
-}
-
-export async function createHmsRoom(roomName: string, description?: string): Promise<CreateRoomResult> {
-  const subdomain = requireEnv('HMS_SUBDOMAIN');
-  const templateId = requireEnv('HMS_TEMPLATE_ID');
-  const mgmt = (process.env.HMS_MANAGEMENT_TOKEN || '').trim();
-  if (!mgmt) throw new Error('ENV_MISSING:HMS_MANAGEMENT_TOKEN');
-  const url = `https://${subdomain}.api.100ms.live/v2/rooms`;
+export async function deleteRoom(roomId: string) {
+  const token = process.env.HMS_MANAGEMENT_TOKEN;
+  if (!token) throw new Error('ENV_MISSING: HMS_MANAGEMENT_TOKEN');
+  const url = `https://api.100ms.live/v2/rooms/${roomId}`;
   const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${mgmt}` },
-    body: JSON.stringify({ name: roomName, description: description || 'Therapy session', template_id: templateId })
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
   });
   if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`ROOM_CREATE_FAILED:${res.status}:${text}`);
+    const preview = await res.text();
+    throw new Error(`ROOM_DELETE_FAILED: ${res.status} ${preview}`);
   }
-  const json = await res.json();
-  return { id: json.id || json.room_id, name: json.name };
+  return { ok: true };
 }
 
-export async function generateRoomToken(roomId: string, userId: string, role: string): Promise<string> {
-  const subdomain = requireEnv('HMS_SUBDOMAIN');
-  const mgmt = (process.env.HMS_MANAGEMENT_TOKEN || '').trim();
-  if (!mgmt) throw new Error('ENV_MISSING:HMS_MANAGEMENT_TOKEN');
-  const url = `https://${subdomain}.api.100ms.live/v2/rooms/${roomId}/tokens`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${mgmt}` },
-    body: JSON.stringify({ user_id: userId, role })
-  });
-  const json = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    throw new Error(`TOKEN_FAILED:${res.status}:${JSON.stringify(json)}`);
+/**
+ * Generate a client auth token for joining a room
+ */
+export async function generateRoomToken(roomId: string, userId: string, role: string) {
+  return await hms.auth.getAuthToken({ roomId, userId, role });
+}
+
+/**
+ * Generate a management token
+ */
+export async function getManagementToken() {
+  return await hms.auth.getManagementToken();
+}
+
+/**
+ * List active peers in a room
+ */
+export async function listActivePeers(roomId: string) {
+  return await hms.activeRooms.retrieveActivePeers(roomId);
+}
+
+/**
+ * Send a broadcast message to all peers in a room
+ */
+export async function sendBroadcastMessage(roomId: string, message: string) {
+  return await hms.activeRooms.sendMessage(roomId, { message });
+}
+
+/**
+ * List sessions (optionally filtered by room)
+ */
+export async function listSessions(filters?: { roomId?: string; limit?: number }) {
+  let params: { roomId?: string; limit?: number } = {};
+  if (filters) {
+    if (typeof filters.roomId === 'string' && filters.roomId.trim()) {
+      params.roomId = filters.roomId;
+    }
+    if (typeof filters.limit === 'number') {
+      params.limit = filters.limit;
+    }
   }
-  return json.token;
+  const iterable = hms.sessions.list(params);
+  const sessions = [];
+  for await (const session of iterable) {
+    sessions.push(session);
+  }
+  return sessions;
 }

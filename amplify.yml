@@ -8,6 +8,7 @@ frontend:
   phases:
     preBuild:
       commands:
+        - export NODE_ENV=production
         # Ensure Node 20 (matches package.json engines and Next.js 15 requirements)
         - "nvm install 20 || true"
         - "nvm use 20 || true"
@@ -46,4 +47,3 @@ frontend:
   cache:
     paths:
       - node_modules/**/*
-     
