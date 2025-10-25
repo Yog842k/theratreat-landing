@@ -31,10 +31,10 @@ frontend:
         - "(ls -la next-build 2>/dev/null || ls -la) | sed -n '1,120p'"
         - "du -sh next-build || true"
   artifacts:
-  # Must match the custom distDir in next.config.js
+    # Must match the custom distDir in next.config.js
     baseDirectory: .next
-  files:
-    - '**/*'
+    files:
+      - '**/*'
   cache:
     paths:
       - node_modules/**/*
