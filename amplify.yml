@@ -32,9 +32,9 @@ frontend:
         - "du -sh next-build || true"
   artifacts:
   # Must match the custom distDir in next.config.js
-  baseDirectory: .next
-    files:
-      - '**/*'
+    baseDirectory: .next
+  files:
+    - '**/*'
   cache:
     paths:
       - node_modules/**/*
