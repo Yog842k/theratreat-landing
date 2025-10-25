@@ -1,4 +1,4 @@
-import HMS from "@100mslive/server-sdk";
+import * as HMS from "@100mslive/server-sdk";
 
 const hms = new HMS.SDK(
   process.env.HMS_ACCESS_KEY!,
