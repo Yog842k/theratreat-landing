@@ -11,6 +11,7 @@ frontend:
         - npm cache clean --force
         - rm -rf node_modules
         - npm install
+        - npm install autoprefixer --save-dev
         - export NODE_ENV=production
         # Ensure Node 20 (matches package.json engines and Next.js 15 requirements)
         - "nvm install 20 || true"
