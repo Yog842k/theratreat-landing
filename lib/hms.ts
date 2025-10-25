@@ -1,14 +1,34 @@
+import HMS from "@100mslive/server-sdk";
 
-import { SDK } from '@100mslive/server-sdk';
+const hms = new HMS.SDK(
+  process.env.HMS_ACCESS_KEY!,
+  process.env.HMS_SECRET!
+);
 
-const hms = new SDK();
-
-
-export async function createRoom(name: string, template_id: string, description?: string) {
-  return await hms.rooms.create({ name, template_id, description });
+// Example: create a video session room for a therapist-patient meeting
+export async function createSessionRoom({ therapistId, patientId, templateId }: {
+  therapistId: string;
+  patientId: string;
+  templateId: string;
+}) {
+  return await hms.rooms.create({
+    name: `session_${therapistId}_${patientId}_${Date.now()}`,
+    description: `Therapist ${therapistId} & Patient ${patientId}`,
+    template_id: templateId,
+  });
 }
-export async function listRooms(limit = 10) {
-  return await hms.rooms.list({ limit });
+
+// Example: generate auth token for user to join
+export async function generateJoinToken({ roomId, userId, role }: {
+  roomId: string;
+  userId: string;
+  role: "host" | "guest" | "viewer";
+}) {
+  return await hms.auth.getAuthToken({
+    roomId,
+    role,
+    userId,
+  });
 }
 
 
