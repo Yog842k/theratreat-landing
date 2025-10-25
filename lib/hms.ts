@@ -18,6 +18,9 @@ export async function createSessionRoom({ therapistId, patientId, templateId }: 
   });
 }
 
+// Alias for compatibility with route.ts
+export const createRoom = createSessionRoom;
+
 // Example: generate auth token for user to join
 export async function generateJoinToken({ roomId, userId, role }: {
   roomId: string;

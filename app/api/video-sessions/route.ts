@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
     // Room name strategy: therabook-<therapist>-<timestamp>
     const safeTherapist = String(user._id).slice(-6);
   const roomName = `session-${safeTherapist}-${Date.now().toString(36)}`;
-  const room = await createRoom(roomName, templateId, 'Therapy session');
+  const room = await createRoom({ therapistId: safeTherapist, patientId: clientId, templateId });
     const sessionDoc = await VideoSession.create({
       therapistId: user._id,
       clientId,
