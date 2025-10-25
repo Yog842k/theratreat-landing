@@ -8,6 +8,9 @@ frontend:
   phases:
     preBuild:
       commands:
+        - npm cache clean --force
+        - rm -rf node_modules
+        - npm install
         - export NODE_ENV=production
         # Ensure Node 20 (matches package.json engines and Next.js 15 requirements)
         - "nvm install 20 || true"

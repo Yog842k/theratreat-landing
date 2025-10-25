@@ -24,8 +24,8 @@
   },
   "dependencies": {
     "@100mslive/react-sdk": "^0.10.38",
-    "@100mslive/roomkit-react": "^0.3.38",
-    "@100mslive/server-sdk": "^0.3.0",
+    "@100mslive/roomkit-react": "^0.3.9",
+    "@100mslive/server-sdk": "^0.0.1",
     "@100mslive/types-prebuilt": "^0.12.12",
     "@aws-sdk/client-ses": "^3.899.0",
     "@aws-sdk/client-sns": "^3.899.0",
