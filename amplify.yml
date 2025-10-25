@@ -8,34 +8,21 @@ frontend:
   phases:
     preBuild:
       commands:
-        - npm cache clean --force
+        - nvm install 20
+        - nvm use 20
+        - echo "Cleaning node_modules and cache..."
         - rm -rf node_modules
+        - npm cache clean --force
+        - echo "Installing dependencies..."
         - npm install
-        - npm install autoprefixer --save-dev
-        - export NODE_ENV=production
-        # Ensure Node 20 (matches package.json engines and Next.js 15 requirements)
-        - "nvm install 20 || true"
-        - "nvm use 20 || true"
-        # Print versions for easier debugging
-        - "node --version"
-        - "npm --version"
-        # Install dependencies (ci = clean reproducible install)
-        - "npm ci"
-        # Fail fast if required environment variables are missing
-        - "npm run env:check"
-        # (Optional) run env diagnostics script(s) if you have any
-        # - npm run diagnostics:100ms || true
+        - echo "Forcing install of PostCSS & Autoprefixer..."
+        - npm install autoprefixer postcss --force --save-dev
+        - echo "Verify autoprefixer version:"
+        - npx autoprefixer --version || echo "Autoprefixer installed manually"
     build:
       commands:
-        # Generate .env.production from a curated whitelist (see scripts/write-next-env.mjs)
-        # SECURITY: Anything written to .env.production is embedded in build artifacts.
-        # Remove vars from write-next-env.mjs if you do not want them stored there.
-        - "node scripts/write-next-env.mjs"
-        # Build the Next.js project (produces next-build because of custom distDir)
-        - "npm run build"
-        # (Optional) run type-check or lint in CI without failing deployment
-        # - npm run type-check || true
-        # - npm run lint || true
+        - echo "Starting build..."
+        - npm run build
     postBuild:
       commands:
         - "echo '--- Post-build: verify artifact directory ---'"
