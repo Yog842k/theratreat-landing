@@ -22,6 +22,7 @@ frontend:
     build:
       commands:
         - echo "Starting build..."
+        - node scripts/write-next-env.mjs
         - npm run build
     postBuild:
       commands:
