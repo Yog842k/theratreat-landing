@@ -20,7 +20,7 @@ export const navigationTabs = [
   { key: "store", label: "TheraStore", url: "/therastore", icon: ShoppingCart },
   { key: "learn", label: "TheraLearn", url: "/theralearn", icon: BookOpen },
   { key: "therapists", label: "Therapists", url: "/therapists", icon: Stethoscope },
-  { key: "blog", label: "TheaBlogs", url: "/blog", icon: FileText }
+  { key: "blog", label: "TheraBlogs", url: "/blog", icon: FileText }
 ];
 
 export const coreModules = [

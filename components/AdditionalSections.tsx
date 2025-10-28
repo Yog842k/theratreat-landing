@@ -63,10 +63,10 @@ const categories = ["All", "Health Updates", "Case Studies", "Podcast Episodes",
 export function AdditionalSections() {
   return (
     <div className="w-full space-y-16">
-      {/* TheaBlogs Section */}
+  {/* TheraBlogs Section */}
       <section className="max-w-7xl mx-auto">
         <div className="text-center space-y-4 mb-12">
-          <h2 className="text-4xl font-bold text-primary">TheaBlogs</h2>
+          <h2 className="text-4xl font-bold text-primary">TheraBlogs</h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
             Stay informed with the latest insights, case studies, and expert advice 
             from our healthcare professionals.

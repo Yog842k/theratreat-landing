@@ -24,7 +24,7 @@ export function NavigationTabs({ currentView, setCurrentView }: NavigationTabsPr
     "TheraStore": "Store",
     "TheraLearn": "Learn",
     "Therapists": "Therapists", // unchanged (already concise)
-    "TheaBlogs": "Blog",
+  "TheraBlogs": "Blog",
     "Home": "Home"
   };
 

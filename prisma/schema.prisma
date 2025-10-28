@@ -1,0 +1,27 @@
+// Prisma schema for bank verification
+model BankVerification {
+  id                 String   @id @default(uuid())
+  user_id            String
+  account_number_encrypted String
+  ifsc               String
+  account_name       String?
+  method             String   // 'lookup' | 'micro_deposit'
+  status             String   // 'initiated'|'pending'|'verified'|'failed'|'needs_user_confirmation'
+  provider           String?
+  meta               Json?
+  created_at         DateTime @default(now())
+  updated_at         DateTime @updatedAt
+  microDeposits      MicroDeposit[]
+}
+
+model MicroDeposit {
+  id                 String   @id @default(uuid())
+  verification_id    String
+  deposit_amount_paise Int
+  deposit_txn_id     String?
+  status             String   // 'sent'|'cleared'|'reconciled'
+  created_at         DateTime @default(now())
+  verified_by_user   Boolean  @default(false)
+  verified_at        DateTime?
+  BankVerification   BankVerification @relation(fields: [verification_id], references: [id])
+}

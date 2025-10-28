@@ -113,6 +113,7 @@ interface FormData {
     accountHolder: string;
     bankName: string;
     accountNumber: string;
+    accountNumberConfirm: string;
     ifscCode: string;
     upiId: string;
   };
@@ -211,8 +212,9 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
       accountHolder: "",
       bankName: "",
       accountNumber: "",
+      accountNumberConfirm: "",
       ifscCode: "",
-      upiId: ""
+      upiId: "",
     },
     hasClinic: false,
     profilePhoto: null,
@@ -603,8 +605,8 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
     try {
       const bd = formData.bankDetails;
       // In-home specific address/contact is not required during registration
-      if (!formData.qualificationCertUrls.length || !formData.licenseDocumentUrl || !formData.resumeUrl || !formData.profilePhotoUrl || !bd.accountHolder || !bd.bankName || !bd.accountNumber || !bd.ifscCode) {
-        alert('Please complete all mandatory uploads and bank details.');
+      if (!formData.qualificationCertUrls.length || !formData.licenseDocumentUrl || !formData.resumeUrl || !formData.profilePhotoUrl || !bd.accountHolder || !bd.bankName || !bd.accountNumber || !bd.accountNumberConfirm || bd.accountNumber !== bd.accountNumberConfirm || !bd.ifscCode) {
+        alert('Please complete all mandatory uploads and bank details. Account numbers must match.');
         setIsSubmitting(false);
         return;
       }
@@ -754,7 +756,7 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
                 />
                 <p className="text-xs text-slate-600">Please enter your name exactly as it appears on your PAN card for verification. You can update your display name later from your dashboard settings.</p>
               </div>
-
+              {/* ...existing code for other fields... */}
               <div className="space-y-2">
                 <Label>Gender *</Label>
                 <ReactSelect
@@ -911,85 +913,20 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
                   }}
                   placeholder="ABCDE1234F"
                 />
-                <p className="text-xs text-muted-foreground mt-1">Format: AAAAA9999A. Ensure your Name and DOB match your PAN card.</p>
-                {formData.panCard && !panFormatValid && (
-                  <p className="text-xs text-red-600 mt-1">PAN format is invalid.</p>
-                )}
-                <div className="flex items-center gap-3 mt-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={panVerifyLoading || !formData.panCard || !formData.fullName || !formData.dateOfBirth || !panFormatValid}
-                    onClick={async () => {
-                      try {
-                        setPanVerifyLoading(true);
-                        setPanVerified(false);
-                        setPanVerifyMsg("");
-                        setPanVerifyErr("");
-                        setPanVerifyDetails(null);
-                        const res = await fetch('/api/kyc/verify-pan', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({
-                            pan: formData.panCard,
-                            name: formData.fullName,
-                            dob: formData.dateOfBirth,
-                          })
-                        });
-                        const json = await res.json();
-                        if (!json?.success) {
-                          throw new Error(json?.message || 'PAN verification failed');
-                        }
-                        const nameMatch = !!json?.data?.match?.nameMatch;
-                        const dobMatch = !!json?.data?.match?.dobMatch;
-                        setPanVerifyDetails({
-                          nameOnCard: json?.data?.nameOnCard,
-                          dobOnCard: json?.data?.dobOnCard,
-                          match: json?.data?.match,
-                          provider: json?.data?.provider
-                        });
-                        if (nameMatch && dobMatch) {
-                          setPanVerified(true);
-                          setPanVerifyMsg('PAN Verified.');
-                        } else {
-                          setPanVerified(false);
-                          setPanVerifyErr('PAN details do not match. Please ensure your name and DOB match the PAN records.');
-                        }
-                      } catch (e: any) {
-                        setPanVerified(false);
-                        setPanVerifyErr(e?.message || 'PAN verification failed');
-                      } finally {
-                        setPanVerifyLoading(false);
-                      }
-                    }}
-                  >
-                    {panVerifyLoading ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Verifying…</>) : 'Verify PAN'}
-                  </Button>
-                  {panVerified && (
-                    <span className="inline-flex items-center text-green-700 text-xs"><CheckCircle className="w-4 h-4 mr-1"/>Verified</span>
-                  )}
-                </div>
-                {panVerifyMsg && (
-                  <p className="text-xs text-green-700 mt-1">{panVerifyMsg}</p>
-                )}
-                {panVerifyErr && (
-                  <p className="text-xs text-red-600 mt-1">{panVerifyErr}</p>
-                )}
                 {panVerifyDetails && (
                   <div className="mt-3 rounded-md border border-border bg-white/50 p-3 text-sm">
                     <div className="mt-0 flex flex-wrap gap-2 text-xs">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full ${panVerifyDetails.match?.nameMatch ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full ${panVerifyDetails.match?.nameMatch ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}> 
                         <CheckCircle className="w-3 h-3 mr-1" /> Name {panVerifyDetails.match?.nameMatch ? 'match' : 'mismatch'}
                       </span>
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full ${panVerifyDetails.match?.dobMatch ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full ${panVerifyDetails.match?.dobMatch ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}> 
                         <CheckCircle className="w-3 h-3 mr-1" /> DOB {panVerifyDetails.match?.dobMatch ? 'match' : 'mismatch'}
                       </span>
                       {typeof panVerifyDetails.provider?.panStatus === 'string' && (
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">PAN Status: {String(panVerifyDetails.provider.panStatus)}</span>
                       )}
                       {typeof panVerifyDetails.provider?.aadhaarSeedingStatus === 'boolean' && (
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full ${panVerifyDetails.provider.aadhaarSeedingStatus ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full ${panVerifyDetails.provider.aadhaarSeedingStatus ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}> 
                           Aadhaar seeding: {panVerifyDetails.provider.aadhaarSeedingStatus ? 'Yes' : 'No'}
                         </span>
                       )}
@@ -997,10 +934,9 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
                   </div>
                 )}
                 <div className="mt-2">
-                {/* PAN card image upload removed: IDfy verification is used instead */}
+                  {/* PAN card image upload removed: IDfy verification is used instead */}
+                </div>
               </div>
-            </div>
-
             </div>
           </div>
         );
@@ -1082,6 +1018,9 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
                   <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
                   <p className="text-sm font-medium">Qualification Certificate(s) *</p>
                   <p className="text-xs text-muted-foreground">PDF / Image (Max 5MB each)</p>
+                  {formData.qualificationCertUrls.length === 0 && uploadProgress.qualification === 0 && (
+                    <div className="flex items-center gap-2 mt-2"><Loader2 className="animate-spin w-4 h-4 text-blue-500" /><span className="text-xs text-blue-600">Awaiting upload...</span></div>
+                  )}
                   {formData.qualificationCertUrls.length>0 && <p className="text-xs text-green-600 mt-2">{formData.qualificationCertUrls.length} uploaded</p>}
                   {uploadProgress.qualification>0 && uploadProgress.qualification<100 && (
                     <div className='mt-3'><Progress value={uploadProgress.qualification} className='h-1' /></div>
@@ -1093,6 +1032,9 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
                   <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
                   <p className="text-sm font-medium">Professional License *</p>
                   <p className="text-xs text-muted-foreground">PDF / Image (Max 5MB)</p>
+                  {!formData.licenseDocumentUrl && uploadProgress.license === 0 && (
+                    <div className="flex items-center gap-2 mt-2"><Loader2 className="animate-spin w-4 h-4 text-blue-500" /><span className="text-xs text-blue-600">Awaiting upload...</span></div>
+                  )}
                   {formData.licenseDocumentUrl && <p className="text-xs text-green-600 mt-2">Uploaded ✓</p>}
                   {uploadProgress.license>0 && uploadProgress.license<100 && (
                     <div className='mt-3'><Progress value={uploadProgress.license} className='h-1' /></div>
@@ -1214,6 +1156,9 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
                   <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
                   <p className="text-sm font-medium">Click to upload</p>
                   <p className="text-xs text-muted-foreground">PDF (Max 5MB)</p>
+                  {!formData.resumeUrl && uploadProgress.resume === 0 && (
+                    <div className="flex items-center gap-2 mt-2"><Loader2 className="animate-spin w-4 h-4 text-blue-500" /><span className="text-xs text-blue-600">Awaiting upload...</span></div>
+                  )}
                   {formData.resumeUrl && <p className="text-xs text-green-600 mt-2">Uploaded ✓</p>}
                   {uploadProgress.resume>0 && uploadProgress.resume<100 && (
                     <div className='mt-3'><Progress value={uploadProgress.resume} className='h-1' /></div>
@@ -1446,6 +1391,21 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
                       placeholder="Enter account number"
                     />
                   </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="accountNumberConfirm">Re-enter Account Number *</Label>
+                    <Input
+                      id="accountNumberConfirm"
+                      value={formData.bankDetails.accountNumberConfirm || ''}
+                      onChange={(e) => handleNestedInputChange("bankDetails", "accountNumberConfirm", e.target.value)}
+                      placeholder="Re-enter account number"
+                      style={formData.bankDetails.accountNumberConfirm && formData.bankDetails.accountNumber !== formData.bankDetails.accountNumberConfirm ? { borderColor: 'red' } : {}}
+                    />
+                    {formData.bankDetails.accountNumberConfirm && formData.bankDetails.accountNumber !== formData.bankDetails.accountNumberConfirm && (
+                      <div style={{ color: 'red', fontSize: 13, marginTop: 4 }}>
+                        Account numbers do not match.
+                      </div>
+                    )}
+                  </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="ifscCode">IFSC Code *</Label>
@@ -1546,7 +1506,6 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
               <Building2 className="w-5 h-5 text-blue-600" />
               <h3 className="font-semibold text-blue-600">🏥 Clinic/Offline Setup</h3>
             </div>
-
             <div className="space-y-6">
               <div className="space-y-2">
                 <Label>Do you have a physical clinic/practice location? *</Label>
@@ -1564,16 +1523,14 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
                   </div>
                 </RadioGroup>
               </div>
-
               {formData.hasClinic && (
-                <Alert>
-                  <Building2 className="h-4 w-4" />
+                <Alert variant="destructive">
+                  <AlertTriangle className="h-4 w-4" />
                   <AlertDescription>
-                    Clinic setup details will be collected in a separate onboarding flow after registration completion.
+                    You indicated you have a clinic. Please register as a clinic using the dedicated clinic registration flow. Therapist registration cannot proceed for clinic owners.
                   </AlertDescription>
                 </Alert>
               )}
-
               <Alert>
                 <AlertTriangle className="h-4 w-4" />
                 <AlertDescription>
@@ -1601,6 +1558,9 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
                   <Camera className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
                   <p className="text-sm font-medium">Click to upload</p>
                   <p className="text-xs text-muted-foreground">JPG / PNG (Max 2MB)</p>
+                  {!formData.profilePhotoUrl && uploadProgress.profile === 0 && (
+                    <div className="flex items-center gap-2 mt-2"><Loader2 className="animate-spin w-4 h-4 text-blue-500" /><span className="text-xs text-blue-600">Awaiting upload...</span></div>
+                  )}
                   {formData.profilePhotoUrl && <p className="text-xs text-green-600 mt-2">Uploaded ✓</p>}
                   {uploadProgress.profile>0 && uploadProgress.profile<100 && (
                     <div className='mt-3'><Progress value={uploadProgress.profile} className='h-1' /></div>
