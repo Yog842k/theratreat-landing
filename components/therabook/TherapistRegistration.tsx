@@ -1088,7 +1088,8 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
                   <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
                   <p className="text-sm font-medium">Qualification Certificate(s) *</p>
                   <p className="text-xs text-muted-foreground">PDF / Image (Max 5MB each)</p>
-                  {formData.qualificationCertUrls.length === 0 && uploadProgress.qualification === 0 && (
+                  {/* Only show 'Awaiting upload...' if upload is in progress and no files uploaded yet */}
+                  {uploadProgress.qualification > 0 && formData.qualificationCertUrls.length === 0 && (
                     <div className="flex items-center gap-2 mt-2"><Loader2 className="animate-spin w-4 h-4 text-blue-500" /><span className="text-xs text-blue-600">Awaiting upload...</span></div>
                   )}
                   {formData.qualificationCertUrls.length>0 && <p className="text-xs text-green-600 mt-2">{formData.qualificationCertUrls.length} uploaded</p>}
@@ -1102,7 +1103,8 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
                   <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
                   <p className="text-sm font-medium">Professional License *</p>
                   <p className="text-xs text-muted-foreground">PDF / Image (Max 5MB)</p>
-                  {!formData.licenseDocumentUrl && uploadProgress.license === 0 && (
+                  {/* Only show 'Awaiting upload...' if upload is in progress and no file uploaded yet */}
+                  {uploadProgress.license > 0 && !formData.licenseDocumentUrl && (
                     <div className="flex items-center gap-2 mt-2"><Loader2 className="animate-spin w-4 h-4 text-blue-500" /><span className="text-xs text-blue-600">Awaiting upload...</span></div>
                   )}
                   {formData.licenseDocumentUrl && <p className="text-xs text-green-600 mt-2">Uploaded ✓</p>}
