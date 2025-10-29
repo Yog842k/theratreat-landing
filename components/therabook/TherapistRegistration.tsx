@@ -577,18 +577,6 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
   };
 
   const handleNext = () => {
-    // Gate Step 1 by PAN verification
-    if (currentStep === 1) {
-      const pan = (formData.panCard || '').trim();
-      if (!pan) {
-        alert('Please enter PAN to proceed.');
-        return;
-      }
-      if (!panVerified) {
-        alert('Please verify your PAN before proceeding.');
-        return;
-      }
-    }
     if (currentStep < totalSteps) {
       setCurrentStep(currentStep + 1);
     }
