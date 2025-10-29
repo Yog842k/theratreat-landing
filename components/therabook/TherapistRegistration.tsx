@@ -152,6 +152,7 @@ interface FormData {
 
 
 export function TherapistRegistration({ setCurrentView }: TherapistRegistrationProps) {
+  // Removed old renderPanVerification function and duplicate UI
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [panVerified, setPanVerified] = useState<boolean>(false);
@@ -913,26 +914,107 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
                   }}
                   placeholder="ABCDE1234F"
                 />
-                {panVerifyDetails && (
-                  <div className="mt-3 rounded-md border border-border bg-white/50 p-3 text-sm">
-                    <div className="mt-0 flex flex-wrap gap-2 text-xs">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full ${panVerifyDetails.match?.nameMatch ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}> 
-                        <CheckCircle className="w-3 h-3 mr-1" /> Name {panVerifyDetails.match?.nameMatch ? 'match' : 'mismatch'}
-                      </span>
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full ${panVerifyDetails.match?.dobMatch ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}> 
-                        <CheckCircle className="w-3 h-3 mr-1" /> DOB {panVerifyDetails.match?.dobMatch ? 'match' : 'mismatch'}
-                      </span>
-                      {typeof panVerifyDetails.provider?.panStatus === 'string' && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">PAN Status: {String(panVerifyDetails.provider.panStatus)}</span>
-                      )}
-                      {typeof panVerifyDetails.provider?.aadhaarSeedingStatus === 'boolean' && (
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full ${panVerifyDetails.provider.aadhaarSeedingStatus ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}> 
-                          Aadhaar seeding: {panVerifyDetails.provider.aadhaarSeedingStatus ? 'Yes' : 'No'}
-                        </span>
+                {/* PAN Verification Button & Feedback */}
+                <div className="mt-2">
+                  <Button
+                    variant="default"
+                    className="bg-blue-600 text-white"
+                    disabled={panVerifyLoading}
+                    onClick={async () => {
+                      if (!formData.panCard || !formData.fullName || !formData.dateOfBirth) {
+                        setPanVerifyErr('Please enter PAN, Name, and DOB.');
+                        setPanVerifyMsg('');
+                        setPanVerifyDetails(null);
+                        return;
+                      }
+                      if (!/^([A-Z]{5}[0-9]{4}[A-Z])$/.test(formData.panCard)) {
+                        setPanVerifyErr('Invalid PAN format.');
+                        setPanVerifyMsg('');
+                        setPanVerifyDetails(null);
+                        return;
+                      }
+                      if (!/^\d{4}-\d{2}-\d{2}$/.test(formData.dateOfBirth)) {
+                        setPanVerifyErr('DOB must be in yyyy-mm-dd format.');
+                        setPanVerifyMsg('');
+                        setPanVerifyDetails(null);
+                        return;
+                      }
+                      setPanVerifyLoading(true);
+                      setPanVerifyMsg('');
+                      setPanVerifyErr('');
+                      setPanVerifyDetails(null);
+                      try {
+                        const initiateRes = await fetch('/api/pan/initiate', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ pan: formData.panCard, name: formData.fullName, dob: formData.dateOfBirth })
+                        });
+                        const initiateJson = await initiateRes.json();
+                        if (!initiateRes.ok || !initiateJson?.success || !initiateJson.request_id) {
+                          throw new Error(initiateJson?.message || 'PAN verification initiation failed');
+                        }
+                        setPanVerifyMsg('PAN verification initiated. Checking status...');
+                        const verifyRes = await fetch('/api/pan/verify', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ request_id: initiateJson.request_id })
+                        });
+                        const verifyJson = await verifyRes.json();
+                        if (!verifyRes.ok || !verifyJson?.success) {
+                          throw new Error(verifyJson?.message || 'PAN verification failed');
+                        }
+                        setPanVerified(true);
+                        setPanVerifyMsg('PAN verified successfully.');
+                        setPanVerifyDetails(verifyJson?.data || null);
+                      } catch (e: any) {
+                        setPanVerified(false);
+                        setPanVerifyErr(e?.message || 'PAN verification failed');
+                        setPanVerifyMsg('');
+                        setPanVerifyDetails(null);
+                      } finally {
+                        setPanVerifyLoading(false);
+                      }
+                    }}
+                  >
+                    {panVerifyLoading ? 'Verifying...' : 'Verify PAN'}
+                  </Button>
+                  {/* Proper result display */}
+                  {(panVerifyMsg && panVerified && panVerifyDetails) && (
+                    <div className="mt-3 p-4 rounded-lg bg-green-50 border border-green-300 text-green-900 shadow">
+                      <div className="font-bold text-lg mb-2 flex items-center gap-2">
+                        <CheckCircle className="inline w-5 h-5 text-green-600" /> PAN Verified
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                        <div>
+                          <div><span className="font-semibold">PAN Status:</span> {panVerifyDetails.provider?.panStatus || 'N/A'}</div>
+                          <div><span className="font-semibold">Aadhaar Seeding:</span> {panVerifyDetails.provider?.aadhaarSeedingStatus ? 'Yes' : 'No'}</div>
+                          <div><span className="font-semibold">Name Match:</span> {panVerifyDetails.match?.nameMatch ? 'Yes' : 'No'}</div>
+                          <div><span className="font-semibold">DOB Match:</span> {panVerifyDetails.match?.dobMatch ? 'Yes' : 'No'}</div>
+                          <div><span className="font-semibold">Score:</span> {panVerifyDetails.match?.score ?? 'N/A'}</div>
+                        </div>
+                        <div>
+                          <div><span className="font-semibold">Request ID:</span> {panVerifyDetails.provider?.requestId || 'N/A'}</div>
+                          <div><span className="font-semibold">Task ID:</span> {panVerifyDetails.provider?.taskId || 'N/A'}</div>
+                          <div><span className="font-semibold">Status:</span> {panVerifyDetails.provider?.idfyStatus || 'N/A'}</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {(panVerifyErr && !panVerified) && (
+                    <div className="mt-3 p-3 rounded border border-blue-400 text-blue-800">
+                      <strong>PAN Verification Status</strong><br />
+                      {panVerifyErr}
+                      {/* Debug info for PAN verification result */}
+                      {panVerifyDetails && (
+                        <div className="mt-2 text-xs text-gray-700">
+                          <div><span className="font-semibold">IDfy Status:</span> {panVerifyDetails.provider?.idfyStatus || 'N/A'}</div>
+                          <div><span className="font-semibold">PAN Status:</span> {panVerifyDetails.provider?.panStatus || 'N/A'}</div>
+                        </div>
                       )}
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
+                {/* Removed legacy/duplicate result display. Only the new green result box will show. */}
                 <div className="mt-2">
                   {/* PAN card image upload removed: IDfy verification is used instead */}
                 </div>
