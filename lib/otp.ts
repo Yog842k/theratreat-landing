@@ -78,11 +78,20 @@ function getTwilio() {
   if (twilioClient) return twilioClient;
   const sid = process.env.TWILIO_ACCOUNT_SID;
   const token = process.env.TWILIO_AUTH_TOKEN;
-  if (!sid || !token) return null;
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const twilioLib = require('twilio');
-  twilioClient = twilioLib(sid, token, { lazyLoading: true });
-  return twilioClient;
+  if (!sid || !token) {
+    console.error('[Twilio] Missing SID or Auth Token', { sid, tokenPresent: !!token });
+    return null;
+  }
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const twilioLib = require('twilio');
+    twilioClient = twilioLib(sid, token, { lazyLoading: true });
+    console.log('[Twilio] Client initialized');
+    return twilioClient;
+  } catch (err) {
+    console.error('[Twilio] Client init error:', err);
+    return null;
+  }
 }
 
 function getSmsFrom(): string | null {
@@ -105,6 +114,12 @@ export async function requestOtp({ phone, purpose }: { phone: string; purpose: s
 
   const client = getTwilio();
   const verifySid = process.env.TWILIO_VERIFY_SERVICE_SID;
+  if (!client) {
+    console.error('[OTP] Twilio client not available. Check credentials and network.');
+  }
+  if (!verifySid) {
+    console.warn('[OTP] TWILIO_VERIFY_SERVICE_SID not set. Falling back to Programmable SMS.');
+  }
 
   // Rate limit resends per phone+purpose
   try {

@@ -3,7 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { useState, useRef, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/components/auth/NewAuthContext';
 import { User, ChevronDown, LayoutDashboard, Building2, UserCheck } from 'lucide-react';
 import Logo from '../logo.png';
@@ -23,6 +23,7 @@ function NavButton({ className = '', ...rest }: React.ButtonHTMLAttributes<HTMLB
 export function Navigation() {
   const { user: authUser, logout } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [joinOpen, setJoinOpen] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
@@ -40,6 +41,11 @@ export function Navigation() {
     document.addEventListener('keydown', esc);
     return () => { document.removeEventListener('mousedown', click); document.removeEventListener('keydown', esc); };
   }, [open, joinOpen]);
+
+  // Hide navigation on clinic dashboard pages (after all hooks are called)
+  if (pathname?.startsWith('/clinics/dashboard')) {
+    return null;
+  }
 
   // Removed static marketing nav links (Home/About/Services/Contact) per request.
 

@@ -57,8 +57,30 @@ export default function PatientBookingsDashboard() {
     }
   };
 
+  // Therapist mode switch button logic
+  const [showTherapistSwitch, setShowTherapistSwitch] = useState(false);
+  useEffect(() => {
+    if (typeof window !== 'undefined' && sessionStorage.getItem('originalUserType') === 'therapist') {
+      setShowTherapistSwitch(true);
+    }
+  }, []);
+
+  const handleSwitchToTherapist = () => {
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('originalUserType');
+      window.location.href = '/therabook/dashboard/therapist';
+    }
+  };
+
   return (
     <div className="max-w-5xl mx-auto p-6">
+      {showTherapistSwitch && (
+        <div className="mb-4 flex justify-end">
+          <Button variant="default" onClick={handleSwitchToTherapist}>
+            Switch back to Therapist Mode
+          </Button>
+        </div>
+      )}
       <div className="flex items-center justify-between mb-8">
         <h1 className="text-2xl font-semibold">My Bookings</h1>
         <Button variant="outline" size="sm" onClick={loadBookings}><RefreshCw className="w-4 h-4 mr-2" />Refresh</Button>

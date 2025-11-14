@@ -96,7 +96,14 @@ export async function POST(request) {
       // If auth ok but wrong role, surface a 403 with clear message instead of generic 500
       const msg = e?.message || '';
       if (/Insufficient permissions/i.test(msg)) {
-        return ResponseUtils.forbidden('Only end users can create bookings (logged in as therapist/admin)');
+        // Try to get user info to provide specific message
+        try {
+          const user = await AuthMiddleware.authenticate(request);
+          if (user?.userType === 'clinic-owner') {
+            return ResponseUtils.forbidden('Clinic accounts cannot book therapy sessions. Please use a patient account.');
+          }
+        } catch {}
+        return ResponseUtils.forbidden('Only end users (patients) can create bookings. Therapists, admins, and clinic owners cannot book sessions.');
       }
       if (/Authentication failed/i.test(msg)) {
         return ResponseUtils.unauthorized('Authentication failed');
@@ -190,10 +197,22 @@ export async function POST(request) {
       return ResponseUtils.badRequest('Time slot is already booked');
     }
 
+    // Create 100ms meeting room and link
+    let meetingUrl = null;
+    let roomCode = null;
+    try {
+      const { scheduleMeeting } = require('@/lib/meeting-scheduler');
+      const meetingResult = await scheduleMeeting({ bookingId: therapistUser._id.toString() + '_' + apptDate.getTime() });
+      meetingUrl = meetingResult.meetingUrl;
+      roomCode = meetingResult.roomCode;
+    } catch (e) {
+      console.error('Failed to create 100ms meeting:', e);
+    }
+
     // Create booking
     const booking = {
       userId: new ObjectId(user._id),
-      therapistId: therapistUser._id, // normalized user id
+      therapistId: therapistProfileId || therapistUser._id, // always prefer therapistProfileId for therapistId
       therapistProfileId: therapistProfileId, // may be null for legacy
       appointmentDate: apptDate,
       appointmentTime,
@@ -203,7 +222,9 @@ export async function POST(request) {
       totalAmount: baseAmount,
       paymentStatus: 'pending',
       createdAt: new Date(),
-      updatedAt: new Date()
+      updatedAt: new Date(),
+      meetingUrl,
+      roomCode
     };
 
     const result = await database.insertOne('bookings', booking);
@@ -212,12 +233,13 @@ export async function POST(request) {
 
     // Fire & forget immediate receipt notification (email/SMS) if configured
     try {
-      const { notificationsEnabled, sendBookingReceipt } = require('@/lib/notifications');
+      const { notificationsEnabled, sendBookingReceipt, sendBookingConfirmation } = require('@/lib/notifications');
       if (notificationsEnabled && notificationsEnabled()) {
         queueMicrotask(async () => {
           try {
             const fullUser = await database.findOne('users', { _id: new ObjectId(user._id) });
             const therapistDoc = therapistProfile || (therapistProfileId ? await database.findOne('therapists', { _id: therapistProfileId }) : null);
+            // Notify patient
             await sendBookingReceipt({
               bookingId: booking._id.toString(),
               userEmail: fullUser?.email,
@@ -228,7 +250,20 @@ export async function POST(request) {
               date: booking.appointmentDate?.toISOString?.(),
               timeSlot: booking.appointmentTime
             });
-          } catch (e) { console.error('sendBookingReceipt failed', e); }
+            // Notify therapist
+            await sendBookingConfirmation({
+              bookingId: booking._id.toString(),
+              userEmail: therapistUser?.email,
+              userName: therapistUser?.name,
+              userPhone: therapistUser?.phone,
+              therapistName: therapistDoc?.displayName || therapistUser?.name,
+              sessionType: booking.sessionType,
+              date: booking.appointmentDate?.toISOString?.(),
+              timeSlot: booking.appointmentTime,
+              meetingUrl: booking.meetingUrl,
+              roomCode: booking.roomCode
+            });
+          } catch (e) { console.error('sendBookingReceipt/Confirmation failed', e); }
         });
       }
     } catch (e) { /* ignore */ }

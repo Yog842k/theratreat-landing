@@ -4,6 +4,7 @@ import { Footer } from '@/components/Footer'
 import { AuthProvider } from '@/components/auth/NewAuthContext'
 import { ClientProviders } from '@/components/ClientProviders'
 import React from 'react'
+import { Navigation } from '@/components/Navigation'
 
 export const metadata: Metadata = {
   title: 'TheraTreat - Health & Wellness Platform',
@@ -26,6 +27,7 @@ export default function RootLayout({
               </div>
             )}
             <div style={{paddingTop: process.env.AUTH_DEV_BYPASS === '1' && process.env.NODE_ENV !== 'production' ? 34 : 0}}>
+              <Navigation />
               {children}
               <Footer/>
             </div>

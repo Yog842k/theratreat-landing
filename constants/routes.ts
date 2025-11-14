@@ -60,4 +60,5 @@ export const DEFAULT_REDIRECT_ROUTES = {
   patient: DASHBOARD_ROUTES.PATIENT,
   therapist: DASHBOARD_ROUTES.THERAPIST,
   admin: '/admin/dashboard',
+  'clinic-owner': '/clinics/dashboard',
 } as const;

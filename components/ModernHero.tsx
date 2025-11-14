@@ -90,10 +90,10 @@ export function ModernHero({ setCurrentView }: ModernHeroProps) {
       </div>
 
       {/* Bottom Wave */}
-      <div className="absolute bottom-0 left-0 right-0">
-        <svg viewBox="0 0 1200 120" fill="none" className="w-full h-20">
+      <div className="absolute left-0 right-0 bottom-0" style={{width: '100vw', zIndex: 0}}>
+        <svg viewBox="0 0 1200 80" fill="none" width="100vw" height="80" style={{display: 'block', boxSizing: 'border-box', width: '100vw'}}>
           <path 
-            d="M0,60 C300,120 900,0 1200,60 L1200,120 L0,120 Z" 
+            d="M0,40 C300,80 900,0 1200,40 L1200,80 L0,80 Z" 
             fill="white"
           />
         </svg>

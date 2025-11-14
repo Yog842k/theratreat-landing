@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server';
 const database = require('@/lib/database');
 const AuthUtils = require('@/lib/auth');
 const { ValidationUtils, ResponseUtils } = require('@/lib/utils');
+const { ObjectId } = require('mongodb');
 
 export const runtime = 'nodejs';
 
@@ -17,9 +18,23 @@ export const runtime = 'nodejs';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    
+    // Log received data (excluding password for security)
+    console.log('[CLINIC REGISTER] Received request:', {
+      hasOwnerEmail: !!body.ownerEmail,
+      hasOwnerPassword: !!body.ownerPassword,
+      ownerEmail: body.ownerEmail,
+      ownerPasswordLength: body.ownerPassword ? String(body.ownerPassword).length : 0,
+      ownerName: body.ownerName,
+      clinicName: body.clinicName
+    });
+    
   const required = ['clinicName','clinicAddress','city','state','pincode','contactNumber','email','yearsInOperation','ownerName','designation','ownerMobile','ownerEmail'];
     const missing = required.filter(f => !body[f]);
-    if (missing.length) return ResponseUtils.badRequest('Missing required fields: ' + missing.join(', '));
+    if (missing.length) {
+      console.error('[CLINIC REGISTER] Missing required fields:', missing);
+      return ResponseUtils.badRequest('Missing required fields: ' + missing.join(', '));
+    }
 
     if (!Array.isArray(body.clinicType) || body.clinicType.length === 0) {
       return ResponseUtils.badRequest('At least one clinicType required');
@@ -31,7 +46,11 @@ export async function POST(request: NextRequest) {
       return ResponseUtils.badRequest('Agreements must be accepted');
     }
 
-  const password = body.ownerPassword || ValidationUtils.generateRandomString?.(12) || Math.random().toString(36).slice(2);
+  // Require ownerPassword - do not generate random password
+    if (!body.ownerPassword || String(body.ownerPassword).trim() === '') {
+      return ResponseUtils.badRequest('Owner password is required');
+    }
+    const password = String(body.ownerPassword);
     if (password.length < 8) return ResponseUtils.badRequest('Owner password must be >= 8 chars');
 
     const emailLower = String(body.ownerEmail).toLowerCase();
@@ -55,6 +74,18 @@ export async function POST(request: NextRequest) {
 
     const now = new Date();
     const hashed = await AuthUtils.hashPassword(password);
+    
+    // Debug logging (remove in production or use proper logger)
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[CLINIC REGISTER] Creating user:', {
+        email: emailLower,
+        hasPassword: !!password,
+        passwordLength: password.length,
+        hashedPasswordLength: hashed.length,
+        hashedPasswordPrefix: hashed.substring(0, 20) + '...'
+      });
+    }
+    
     const ownerUser = {
       name: ValidationUtils.sanitizeString(body.ownerName),
       email: emailLower,
@@ -68,6 +99,43 @@ export async function POST(request: NextRequest) {
       updatedAt: now
     };
     const userRes = await database.insertOne('users', ownerUser);
+    
+    if (!userRes || !userRes.insertedId) {
+      console.error('[CLINIC REGISTER] Failed to insert user - no insertedId returned');
+      return ResponseUtils.error('Failed to create user account', 500);
+    }
+    
+    // Verify the user was actually saved by querying it back
+    // Handle both ObjectId and string IDs
+    const userId = userRes.insertedId;
+    const savedUser = await database.findOne('users', { 
+      _id: userId instanceof ObjectId ? userId : new ObjectId(userId) 
+    });
+    if (!savedUser) {
+      console.error('[CLINIC REGISTER] User was not found after insert - database issue', {
+        insertedId: userId,
+        insertedIdType: typeof userId
+      });
+      return ResponseUtils.error('User account creation failed - verification error', 500);
+    }
+    
+    // Verify password was saved (should be hashed, not plain text)
+    const passwordIsHashed = savedUser.password && savedUser.password.length > 50 && savedUser.password.startsWith('$2');
+    if (!passwordIsHashed) {
+      console.error('[CLINIC REGISTER] WARNING: Password may not be hashed correctly!', {
+        passwordLength: savedUser.password?.length,
+        passwordPrefix: savedUser.password?.substring(0, 10)
+      });
+    }
+    
+    console.log('[CLINIC REGISTER] User created and verified successfully:', {
+      userId: userRes.insertedId.toString(),
+      email: emailLower,
+      emailInDB: savedUser.email,
+      passwordHashed: passwordIsHashed,
+      userType: savedUser.userType,
+      isActive: savedUser.isActive
+    });
     // Razorpay customer for clinic owner
     try {
       const { createRazorpayCustomer } = await import('@/lib/razorpay-customer');

@@ -92,33 +92,7 @@ export async function POST(request: NextRequest) {
         return ResponseUtils.badRequest('All agreements must be accepted to complete registration', { unacceptedAgreements: missing });
       }
 
-      // PAN verification gate using IDfy (Aadhaar optional)
-      const pan = String(rest.panCard || '').toUpperCase();
-      const aadhaar = String(rest.aadhaar || ''); // optional, not enforced here
-      const dob = String(rest.dateOfBirth || body.dateOfBirth || '').trim();
-      if (!pan) {
-        return ResponseUtils.badRequest('PAN is required for verification');
-      }
-      const panFormat = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
-      if (!panFormat.test(pan)) {
-        return ResponseUtils.badRequest('Invalid PAN format');
-      }
-
-      // Invoke IDfy PAN verification and compare user-provided name/DOB
-      const idfyRes = await Idfy.verifyPan({ pan, name: fullName, dob });
-      if (!idfyRes.ok) {
-        return ResponseUtils.errorCode(idfyRes.error || 'PAN_VERIFY_FAILED', idfyRes.detail || 'Failed to verify PAN');
-      }
-  const nameMatch = !!idfyRes.match?.nameMatch;
-  const dobMatch = !!idfyRes.match?.dobMatch;
-      if (!nameMatch || !dobMatch) {
-        return ResponseUtils.error('Provided details do not match PAN records', 400, {
-          nameOnCard: idfyRes.nameOnCard,
-          dobOnCard: idfyRes.dobOnCard,
-          nameMatch,
-          dobMatch
-        });
-      }
+      // PAN verification is now optional. Registration will be saved even if PAN is not verified.
     }
 
     const existing = await database.findOne('users', { email: emailLower });

@@ -59,6 +59,8 @@ export default function LoginPage() {
           router.push('/therabook/dashboard/therapist');
         } else if (data.data.user.userType === 'admin') {
           router.push('/admin/dashboard');
+        } else if (data.data.user.userType === 'clinic-owner') {
+          router.push('/clinics/dashboard');
         } else {
           router.push('/therabook');
         }
@@ -187,6 +189,9 @@ export default function LoginPage() {
                 <Link href="/therabook/therapists/apply" className="text-blue-600 hover:text-blue-800 font-medium">
                   Apply as Therapist
                 </Link>
+              </p>
+              <p className="text-gray-500 mt-3 text-xs italic border-t pt-3">
+                Clinic owners: Use your <strong>owner email</strong> (not clinic contact email) to login
               </p>
             </div>
 

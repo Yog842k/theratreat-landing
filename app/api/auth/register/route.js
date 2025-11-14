@@ -5,22 +5,28 @@ const { ValidationUtils, ResponseUtils } = require('@/lib/utils');
 export async function POST(request) {
   try {
     const body = await request.json();
-  const { email, password, name, userType, phone, patientData, profileImageUrl } = body;
+    const { email, password, name, userType, phone, patientData, profileImageUrl, profile } = body;
 
     // Debug logging
-    console.log('Registration request:', { email, name, userType, phone, hasPatientData: !!patientData });
+    console.log('[register] Incoming registration request:', JSON.stringify(body));
 
     // Validate input
     const validationErrors = ValidationUtils.validateUserRegistration(body);
     if (validationErrors.length > 0) {
-      console.log('Validation errors:', validationErrors);
+      console.log('[register] Validation errors:', validationErrors);
       return ResponseUtils.badRequest('Validation failed', validationErrors);
     }
 
     // Check if user already exists
-    const existingUser = await database.findOne('users', { email });
-    if (existingUser) {
-      return ResponseUtils.badRequest('User already exists with this email');
+    try {
+      const existingUser = await database.findOne('users', { email });
+      if (existingUser) {
+        console.log('[register] User already exists:', email, existingUser);
+        return ResponseUtils.badRequest('User already exists with this email');
+      }
+    } catch (findErr) {
+      console.error('[register] Error checking for existing user:', findErr);
+      return ResponseUtils.error('Database error during user existence check');
     }
 
     // Enforce phone OTP verification if phone provided
@@ -29,14 +35,24 @@ export async function POST(request) {
         const { isPhoneVerified } = require('@/lib/otp');
         const purpose = userType === 'therapist' ? 'signup:therapist' : userType === 'clinic' ? 'signup:clinic' : 'signup:user';
         const verified = await isPhoneVerified({ phone, purpose });
+        console.log('[register] OTP check:', { phone, purpose, verified });
         if (!verified) {
+          console.warn('[register] OTP not verified for', { phone, purpose });
           return ResponseUtils.errorCode('OTP_REQUIRED', 'Phone not verified. Please complete OTP verification.', 409, { phone, purpose });
         }
       }
-    } catch (e) { /* non-blocking if OTP utils unavailable */ }
+    } catch (e) {
+      console.warn('[register] OTP check error', e?.message);
+    }
 
     // Hash password
-    const hashedPassword = await AuthUtils.hashPassword(password);
+    let hashedPassword;
+    try {
+      hashedPassword = await AuthUtils.hashPassword(password);
+    } catch (hashErr) {
+      console.error('[register] Password hash error:', hashErr);
+      return ResponseUtils.error('Password hashing failed');
+    }
 
     // Create user object
     const user = {
@@ -98,22 +114,45 @@ export async function POST(request) {
           preferences: {},
           onboardingCompleted: false
         };
+        // Save city/state under address for Mongoose compatibility
+        user.address = {
+          city: profile?.city || '',
+          state: profile?.state || '',
+          country: 'India'
+        };
       }
     }
 
     // Insert user
-    const result = await database.insertOne('users', user);
-
-    // Attempt Razorpay customer creation (non-blocking if fails)
+    let result;
     try {
-      const { createRazorpayCustomer } = await import('@/lib/razorpay-customer');
-      const rzpCustomer = await createRazorpayCustomer({ name: user.name, email: user.email, contact: user.phone || undefined, notes: { userType: user.userType } });
-      if (rzpCustomer) {
-        await database.updateOne('users', { _id: result.insertedId }, { $set: { razorpay: { customerId: rzpCustomer.id, mode: rzpCustomer.mode, linkedAt: new Date() } } });
-      }
+      console.log('[register] Attempting to insert user:', JSON.stringify(user));
+      result = await database.insertOne('users', user);
+      console.log('[register] Insert result:', JSON.stringify(result));
     } catch (e) {
-      console.warn('Razorpay link failed (auth register)', (e)?.message);
+      console.error('[register] User insert failed:', e?.message, e, JSON.stringify(user));
+      return ResponseUtils.error('Registration failed: could not save user');
     }
+    if (!result || !result.insertedId) {
+      console.error('[register] User insert did not return insertedId', JSON.stringify(result));
+      return ResponseUtils.error('Registration failed: user not saved');
+    }
+
+    // Attempt Razorpay customer creation (non-blocking, never blocks user save)
+    (async () => {
+      try {
+        const { createRazorpayCustomer } = await import('@/lib/razorpay-customer');
+        const rzpCustomer = await createRazorpayCustomer({ name: user.name, email: user.email, contact: user.phone || undefined, notes: { userType: user.userType } });
+        if (rzpCustomer) {
+          const updateRes = await database.updateOne('users', { _id: result.insertedId }, { $set: { razorpay: { customerId: rzpCustomer.id, mode: rzpCustomer.mode, linkedAt: new Date() } } });
+          if (!updateRes || updateRes.modifiedCount !== 1) {
+            console.warn('[register] Razorpay info not saved to user', { userId: result.insertedId, rzpCustomer });
+          }
+        }
+      } catch (e) {
+        console.warn('Razorpay link failed (auth register)', (e)?.message);
+      }
+    })();
     
     // Generate token
     const token = AuthUtils.generateToken({ 
@@ -126,12 +165,36 @@ export async function POST(request) {
     userWithoutPassword._id = result.insertedId;
 
     // Fire-and-forget welcome notification (do not block response)
-    import('@/lib/notifications').then(mod => {
-      if (mod?.sendAccountWelcome) {
-        mod.sendAccountWelcome({ email: user.email, name: user.name, phone: user.phone, userType: user.userType })
-          .catch(e => console.warn('welcome notification failed', e?.message));
+    // Attempt to send welcome email/SMS quickly and log result for debugging.
+    // This uses a short timeout so registration response isn't delayed if notification services are slow.
+    (async () => {
+      try {
+        const NOTIF_TIMEOUT_MS = Number(process.env.NOTIFICATIONS_TIMEOUT_MS || 2000);
+        const mod = await import('@/lib/notifications');
+        if (mod?.sendAccountWelcome) {
+          const p = mod.sendAccountWelcome({ email: user.email, name: user.name, phone: user.phone, userType: user.userType });
+          const result = await Promise.race([p, new Promise(res => setTimeout(() => res(null), NOTIF_TIMEOUT_MS))]);
+          if (result) {
+            console.log('[auth/register] welcome notification result', result);
+            if (result.errors) {
+              console.error('[auth/register] welcome notification errors:', result.errors);
+            }
+            if (!result.emailSent) {
+              console.error('[auth/register] welcome email NOT sent for', user.email);
+            }
+            if (!result.smsSent) {
+              console.error('[auth/register] welcome SMS NOT sent for', user.phone);
+            }
+          } else {
+            console.warn('[auth/register] welcome notification timed out');
+          }
+        } else {
+          console.error('[auth/register] sendAccountWelcome not found in notifications module');
+        }
+      } catch (e) {
+        console.error('[auth/register] welcome notification setup failed', e?.message);
       }
-    }).catch(() => {});
+    })();
 
     return ResponseUtils.success({
       user: userWithoutPassword,

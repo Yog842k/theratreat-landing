@@ -81,7 +81,7 @@ export default function AccountTypeSelection() {
     if (selectedType === 'patient') {
       router.push('/therabook/onboarding/patient');
     } else if (selectedType === 'therapist') {
-      router.push('/auth/signup?type=therapist');
+      router.push('/therabook/therapists/apply');
     } else if (selectedType === 'instructor') {
       router.push('/auth/signup?type=instructor');
     } else if (selectedType === 'student') {

@@ -10,14 +10,14 @@ export const runtime = 'nodejs';
 /**
  * POST /api/clinics/therapists/add
  * Clinic-owned therapist creation. Auth user must be clinic-owner.
- * Creates a user (userType=therapist) and therapist profile bound to clinicId.
+ * Creates a therapist profile bound to clinicId (no user account needed).
  */
 export async function POST(request: NextRequest) {
   try {
     const user = await AuthMiddleware.authenticate(request);
     if (user.userType !== 'clinic-owner') return ResponseUtils.forbidden('Only clinic owners can add therapists');
     const body = await request.json();
-    const required = ['fullName','email','phone','clinicId'];
+    const required = ['fullName','clinicId'];
     const missing = required.filter(f => !body[f]);
     if (missing.length) return ResponseUtils.badRequest('Missing: ' + missing.join(', '));
     if (!ValidationUtils.validateObjectId(body.clinicId)) return ResponseUtils.badRequest('Invalid clinicId');
@@ -25,31 +25,16 @@ export async function POST(request: NextRequest) {
     if (!clinic) return ResponseUtils.notFound('Clinic not found');
     if (String(clinic.owner?.email).toLowerCase() !== String(user.email).toLowerCase()) return ResponseUtils.forbidden('Not owner of clinic');
 
-    const existingUser = await database.findOne('users', { email: body.email.toLowerCase() });
-    if (existingUser) return ResponseUtils.badRequest('User already exists with this email');
-
     const now = new Date();
-    const password = body.password && body.password.length >= 8 ? body.password : (Math.random().toString(36).slice(2) + 'Aa1!');
-    const hashed = await AuthUtils.hashPassword(password);
-    const userDoc = {
-      name: ValidationUtils.sanitizeString(body.fullName),
-      email: body.email.toLowerCase(),
-      password: hashed,
-      userType: 'therapist',
-      phone: ValidationUtils.sanitizeString(body.phone),
-      isActive: true,
-      isVerified: false,
-      onboardingCompleted: !!body.onboardingCompleted,
-      createdAt: now,
-      updatedAt: now
-    };
-    const userRes = await database.insertOne('users', userDoc);
-    const userId = userRes.insertedId;
 
+    // Create therapist profile without user account
     const therapist = {
       clinicId: new ObjectId(body.clinicId),
-      userId: new ObjectId(userId),
+      userId: null, // No user account - just a clinic therapist record
       displayName: ValidationUtils.sanitizeString(body.fullName),
+      fullName: ValidationUtils.sanitizeString(body.fullName),
+      email: body.email ? ValidationUtils.sanitizeString(body.email.toLowerCase()) : '',
+      phone: body.phone ? ValidationUtils.sanitizeString(body.phone) : '',
       title: ValidationUtils.sanitizeString(body.title || 'Therapist'),
       specializations: body.specializations || [],
       experience: Number(body.experience || 0),
@@ -60,7 +45,10 @@ export async function POST(request: NextRequest) {
       languages: body.languages || [],
       location: ValidationUtils.sanitizeString(body.location || ''),
       bio: ValidationUtils.sanitizeString(body.bio || ''),
-      image: body.image || '',
+      // Cloudinary URLs for uploaded documents
+      image: body.image ? ValidationUtils.sanitizeString(body.image) : '',
+      licenseDocument: body.licenseDocument ? ValidationUtils.sanitizeString(body.licenseDocument) : '',
+      degreeDocument: body.degreeDocument ? ValidationUtils.sanitizeString(body.degreeDocument) : '',
       availability: body.availability || [],
       rating: 0,
       totalReviews: 0,
@@ -72,12 +60,17 @@ export async function POST(request: NextRequest) {
       createdAt: now,
       updatedAt: now
     };
+
+    // Log uploaded document URLs for debugging
+    if (body.image) console.log('Therapist photo URL:', body.image);
+    if (body.licenseDocument) console.log('License document URL:', body.licenseDocument);
+    if (body.degreeDocument) console.log('Degree document URL:', body.degreeDocument);
     const therapistsColl = await database.getCollection('therapists');
     const tRes = await therapistsColl.insertOne(therapist);
 
     await database.updateOne('clinics',{ _id: clinic._id }, { $addToSet: { therapists: tRes.insertedId }, $set: { updatedAt: new Date() } });
 
-    return ResponseUtils.success({ therapistId: tRes.insertedId, userId, tempPassword: password }, 'Therapist added to clinic');
+    return ResponseUtils.success({ therapistId: tRes.insertedId }, 'Therapist added to clinic');
   } catch (e: any) {
     console.error('clinic add therapist error', e);
     return ResponseUtils.error('Failed to add therapist', 500, e?.message || 'error');

@@ -1,4 +1,4 @@
-import Navigation from '@/components/Navigation';
+// Navigation is already included in root layout
 import { CloudinaryTestClient, Badge } from './TestClient';
 
 export const metadata = { title: 'Cloudinary Test | TheraTreat' };
@@ -6,7 +6,6 @@ export const metadata = { title: 'Cloudinary Test | TheraTreat' };
 export default function CloudinaryTestPage() {
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-b from-white to-blue-50">
-      <Navigation />
       <main className="flex-1 px-5 md:px-8 py-12">
         <div className="max-w-3xl mx-auto space-y-10">
           <header className="space-y-4">

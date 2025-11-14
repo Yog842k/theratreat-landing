@@ -1,302 +1,1221 @@
 "use client";
-import React, { useState } from 'react';
-import { motion } from 'motion/react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
-import { Progress } from '@/components/ui/progress';
-import { Building2, Upload, CheckCircle, FileText, User as UserIcon } from 'lucide-react';
+import OtpVerification from "@/components/OtpVerification";
+import { useState, useRef, useEffect, useMemo } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Upload, CheckCircle2, Building2, MapPin, Phone, Mail, Calendar, Clock, Briefcase, Globe, Instagram, FileText, Shield, Sparkles, ArrowRight, Check, AlertCircle, Heart, Award, Users, Zap, TrendingUp, Bot, Star, Network } from "lucide-react";
 
-import INDIA_STATES from '@/constants/india-states';
-// Reference arrays
-const clinicTypes = ["Multispecialty","Therapy-only","Rehab Centre","Hospital-based","Others"]; 
-const designations = ["Owner","Coordinator","Admin","Other"]; 
-const therapyTypes = ["Occupational Therapy (OT)","Speech Therapy","Psychology","Physiotherapy","Special Education","ABA","Other"]; 
-const sessionDurations = ["45 mins","60 mins"]; 
 
-interface FormData {
-  clinicName: string; clinicType: string[]; clinicAddress: string; city: string; state: string; pincode: string; contactNumber: string; email: string; website: string; yearsInOperation: string;
-  ownerName: string; designation: string; ownerMobile: string; ownerEmail: string;
-  therapiesOffered: string[]; inHouseTherapists: string; externalTherapists: string; onlineSessions: boolean; sessionDuration: string; sessionCharges: string; assessmentReports: boolean; homeVisits: boolean;
-  sessionModesOffered?: string[]; // e.g. ['video','audio','in-clinic','home']
-  sessionModePrices?: {
-    video: string;
-    audio: string;
-    inClinic: string;
-    home: string;
-  };
-  accountHolderName: string; bankName: string; accountNumber: string; ifscCode: string; upiId: string;
-  declarationAccepted: boolean; termsAccepted: boolean; signatureDate: string;
-  ownerPassword: string; ownerPasswordConfirm: string; // added for login credentials
+interface ClinicRegistrationProps {
+  setCurrentView?: (view: any) => void;
 }
 
-const totalSteps = 6;
-
-export default function ClinicRegistrationPage() {
-  const [currentStep, setCurrentStep] = useState(1);
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<any>(null);
-  const [formData, setFormData] = useState<FormData>({
-    clinicName: '', clinicType: [], clinicAddress: '', city: '', state: '', pincode: '', contactNumber: '', email: '', website: '', yearsInOperation: '',
-    ownerName: '', designation: '', ownerMobile: '', ownerEmail: '',
-  therapiesOffered: [], inHouseTherapists: '', externalTherapists: '', onlineSessions: false, sessionDuration: '', sessionCharges: '', assessmentReports: false, homeVisits: false,
-  sessionModesOffered: [],
-  sessionModePrices: { video: '', audio: '', inClinic: '', home: '' },
-    accountHolderName: '', bankName: '', accountNumber: '', ifscCode: '', upiId: '',
-    declarationAccepted: false, termsAccepted: false, signatureDate: new Date().toISOString().split('T')[0],
-    ownerPassword: '', ownerPasswordConfirm: ''
-  });
-  const [showPassword, setShowPassword] = useState(false);
-
-  const progress = (currentStep / totalSteps) * 100;
-  const update = (field: keyof FormData, value: any) => setFormData(f => ({ ...f, [field]: value }));
-  const toggleArray = (field: keyof FormData, value: string) => {
-    const arr = formData[field] as string[]; update(field, arr.includes(value) ? arr.filter(v => v !== value) : [...arr, value]);
+interface ClinicFormData {
+  
+  ownerName?: string;
+  designation?: string;
+  designationOther?: string;
+  ownerEmail?: string;
+  ownerIdProof?: File | null;
+  ownerPhoto?: File | null;
+  signatureStamp?: File | null;
+  signatureDate?: string;
+  
+  clinicName: string;
+  clinicType: string;
+  clinicTypeOther?: string;
+  registrationNumber: string;
+  address: string;
+  city: string;
+  state: string;
+  pincode: string;
+  contactEmail: string;
+  contactPhone: string;
+  operatingDays: string[];
+  operatingHours: string;
+  services: string[];
+  numTherapists: string;
+  website: string;
+  yearsInOperation?: string;
+  instagram: string;
+  registrationTypeOther?: string;
+  profilePhoto: File | null;
+  pan: string;
+  panCertificate: File | null;
+  bankAccountName: string;
+  bankName?: string;
+  bankAccountNumber: string;
+  bankIfsc: string;
+  upiId?: string;
+  bankProof: File | null;
+  gstRegistered: string;
+  gstin: string;
+  gstBusinessName: string;
+  gstCertificate: File | null;
+  gstStatus: string;
+  gstState: string;
+  gstDeclarationAgreed: boolean;
+  registrationTypes?: string[];
+  clinicLicenseProof?: File | null;
+  clinicPhotos?: FileList | null;
+  clinicBrochure?: File | null;
+  agreements: {
+    accuracy: boolean;
+    terms: boolean;
+    consent: boolean;
   };
 
-  async function handleSubmit() {
-    setSubmitting(true); setError(null); setResult(null);
-    try {
-      // Basic password validation before submission
-      if (!formData.ownerPassword || formData.ownerPassword.length < 8) {
-        throw new Error('Password must be at least 8 characters');
-      }
-      if (formData.ownerPassword !== formData.ownerPasswordConfirm) {
-        throw new Error('Passwords do not match');
-      }
-      const { ownerPasswordConfirm, ...payload } = { ...formData, ownerPassword: formData.ownerPassword.trim() };
-      const res = await fetch('/api/clinics/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.message || json.error || 'Registration failed');
-      setResult(json);
-    } catch (e: any) { setError(e.message); }
-    finally { setSubmitting(false); }
-  }
+  password?: string;
+  confirmPassword?: string;
+}
 
-  if (result) {
-    return (
-      <div className="max-w-3xl mx-auto p-6 space-y-6">
-        <div className="space-y-2">
-          <h1 className="text-2xl font-bold">Clinic Registered</h1>
-          <p className="text-sm text-muted-foreground">Store the token securely. This view is not persisted.</p>
-        </div>
-        <Card>
-          <CardContent className="p-4">
-            <pre className="text-xs font-mono whitespace-pre-wrap overflow-x-auto">{JSON.stringify(result, null, 2)}</pre>
-            {result?.data?.token && (
-              <Button className="mt-4" onClick={() => navigator.clipboard.writeText(result.data.token)}>Copy Token</Button>
-            )}
-            <Button variant="outline" className="mt-4 ml-2" onClick={() => { setResult(null); setCurrentStep(1); }}>Register Another</Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const servicesList = [
+  "Speech Therapy", "Occupational Therapy", "Physiotherapy", "Psychology", "Special Education", "Counseling", "Other"
+];
+
+const indianStates = [
+  "Maharashtra", "Karnataka", "Delhi", "Tamil Nadu", "Telangana", "Gujarat", 
+  "West Bengal", "Rajasthan", "Uttar Pradesh", "Kerala", "Punjab", "Haryana"
+];
+
+export default function ClinicRegistration({ setCurrentView }: ClinicRegistrationProps) {
+  // Clinic registration form state (typed)
+  const [formData, setFormData] = useState<ClinicFormData>({
+    ownerName: "",
+    designation: "",
+    designationOther: "",
+    ownerEmail: "",
+    ownerIdProof: null,
+    ownerPhoto: null,
+    signatureStamp: null,
+    signatureDate: "",
+    clinicName: "",
+    clinicType: "",
+    clinicTypeOther: "",
+    registrationNumber: "",
+    address: "",
+    city: "",
+    state: "",
+    pincode: "",
+    contactEmail: "",
+    contactPhone: "",
+    operatingDays: [],
+    operatingHours: "",
+    services: [],
+    numTherapists: "",
+    website: "",
+    yearsInOperation: "",
+    instagram: "",
+    profilePhoto: null,
+    pan: "",
+    panCertificate: null,
+    bankAccountName: "",
+    bankAccountNumber: "",
+    bankIfsc: "",
+    bankProof: null,
+    gstRegistered: "",
+    gstin: "",
+    gstBusinessName: "",
+    gstCertificate: null,
+    gstStatus: "",
+    gstState: "",
+    gstDeclarationAgreed: false,
+    registrationTypes: [],
+    clinicLicenseProof: null,
+    clinicPhotos: null,
+    clinicBrochure: null,
+    agreements: {
+      accuracy: false,
+      terms: false,
+      consent: false
+    },
+    password: "",
+    confirmPassword: ""
+  });
+
+  // Memo and functions for OTP
+  const canSendOtp = useMemo(() => {
+    return Boolean(formData.contactPhone && formData.contactPhone.length === 10);
+  }, [formData.contactPhone]);
+
+  const sendOtp = async () => {
+    if (!canSendOtp || otpSending || resendSeconds > 0) return;
+    setOtpSending(true);
+  setOtpError("");
+  setOtpInfo("");
+    setOtpVerified(false);
+    try {
+      let phone = formData.contactPhone.replace(/\D/g, '');
+      if (phone.length !== 10) {
+        setOtpError('Please enter a valid 10-digit phone number');
+        setOtpSending(false);
+        return;
+      }
+      const res = await fetch('/api/debug/otp/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, purpose: 'signup:clinic' })
+      });
+      const json = await res.json();
+      if (res.ok && json?.otpSent) {
+  setOtpSent(true);
+  setOtpInfo(`OTP sent to ${phone}`);
+  setOtpError("");
+  setResendSeconds(json?.ttlMinutes ? json.ttlMinutes * 60 : 60);
+      } else {
+  setOtpError(json?.message || 'Failed to send OTP');
+      }
+    } catch (e) {
+      let msg = 'Failed to send OTP';
+      if (e && typeof e === 'object' && 'message' in e && typeof (e as any).message === 'string') {
+        msg = (e as any).message;
+      }
+      setOtpError(msg);
+    } finally {
+      setOtpSending(false);
+    }
+  };
+
+  const verifyOtpCode = async () => {
+    if (!formData.contactPhone || !otpCode || otpVerifying) return;
+    setOtpVerifying(true);
+    setOtpError("");
+    setOtpInfo("");
+    try {
+      let phone = formData.contactPhone.replace(/\D/g, '');
+      if (phone.length !== 10) {
+        setOtpError('Please enter a valid 10-digit phone number');
+        setOtpVerifying(false);
+        return;
+      }
+      const res = await fetch('/api/debug/otp/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, code: otpCode, purpose: 'signup:clinic' })
+      });
+      const json = await res.json();
+      if (res.ok && json?.success && json?.verified) {
+  setOtpVerified(true);
+  setOtpInfo('Phone verified successfully');
+  setOtpError("");
+      } else {
+  setOtpError(json?.message || 'OTP verification failed');
+      }
+    } catch (e) {
+      let msg = 'OTP verification failed';
+      if (e && typeof e === 'object' && 'message' in e && typeof (e as any).message === 'string') {
+        msg = (e as any).message;
+      }
+      setOtpError(msg);
+    } finally {
+      setOtpVerifying(false);
+    }
+  };
+  // State declarations
+  const [isVisible, setIsVisible] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [currentStep, setCurrentStep] = useState(1);
+  const cardRef = useRef<HTMLDivElement>(null);
+  // OTP & PAN verification state
+  const [otpCode, setOtpCode] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpSending, setOtpSending] = useState(false);
+  const [otpVerifying, setOtpVerifying] = useState(false);
+  const [otpVerified, setOtpVerified] = useState(false);
+  const [otpInfo, setOtpInfo] = useState("");
+  const [otpError, setOtpError] = useState("");
+  const [resendSeconds, setResendSeconds] = useState(0);
+  const [panVerified, setPanVerified] = useState(false);
+  const [panVerifyMsg, setPanVerifyMsg] = useState("");
+
+  // ...existing code...
+
+  // ...existing code...
+
+  useEffect(() => {
+    setIsVisible(true);
+  }, []);
+
+  const handleInputChange = (field: keyof ClinicFormData, value: any) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleArrayToggle = (field: keyof ClinicFormData, value: string) => {
+    setFormData(prev => {
+      let arr: string[] = [];
+      if (field === "operatingDays" && Array.isArray(prev.operatingDays)) {
+        arr = prev.operatingDays;
+      } else if (field === "services" && Array.isArray(prev.services)) {
+        arr = prev.services;
+      } else if (field === "registrationTypes" && Array.isArray(prev.registrationTypes)) {
+        arr = prev.registrationTypes;
+      }
+      const newArr = arr.includes(value) ? arr.filter((v: string) => v !== value) : [...arr, value];
+      return { ...prev, [field]: newArr };
+    });
+  };
+
+  const handleAgreementChange = (field: keyof ClinicFormData["agreements"], value: boolean) => {
+    setFormData(prev => ({
+      ...prev,
+      agreements: { ...prev.agreements, [field]: value }
+    }));
+  };
+
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
+    try {
+      // Validate password before submission
+      if (!formData.password || formData.password.trim() === '') {
+        alert('Password is required. Please enter a password.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (formData.password.length < 8) {
+        alert('Password must be at least 8 characters long.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (formData.password !== formData.confirmPassword) {
+        alert('Passwords do not match. Please ensure both password fields match.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Validate ownerEmail is provided
+      if (!formData.ownerEmail || formData.ownerEmail.trim() === '') {
+        alert('Owner email is required for login. Please enter the owner email.');
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Helper to upload a file and get its URL
+      const uploadFile = async (file: File) => {
+        const form = new FormData();
+        form.append('file', file);
+        const res = await fetch('/api/uploads/profile', {
+          method: 'POST',
+          body: form
+        });
+        const json = await res.json();
+        if (json.success && json.data?.url) return json.data.url;
+        return "";
+      };
+
+      // Upload documents and get URLs
+      const ownerIdProofUrl = formData.ownerIdProof ? await uploadFile(formData.ownerIdProof) : "";
+      const ownerPhotoUrl = formData.ownerPhoto ? await uploadFile(formData.ownerPhoto) : "";
+      const signatureStampUrl = formData.signatureStamp ? await uploadFile(formData.signatureStamp) : "";
+      const profilePhotoUrl = formData.profilePhoto ? await uploadFile(formData.profilePhoto) : "";
+      const panCertificateUrl = formData.panCertificate ? await uploadFile(formData.panCertificate) : "";
+      const bankProofUrl = formData.bankProof ? await uploadFile(formData.bankProof) : "";
+      const gstCertificateUrl = formData.gstCertificate ? await uploadFile(formData.gstCertificate) : "";
+      const clinicLicenseProofUrl = formData.clinicLicenseProof ? await uploadFile(formData.clinicLicenseProof) : "";
+      const clinicBrochureUrl = formData.clinicBrochure ? await uploadFile(formData.clinicBrochure) : "";
+
+      // Build API payload object with correct mappings and document URLs
+      const apiPayload: any = {
+        clinicName: formData.clinicName,
+        clinicAddress: formData.address,
+        city: formData.city,
+        state: formData.state,
+        pincode: formData.pincode,
+        contactNumber: formData.contactPhone,
+        email: formData.contactEmail,
+        yearsInOperation: formData.yearsInOperation,
+        ownerName: formData.ownerName,
+        designation: formData.designation,
+        ownerMobile: formData.contactPhone, // If you have a separate owner mobile, use that
+        ownerEmail: formData.ownerEmail,
+        ownerPassword: formData.password, // Backend will hash this
+        declarationAccepted: formData.agreements.accuracy,
+        termsAccepted: formData.agreements.terms,
+        clinicType: Array.isArray(formData.clinicType) ? formData.clinicType : [formData.clinicType].filter(Boolean),
+        therapiesOffered: Array.isArray(formData.services) ? formData.services : [formData.services].filter(Boolean),
+        operatingDays: Array.isArray(formData.operatingDays) ? formData.operatingDays : [formData.operatingDays].filter(Boolean),
+        registrationTypes: Array.isArray(formData.registrationTypes) ? formData.registrationTypes : [formData.registrationTypes].filter(Boolean),
+        // Bank details mapped to backend expected names
+        accountHolderName: formData.bankAccountName,
+        bankName: formData.bankName || "", // Add this field to your form if missing
+        accountNumber: formData.bankAccountNumber,
+        ifscCode: formData.bankIfsc,
+        upiId: formData.upiId || "", // Add this field to your form if missing
+        // Document URLs
+        ownerIdProofUrl,
+        ownerPhotoUrl,
+        signatureStampUrl,
+        profilePhotoUrl,
+        panCertificateUrl,
+        bankProofUrl,
+        gstCertificateUrl,
+        clinicLicenseProofUrl,
+        clinicBrochureUrl,
+        // Add other mapped fields as needed
+      };
+      // Remove any File/FileList fields if present
+      Object.keys(apiPayload).forEach(key => {
+        if (apiPayload[key] instanceof File || apiPayload[key] instanceof FileList) {
+          delete apiPayload[key];
+        }
+      });
+      // Log what we're sending (excluding password for security in production)
+      console.log('[CLINIC REGISTER FORM] Sending registration request:', {
+        hasOwnerEmail: !!apiPayload.ownerEmail,
+        hasOwnerPassword: !!apiPayload.ownerPassword,
+        ownerEmail: apiPayload.ownerEmail,
+        ownerPasswordLength: apiPayload.ownerPassword ? String(apiPayload.ownerPassword).length : 0,
+        ownerName: apiPayload.ownerName,
+        clinicName: apiPayload.clinicName
+      });
+      
+      const res = await fetch('/api/clinics/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(apiPayload),
+      });
+      
+      let responseData;
+      try {
+        responseData = await res.json();
+      } catch (jsonError) {
+        // If JSON parsing fails, try to get text response
+        const textResponse = await res.text();
+        responseData = { message: textResponse, error: 'Failed to parse response' };
+      }
+      
+      if (res.ok && responseData.success) {
+        setIsSubmitting(false);
+        // Show success message with login instructions
+        alert('Registration successful! You can now login using:\nEmail: ' + formData.ownerEmail + '\nPassword: (the password you just created)');
+        // Redirect to clinic dashboard after successful registration
+        window.location.href = "/clinics/dashboard";
+      } else {
+        setIsSubmitting(false);
+        const errorMessage = responseData.message || responseData.error || 'Registration failed. Please check all fields and try again.';
+        console.error('Registration error:', { status: res.status, error: errorMessage, responseData });
+        alert('Registration failed: ' + errorMessage);
+      }
+    } catch (err) {
+      setIsSubmitting(false);
+      alert('Registration error: ' + String(err));
+    }
+  };
+
+  // Stepper config (expanded)
+  const steps = [
+    { num: 1, title: "Clinic Details", icon: Building2 },
+    { num: 2, title: "PAN Info", icon: Shield },
+    { num: 3, title: "Services", icon: Briefcase },
+    { num: 4, title: "GST Info", icon: Shield },
+    { num: 5, title: "Bank & Submit", icon: CheckCircle2 }
+  ];
 
   return (
-    <div className="max-w-4xl mx-auto p-6 space-y-10">
-      <header className="space-y-2">
-        <h1 className="text-3xl font-bold flex items-center gap-2"><Building2 className="w-7 h-7 text-primary" /> Clinic Registration</h1>
-        <p className="text-muted-foreground text-sm">Join the TheraTreat network. Complete all steps; required fields marked *.</p>
-      </header>
-
-      {/* Progress */}
-      <div>
-        <div className="flex justify-between text-xs mb-2"><span>Step {currentStep} / {totalSteps}</span><span>{Math.round(progress)}% Complete</span></div>
-        <Progress value={progress} className="h-2" />
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 py-16 px-4 relative overflow-hidden">
+      {/* Subtle Background Pattern */}
+      <div className="fixed inset-0 opacity-30 pointer-events-none">
+        <div className="absolute top-0 left-0 w-full h-full" style={{
+          backgroundImage: `radial-gradient(circle at 20% 50%, rgba(59, 130, 246, 0.1) 0%, transparent 50%),
+                           radial-gradient(circle at 80% 80%, rgba(99, 102, 241, 0.1) 0%, transparent 50%),
+                           radial-gradient(circle at 40% 20%, rgba(59, 130, 246, 0.05) 0%, transparent 50%)`
+        }} />
       </div>
 
-      <Card>
-        <CardContent className="p-8 space-y-8">
-          {currentStep === 1 && (
-            <div className="space-y-6">
-              <h2 className="font-semibold flex items-center gap-2"><Building2 className="w-5 h-5" /> Clinic Details</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>Clinic Name *</Label><Input value={formData.clinicName} onChange={e=>update('clinicName', e.target.value)} /></div>
-                <div className="space-y-2">
-                  <Label>Clinic Type *</Label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {clinicTypes.map(ct => (
-                      <label key={ct} className="flex items-center gap-2 text-xs">
-                        <Checkbox checked={formData.clinicType.includes(ct)} onCheckedChange={()=>toggleArray('clinicType', ct)} /> {ct}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-                <div className="md:col-span-2 space-y-2"><Label>Address *</Label><Textarea rows={3} value={formData.clinicAddress} onChange={e=>update('clinicAddress', e.target.value)} /></div>
-                <div className="space-y-2"><Label>City *</Label><Input value={formData.city} onChange={e=>update('city', e.target.value)} /></div>
-                <div className="space-y-2">
-                  <Label>State *</Label>
-                  <Select value={formData.state} onValueChange={v=>update('state', v)}>
-                    <SelectTrigger><SelectValue placeholder="Select state" /></SelectTrigger>
-                    <SelectContent>{INDIA_STATES.map(s=> <SelectItem key={s} value={s}>{s}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2"><Label>Pincode *</Label><Input value={formData.pincode} onChange={e=>update('pincode', e.target.value)} /></div>
-                <div className="space-y-2"><Label>Contact Number *</Label><Input value={formData.contactNumber} onChange={e=>update('contactNumber', e.target.value)} placeholder="+91" /></div>
-                <div className="space-y-2"><Label>Clinic Email *</Label><Input type="email" value={formData.email} onChange={e=>update('email', e.target.value)} /></div>
-                <div className="space-y-2"><Label>Website</Label><Input value={formData.website} onChange={e=>update('website', e.target.value)} placeholder="https://" /></div>
-                <div className="space-y-2"><Label>Years in Operation *</Label><Input value={formData.yearsInOperation} onChange={e=>update('yearsInOperation', e.target.value)} /></div>
-              </div>
-            </div>
-          )}
-          {currentStep === 2 && (
-            <div className="space-y-6">
-              <h2 className="font-semibold flex items-center gap-2"><UserIcon className="w-5 h-5" /> Owner / Coordinator</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>Owner Name *</Label><Input value={formData.ownerName} onChange={e=>update('ownerName', e.target.value)} /></div>
-                <div className="space-y-2">
-                  <Label>Designation *</Label>
-                  <Select value={formData.designation} onValueChange={v=>update('designation', v)}>
-                    <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                    <SelectContent>{designations.map(d=> <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2"><Label>Owner Mobile *</Label><Input value={formData.ownerMobile} onChange={e=>update('ownerMobile', e.target.value)} /></div>
-                <div className="space-y-2"><Label>Owner Email *</Label><Input type="email" value={formData.ownerEmail} onChange={e=>update('ownerEmail', e.target.value)} /></div>
-                <div className="space-y-2 relative">
-                  <Label>Owner Password * <span className="text-xs text-muted-foreground">(min 8 chars)</span></Label>
-                  <div className="flex gap-2">
-                    <Input type={showPassword ? 'text':'password'} value={formData.ownerPassword} onChange={e=>update('ownerPassword', e.target.value)} placeholder="Set a secure password" />
-                  </div>
-                  <button type="button" onClick={()=>setShowPassword(s=>!s)} className="absolute right-2 top-9 text-xs text-primary underline">
-                    {showPassword ? 'Hide' : 'Show'}
-                  </button>
-                </div>
-                <div className="space-y-2">
-                  <Label>Confirm Password *</Label>
-                  <Input type={showPassword ? 'text':'password'} value={formData.ownerPasswordConfirm} onChange={e=>update('ownerPasswordConfirm', e.target.value)} placeholder="Re-enter password" />
-                </div>
-                <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2"><Label>ID Proof (placeholder)</Label><div className="border-2 border-dashed rounded p-4 text-xs text-center"><Upload className="w-6 h-6 mx-auto mb-2" />Upload</div></div>
-                  <div className="space-y-2"><Label>Owner Photo (placeholder)</Label><div className="border-2 border-dashed rounded p-4 text-xs text-center"><Upload className="w-6 h-6 mx-auto mb-2" />Upload</div></div>
-                </div>
-              </div>
-              {formData.ownerPassword && formData.ownerPasswordConfirm && formData.ownerPassword !== formData.ownerPasswordConfirm && (
-                <div className="text-xs text-red-600">Passwords do not match</div>
-              )}
-            </div>
-          )}
-          {currentStep === 3 && (
-            <div className="space-y-6">
-              <h2 className="font-semibold flex items-center gap-2"><FileText className="w-5 h-5" /> Services</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="md:col-span-2 space-y-2">
-                  <Label>Therapies Offered *</Label>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    {therapyTypes.map(t => (
-                      <label key={t} className="flex items-center gap-2"><Checkbox checked={formData.therapiesOffered.includes(t)} onCheckedChange={()=>toggleArray('therapiesOffered', t)} />{t}</label>
-                    ))}
-                  </div>
-                </div>
-                <div className="space-y-2"><Label>In-house Therapists *</Label><Input type="number" value={formData.inHouseTherapists} onChange={e=>update('inHouseTherapists', e.target.value)} /></div>
-                <div className="space-y-2"><Label>External Visiting Therapists</Label><Input type="number" value={formData.externalTherapists} onChange={e=>update('externalTherapists', e.target.value)} /></div>
-                <div className="space-y-2"><Label>Online Sessions *</Label><div className="flex gap-4 text-xs"><label className="flex items-center gap-2"><Checkbox checked={formData.onlineSessions} onCheckedChange={c=>update('onlineSessions', !!c)} />Yes</label><label className="flex items-center gap-2"><Checkbox checked={!formData.onlineSessions} onCheckedChange={c=>update('onlineSessions', !c)} />No</label></div></div>
-                <div className="space-y-2"><Label>Session Duration *</Label><Select value={formData.sessionDuration} onValueChange={v=>update('sessionDuration', v)}><SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger><SelectContent>{sessionDurations.map(d=> <SelectItem key={d} value={d}>{d}</SelectItem>)}</SelectContent></Select></div>
-                <div className="space-y-2"><Label>Typical Session Charges *</Label><Input value={formData.sessionCharges} onChange={e=>update('sessionCharges', e.target.value)} placeholder="₹ per session" /></div>
-                {/* Session Modes & Pricing */}
-                <div className="md:col-span-2 space-y-2">
-                  <Label>Session Modes & Pricing *</Label>
-                  <div className="grid gap-3 md:grid-cols-2">
-                    {[
-                      { id: 'video', label: 'Video Session' },
-                      { id: 'audio', label: 'Audio Session' },
-                      { id: 'in-clinic', label: 'In-Clinic Session' },
-                      { id: 'home', label: 'Home Visit Session' }
-                    ].map(mode => {
-                      const checked = (formData.sessionModesOffered||[]).includes(mode.id);
-                      const storageKey = mode.id === 'in-clinic' ? 'inClinic' : (mode.id === 'home' ? 'home' : mode.id);
-                      return (
-                        <div key={mode.id} className="flex items-end gap-3 border rounded p-3 bg-white/50 dark:bg-neutral-900/40">
-                          <div className="flex items-center gap-2 flex-1">
-                            <Checkbox
-                              id={`clinic-mode-${mode.id}`}
-                              checked={checked}
-                              onCheckedChange={() => {
-                                update('sessionModesOffered', checked ? (formData.sessionModesOffered||[]).filter(m=>m!==mode.id) : [...(formData.sessionModesOffered||[]), mode.id]);
-                              }}
-                            />
-                            <Label htmlFor={`clinic-mode-${mode.id}`} className="text-xs md:text-sm">{mode.label}</Label>
-                          </div>
-                          <div className="w-40">
-                            <Input
-                              type="number"
-                              min="0"
-                              placeholder="₹ Price"
-                              value={(formData.sessionModePrices||{})[storageKey as keyof typeof formData.sessionModePrices] || ''}
-                              disabled={!checked}
-                              onChange={e => {
-                                const val = e.target.value;
-                                update('sessionModePrices', { ...(formData.sessionModePrices||{ video:'',audio:'',inClinic:'',home:'' }), [storageKey]: val });
-                              }}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  {(!formData.sessionModesOffered || formData.sessionModesOffered.length === 0) && (
-                    <p className="text-xs text-amber-600">Select at least one mode and add a price.</p>
-                  )}
-                </div>
-                <div className="space-y-2"><Label>Assessment Reports *</Label><div className="flex gap-4 text-xs"><label className="flex items-center gap-2"><Checkbox checked={formData.assessmentReports} onCheckedChange={c=>update('assessmentReports', !!c)} />Yes</label><label className="flex items-center gap-2"><Checkbox checked={!formData.assessmentReports} onCheckedChange={c=>update('assessmentReports', !c)} />No</label></div></div>
-                <div className="space-y-2"><Label>Home Visits *</Label><div className="flex gap-4 text-xs"><label className="flex items-center gap-2"><Checkbox checked={formData.homeVisits} onCheckedChange={c=>update('homeVisits', !!c)} />Yes</label><label className="flex items-center gap-2"><Checkbox checked={!formData.homeVisits} onCheckedChange={c=>update('homeVisits', !c)} />No</label></div></div>
-              </div>
-            </div>
-          )}
-          {currentStep === 4 && (
-            <div className="space-y-6">
-              <h2 className="font-semibold flex items-center gap-2"><Upload className="w-5 h-5" /> Bank Details</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>Account Holder Name *</Label><Input value={formData.accountHolderName} onChange={e=>update('accountHolderName', e.target.value)} /></div>
-                <div className="space-y-2"><Label>Bank Name & Branch *</Label><Input value={formData.bankName} onChange={e=>update('bankName', e.target.value)} /></div>
-                <div className="space-y-2"><Label>Account Number *</Label><Input value={formData.accountNumber} onChange={e=>update('accountNumber', e.target.value)} /></div>
-                <div className="space-y-2"><Label>IFSC Code *</Label><Input value={formData.ifscCode} onChange={e=>update('ifscCode', e.target.value)} /></div>
-                <div className="space-y-2"><Label>UPI ID</Label><Input value={formData.upiId} onChange={e=>update('upiId', e.target.value)} /></div>
-              </div>
-              <div className="space-y-2"><Label>Bank Proof (placeholder)</Label><div className="border-2 border-dashed rounded p-4 text-xs text-center"><Upload className="w-6 h-6 mx-auto mb-2" />Upload</div></div>
-            </div>
-          )}
-          {currentStep === 5 && (
-            <div className="space-y-6">
-              <h2 className="font-semibold flex items-center gap-2"><CheckCircle className="w-5 h-5" /> Agreements</h2>
-              <div className="space-y-4 text-sm">
-                <label className="flex items-start gap-3"><Checkbox checked={formData.declarationAccepted} onCheckedChange={c=>update('declarationAccepted', !!c)} /> <span>I declare all information is accurate.</span></label>
-                <label className="flex items-start gap-3"><Checkbox checked={formData.termsAccepted} onCheckedChange={c=>update('termsAccepted', !!c)} /> <span>I accept the Service Agreement & Terms.</span></label>
-              </div>
-            </div>
-          )}
-          {currentStep === 6 && (
-            <div className="space-y-6">
-              <h2 className="font-semibold flex items-center gap-2"><FileText className="w-5 h-5" /> Signature</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2"><Label>Signature Date *</Label><Input type="date" value={formData.signatureDate} onChange={e=>update('signatureDate', e.target.value)} /></div>
-                <div className="space-y-2"><Label>Signature Upload (placeholder)</Label><div className="border-2 border-dashed rounded p-4 text-xs text-center"><Upload className="w-6 h-6 mx-auto mb-2" />Upload</div></div>
-              </div>
-              <div className="bg-green-50 p-4 rounded text-sm text-green-800 flex gap-2"><CheckCircle className="w-5 h-5" /> Review and submit when ready.</div>
-            </div>
-          )}
+      {/* Floating Elements */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-20 left-10 w-2 h-2 bg-blue-400 rounded-full animate-pulse" />
+        <div className="absolute top-40 right-20 w-3 h-3 bg-blue-500 rounded-full animate-pulse" style={{ animationDelay: '1s' }} />
+        <div className="absolute bottom-32 left-1/4 w-2 h-2 bg-blue-300 rounded-full animate-pulse" style={{ animationDelay: '2s' }} />
+        <div className="absolute top-1/3 right-1/4 w-4 h-4 bg-blue-400 rounded-full animate-pulse" style={{ animationDelay: '0.5s' }} />
+      </div>
 
-          {error && <div className="text-sm text-red-600">Error: {error}</div>}
+      <div className="relative z-10 max-w-5xl mx-auto">
+        {/* Why Join Us Section */}
+        <div className="mb-12">
+          <Card className="bg-white shadow-2xl border-0">
+            <CardContent className="p-8">
+              <h2 className="text-2xl font-bold text-slate-800 mb-6 text-center">Why Join Us?</h2>
+              <div className="grid md:grid-cols-3 gap-6">
+                {/* Benefits from therapist registration */}
+                <div className="group p-6 rounded-2xl bg-gradient-to-br from-blue-50 to-white border-2 border-blue-100 hover:border-blue-300 hover:shadow-lg transition-all">
+                  <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                    <Users className="w-6 h-6 text-white" />
+                  </div>
+                  <h3 className="font-bold text-slate-800 mb-2">Expand Reach</h3>
+                  <p className="text-sm text-slate-600">Connect with thousands of patients</p>
+                </div>
+                <div className="group p-6 rounded-2xl bg-gradient-to-br from-blue-50 to-white border-2 border-blue-100 hover:border-blue-300 hover:shadow-lg transition-all">
+                  <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                    <TrendingUp className="w-6 h-6 text-white" />
+                  </div>
+                  <h3 className="font-bold text-slate-800 mb-2">Boost Income</h3>
+                  <p className="text-sm text-slate-600">Flexible pricing & transparent payouts</p>
+                </div>
+                <div className="group p-6 rounded-2xl bg-gradient-to-br from-blue-50 to-white border-2 border-blue-100 hover:border-blue-300 hover:shadow-lg transition-all">
+                  <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                    <Calendar className="w-6 h-6 text-white" />
+                  </div>
+                  <h3 className="font-bold text-slate-800 mb-2">Smart Scheduling</h3>
+                  <p className="text-sm text-slate-600">Manage availability effortlessly</p>
+                </div>
+                <div className="group p-6 rounded-2xl bg-gradient-to-br from-blue-50 to-white border-2 border-blue-100 hover:border-blue-300 hover:shadow-lg transition-all">
+                  <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                    <Bot className="w-6 h-6 text-white" />
+                  </div>
+                  <h3 className="font-bold text-slate-800 mb-2">AI Tools</h3>
+                  <p className="text-sm text-slate-600">Intelligent insights & automation</p>
+                </div>
+                <div className="group p-6 rounded-2xl bg-gradient-to-br from-blue-50 to-white border-2 border-blue-100 hover:border-blue-300 hover:shadow-lg transition-all">
+                  <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                    <Star className="w-6 h-6 text-white" />
+                  </div>
+                  <h3 className="font-bold text-slate-800 mb-2">Build Reputation</h3>
+                  <p className="text-sm text-slate-600">Verified profiles & reviews</p>
+                </div>
+                <div className="group p-6 rounded-2xl bg-gradient-to-br from-blue-50 to-white border-2 border-blue-100 hover:border-blue-300 hover:shadow-lg transition-all">
+                  <div className="w-12 h-12 bg-blue-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                    <Network className="w-6 h-6 text-white" />
+                  </div>
+                  <h3 className="font-bold text-slate-800 mb-2">Community</h3>
+                  <p className="text-sm text-slate-600">Training & peer networking</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
-          <div className="flex justify-between pt-4">
-            <Button variant="outline" disabled={currentStep===1 || submitting} onClick={()=>setCurrentStep(s=> Math.max(1,s-1))}>Previous</Button>
-            <div className="flex gap-2">
-              <Button type="button" variant="outline" disabled={submitting}>Save Draft</Button>
-              {currentStep === totalSteps ? (
-                <Button disabled={submitting || !formData.declarationAccepted || !formData.termsAccepted} onClick={handleSubmit}>{submitting ? 'Submitting...' : 'Submit Application'}</Button>
-              ) : (
-                <Button disabled={submitting} onClick={()=>setCurrentStep(s=> Math.min(totalSteps, s+1))}>Next Step</Button>
-              )}
+        {/* Header with Animation */}
+        <div className={`text-center mb-12 transition-all duration-1000 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-8'}`}>
+          <div className="inline-flex items-center gap-2 mb-6 px-5 py-2 bg-white shadow-lg shadow-blue-100 rounded-full border-2 border-blue-100">
+            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
+              <Heart className="w-4 h-4 text-white" />
+            </div>
+            <span className="text-blue-600 text-sm font-bold">Partner with Us</span>
+          </div>
+          <h1 className="text-5xl md:text-6xl font-black text-slate-900 mb-4 tracking-tight">
+            Clinic <span className="text-blue-600">Registration</span>
+          </h1>
+          <p className="text-lg text-slate-600 max-w-2xl mx-auto">
+            Join our network of healthcare providers and help transform lives together
+          </p>
+        </div>
+
+        {/* Modern Progress Bar */}
+        <div className={`mb-12 transition-all duration-1000 delay-300 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+          <div className="bg-white rounded-2xl shadow-xl shadow-blue-100/50 p-8 border border-blue-100">
+            <div className="flex justify-between items-center relative">
+              {/* Progress Line */}
+              <div className="absolute top-6 left-0 right-0 h-1 bg-blue-100 rounded-full">
+                <div 
+                  className="h-full bg-gradient-to-r from-blue-500 to-blue-600 rounded-full transition-all duration-500"
+                  style={{ width: `${((currentStep - 1) / (steps.length - 1)) * 100}%` }}
+                />
+              </div>
+              
+              {steps.map((step) => {
+                const IconComponent = step.icon;
+                const isActive = currentStep >= step.num;
+                const isCurrent = currentStep === step.num;
+                return (
+                  <div key={step.num} className="flex flex-col items-center relative z-10">
+                    <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-3 transition-all duration-500 border-4 ${
+                      isActive 
+                        ? 'bg-gradient-to-br from-blue-500 to-blue-600 border-white shadow-lg shadow-blue-500/50' 
+                        : 'bg-white border-blue-100'
+                    } ${isCurrent ? 'scale-110' : ''}`}>
+                      <IconComponent className={`w-5 h-5 ${isActive ? 'text-white' : 'text-blue-300'}`} />
+                    </div>
+                    <span className={`text-xs font-bold ${isActive ? 'text-blue-600' : 'text-slate-400'}`}>
+                      {step.title}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+
+        {/* Main Form Card */}
+        <Card ref={cardRef} className={`bg-white shadow-2xl shadow-blue-100/50 border-2 border-blue-100 rounded-3xl transition-all duration-1000 delay-500 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+          <CardContent className="p-8 md:p-12">
+            <form onSubmit={e => { e.preventDefault(); handleSubmit(); }} className="space-y-10">
+              {/* Step 1: Clinic Details */}
+              {currentStep === 1 && (
+                <div className="space-y-8">
+                  <div className="flex items-center gap-4 pb-4 border-b-2 border-blue-100">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
+                      <Building2 className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-black text-slate-900">Clinic Details</h2>
+                      <p className="text-sm text-slate-500">Basic information about your clinic</p>
+                    </div>
+                  </div>
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div>
+                      <Label className="text-slate-700 font-semibold mb-2 flex items-center gap-2">
+                        <Building2 className="w-4 h-4 text-blue-500" />
+                        Clinic Name*
+                      </Label>
+                      <Input 
+                        value={formData.clinicName} 
+                        onChange={e => handleInputChange("clinicName", e.target.value)}
+                        placeholder="Your clinic name"
+                        className="h-12 border-2 border-blue-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 rounded-xl"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-slate-700 font-semibold mb-2 block">Clinic Type*</Label>
+                      <div className="flex flex-wrap gap-3">
+                        {['Multispecialty','Therapy-only','Rehab Centre','Hospital-based'].map(type => (
+                          <label key={type} className="flex items-center gap-2">
+                            <input type="radio" name="clinicType" value={type} checked={formData.clinicType===type} onChange={e=>handleInputChange('clinicType',e.target.value)} className="accent-blue-600" required />
+                            <span>{type}</span>
+                          </label>
+                        ))}
+                        <label className="flex items-center gap-2">
+                          <input type="radio" name="clinicType" value="Others" checked={formData.clinicType==='Others'} onChange={e=>handleInputChange('clinicType',e.target.value)} className="accent-blue-600" required />
+                          <span>Others:</span>
+                          <Input value={formData.clinicTypeOther||''} onChange={e=>handleInputChange('clinicTypeOther',e.target.value)} placeholder="Specify" className="ml-2 h-10 border-blue-200 rounded" />
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-slate-700 font-semibold mb-2 flex items-center gap-2">Clinic Address*</Label>
+                    <textarea value={formData.address} onChange={e=>handleInputChange('address',e.target.value)} placeholder="Street, Area, Landmark" className="w-full h-20 border-2 border-blue-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 rounded-xl p-3" required />
+                  </div>
+                  <div className="grid md:grid-cols-3 gap-4">
+                    <div>
+                      <Label className="text-slate-700 font-semibold mb-2 block">City*</Label>
+                      <Input value={formData.city} onChange={e=>handleInputChange('city',e.target.value)} placeholder="Mumbai" className="h-12 border-2 border-blue-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 rounded-xl" required />
+                    </div>
+                    <div>
+                      <Label className="text-slate-700 font-semibold mb-2 block">State*</Label>
+                      <select value={formData.state} onChange={e=>handleInputChange('state',e.target.value)} className="w-full h-12 border-2 border-blue-200 rounded-xl px-4 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none bg-white" required>
+                        <option value="">Select</option>
+                        {indianStates.concat(['Other']).map(s => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <Label className="text-slate-700 font-semibold mb-2 block">Pincode*</Label>
+                      <Input value={formData.pincode} onChange={e=>handleInputChange('pincode',e.target.value)} placeholder="400001" maxLength={6} className="h-12 border-2 border-blue-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 rounded-xl" required />
+                    </div>
+                  </div>
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div>
+                      <Label className="text-slate-700 font-semibold mb-2 flex items-center gap-2">Clinic Contact Number*</Label>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold">+91</span>
+                        <Input value={formData.contactPhone} onChange={e=>handleInputChange('contactPhone',e.target.value)} placeholder="9876543210" maxLength={10} className="h-12 border-2 border-blue-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 rounded-xl w-full" required />
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-slate-700 font-semibold mb-2 flex items-center gap-2">Clinic Email ID*</Label>
+                      <Input type="email" value={formData.contactEmail} onChange={e=>handleInputChange('contactEmail',e.target.value)} placeholder="clinic@example.com" className="h-12 border-2 border-blue-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 rounded-xl" required />
+                    </div>
+                  </div>
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div>
+                      <Label className="text-slate-700 font-semibold mb-2">Clinic Website (Optional)</Label>
+                      <Input type="url" value={formData.website} onChange={e=>handleInputChange('website',e.target.value)} placeholder="www.example.com" className="h-12 border-2 border-blue-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 rounded-xl" />
+                    </div>
+                    <div>
+                      <Label className="text-slate-700 font-semibold mb-2">Years in Operation</Label>
+                      <Input type="number" min={0} value={formData.yearsInOperation||''} onChange={e=>handleInputChange('yearsInOperation',e.target.value)} placeholder="e.g. 5" className="h-12 border-2 border-blue-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 rounded-xl" />
+                    </div>
+                  </div>
+                </div>
+              )}
+              {/* Step 2: PAN Info */}
+              {currentStep === 2 && (
+                <div className="space-y-4 bg-white rounded-2xl p-6 border-2 border-blue-100 shadow-sm">
+                  <div className="grid md:grid-cols-2 gap-6 mb-4">
+                    <div>
+                      <Label className="text-slate-700 font-semibold mb-2 flex items-center gap-2">Password*</Label>
+                      <Input 
+                        type="password"
+                        value={formData.password || ""}
+                        onChange={e => handleInputChange("password", e.target.value)}
+                        placeholder="Create a password for dashboard login"
+                        className="h-12 border-2 border-blue-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 rounded-xl"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-slate-700 font-semibold mb-2 flex items-center gap-2">Confirm Password*</Label>
+                      <Input 
+                        type="password"
+                        value={formData.confirmPassword || ""}
+                        onChange={e => handleInputChange("confirmPassword", e.target.value)}
+                        placeholder="Re-enter your password"
+                        className="h-12 border-2 border-blue-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 rounded-xl"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <Label className="text-slate-700 font-semibold mb-2 block">Full Name*</Label>
+                  <Input value={formData.ownerName||''} onChange={e=>handleInputChange('ownerName',e.target.value)} placeholder="Owner/Coordinator Name" required className="h-12 border-2 border-blue-200 rounded-xl" />
+                  <Label className="text-slate-700 font-semibold mb-2 block">Designation*</Label>
+                  <div className="flex flex-wrap gap-3 mb-2">
+                    {['Owner','Coordinator','Admin'].map(role => (
+                      <label key={role} className="flex items-center gap-2">
+                        <input type="radio" name="designation" value={role} checked={formData.designation===role} onChange={e=>handleInputChange('designation',e.target.value)} className="accent-blue-600" required />
+                        <span>{role}</span>
+                      </label>
+                    ))}
+                    <label className="flex items-center gap-2">
+                      <input type="radio" name="designation" value="Other" checked={formData.designation==='Other'} onChange={e=>handleInputChange('designation',e.target.value)} className="accent-blue-600" required />
+                      <span>Other:</span>
+                      <Input value={formData.designationOther||''} onChange={e=>handleInputChange('designationOther',e.target.value)} placeholder="Specify" className="ml-2 h-10 border-blue-200 rounded" />
+                    </label>
+                  </div>
+                  <Label className="text-slate-700 font-semibold mb-2 block">Email Address*</Label>
+                  <Input type="email" value={formData.ownerEmail||''} onChange={e=>handleInputChange('ownerEmail',e.target.value)} placeholder="owner@example.com" required className="h-12 border-2 border-blue-200 rounded-xl" />
+                  <Label className="text-slate-700 font-semibold mb-2 block">Government ID Proof (PAN / Aadhaar / Passport)</Label>
+                  <Input type="file" accept=".pdf,.jpeg,.jpg,.png" onChange={e=>handleInputChange('ownerIdProof',e.target.files?.[0]||null)} className="h-12 border-2 border-blue-200 rounded-xl" />
+                  {formData.ownerIdProof && (<div className="mt-2 text-green-700">{formData.ownerIdProof.name}</div>)}
+                  <Label className="text-slate-700 font-semibold mb-2 block">Photo of Owner/Coordinator</Label>
+                  <Input type="file" accept=".jpeg,.jpg,.png" onChange={e=>handleInputChange('ownerPhoto',e.target.files?.[0]||null)} className="h-12 border-2 border-blue-200 rounded-xl" />
+                  {formData.ownerPhoto && (<div className="mt-2 text-green-700">{formData.ownerPhoto.name}</div>)}
+                  <Label className="text-slate-700 font-semibold mb-2 block">Owner Mobile OTP Verification</Label>
+                  <OtpVerification
+  phone={formData.contactPhone}
+  onVerified={() => {/* handle verified state if needed */}}
+/>
+                </div>
+              )}
+              {/* Step 3: Services */}
+              {currentStep === 3 && (
+                <div className="space-y-6">
+                  <div className="flex items-center gap-4 pb-4 border-b-2 border-blue-100">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
+                      <Briefcase className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-black text-slate-900">Services & Operations</h2>
+                      <p className="text-sm text-slate-500">What you offer and when</p>
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-slate-700 font-semibold mb-3 flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-blue-500" />
+                      Operating Days
+                    </Label>
+                    <div className="flex flex-wrap gap-3">
+                      {days.map(day => (
+                        <button
+                          key={day}
+                          type="button"
+                          onClick={() => handleArrayToggle("operatingDays", day)}
+                          className={`px-5 py-3 rounded-xl font-bold transition-all duration-300 border-2 ${
+                            formData.operatingDays.includes(day)
+                              ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white border-blue-600 shadow-lg shadow-blue-500/30 scale-105'
+                              : 'bg-white text-slate-700 border-blue-200 hover:border-blue-400 hover:shadow-md'
+                          }`}
+                        >
+                          {day.slice(0, 3)}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-slate-700 font-semibold mb-2 flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-blue-500" />
+                      Operating Hours
+                    </Label>
+                    <div className="flex gap-4 items-center">
+                      <div className="flex flex-col">
+                        <span className="text-xs text-slate-500 mb-1">Start</span>
+                        <Input
+                          type="time"
+                          value={formData.operatingHours?.split(' - ')[0] || ''}
+                          onChange={e => {
+                            const end = formData.operatingHours?.split(' - ')[1] || '';
+                            handleInputChange("operatingHours", `${e.target.value} - ${end}`);
+                          }}
+                          className="h-12 border-2 border-blue-200 rounded-xl"
+                          required
+                        />
+                      </div>
+                      <span className="mx-2 text-slate-500 font-bold">to</span>
+                      <div className="flex flex-col">
+                        <span className="text-xs text-slate-500 mb-1">End</span>
+                        <Input
+                          type="time"
+                          value={formData.operatingHours?.split(' - ')[1] || ''}
+                          onChange={e => {
+                            const start = formData.operatingHours?.split(' - ')[0] || '';
+                            handleInputChange("operatingHours", `${start} - ${e.target.value}`);
+                          }}
+                          className="h-12 border-2 border-blue-200 rounded-xl"
+                          required
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-slate-700 font-semibold mb-3 block">Services Offered</Label>
+                    <div className="flex flex-wrap gap-3">
+                      {servicesList.map(service => (
+                        <button
+                          key={service}
+                          type="button"
+                          onClick={() => handleArrayToggle("services", service)}
+                          className={`px-5 py-3 rounded-xl font-semibold transition-all duration-300 border-2 text-sm ${
+                            formData.services.includes(service)
+                              ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white border-blue-600 shadow-lg shadow-blue-500/30'
+                              : 'bg-white text-slate-700 border-blue-200 hover:border-blue-400 hover:shadow-md'
+                          }`}
+                        >
+                          {service}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="grid md:grid-cols-3 gap-6">
+                    <div>
+                      <Label className="text-slate-700 font-semibold mb-2 flex items-center gap-2">
+                        <Users className="w-4 h-4 text-blue-500" />
+                        Number of Therapists
+                      </Label>
+                      <Input 
+                        type="number"
+                        value={formData.numTherapists} 
+                        onChange={e => handleInputChange("numTherapists", e.target.value)}
+                        placeholder="e.g. 5"
+                        className="h-12 border-2 border-blue-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 rounded-xl"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-slate-700 font-semibold mb-2 flex items-center gap-2">
+                        <Globe className="w-4 h-4 text-blue-500" />
+                        Website
+                      </Label>
+                      <Input 
+                        value={formData.website} 
+                        onChange={e => handleInputChange("website", e.target.value)}
+                        placeholder="www.example.com"
+                        className="h-12 border-2 border-blue-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 rounded-xl"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-slate-700 font-semibold mb-2 flex items-center gap-2">
+                        <Instagram className="w-4 h-4 text-blue-500" />
+                        Instagram Handle
+                      </Label>
+                      <Input 
+                        value={formData.instagram} 
+                        onChange={e => handleInputChange("instagram", e.target.value)}
+                        placeholder="@clinicname"
+                        className="h-12 border-2 border-blue-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 rounded-xl"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+              {/* Step 4: GST Info (restored) & Compliance & Registrations (merged) */}
+              {currentStep === 4 && (
+                <div className="space-y-8">
+                  {/* GST Information (restored) */}
+                  <div className="flex items-center gap-4 pb-4 border-b-2 border-blue-100">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
+                      <Shield className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-black text-slate-900">GST Information</h2>
+                      <p className="text-sm text-slate-500">Tax registration details</p>
+                    </div>
+                  </div>
+                  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border-2 border-blue-200 shadow-inner">
+                    <Label className="text-slate-900 font-bold text-base flex items-center gap-2 mb-4">
+                      <Sparkles className="w-5 h-5 text-blue-500" />
+                      Do you have a valid GST registration?
+                    </Label>
+                    <div className="grid grid-cols-2 gap-4">
+                      <button
+                        type="button"
+                        onClick={() => setFormData(f => ({ ...f, gstRegistered: "yes" }))}
+                        className={`py-4 px-6 rounded-xl font-bold transition-all duration-300 border-2 ${
+                          formData.gstRegistered === "yes"
+                            ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white border-blue-600 shadow-lg shadow-blue-500/50 scale-105'
+                            : 'bg-white text-slate-700 border-blue-200 hover:border-blue-400 hover:shadow-md'
+                        }`}
+                      >
+                        <Check className={`w-5 h-5 mx-auto mb-1 ${formData.gstRegistered === "yes" ? 'opacity-100' : 'opacity-0'}`} />
+                        Yes, I have GST
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFormData(f => ({ ...f, gstRegistered: "no" }))}
+                        className={`py-4 px-6 rounded-xl font-bold transition-all duration-300 border-2 ${
+                          formData.gstRegistered === "no"
+                            ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white border-blue-600 shadow-lg shadow-blue-500/50 scale-105'
+                            : 'bg-white text-slate-700 border-blue-200 hover:border-blue-400 hover:shadow-md'
+                        }`}
+                      >
+                        <Check className={`w-5 h-5 mx-auto mb-1 ${formData.gstRegistered === "no" ? 'opacity-100' : 'opacity-0'}`} />
+                        No GST
+                      </button>
+                    </div>
+                  </div>
+                  {formData.gstRegistered === "yes" && (
+                    <div className="space-y-6 bg-white rounded-2xl p-6 border-2 border-blue-100 shadow-sm">
+                      <div>
+                        <Label className="text-slate-700 font-semibold mb-2 block">GSTIN (15-digit Number)</Label>
+                        <Input 
+                          value={formData.gstin} 
+                          onChange={e => setFormData(f => ({ ...f, gstin: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 15) }))} 
+                          placeholder="27ABCDE1234F1Z4" 
+                          maxLength={15}
+                          className="h-12 border-2 border-blue-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 rounded-xl text-slate-900 font-medium"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-slate-700 font-semibold mb-2 block">Registered Business Name</Label>
+                        <Input 
+                          value={formData.gstBusinessName} 
+                          onChange={e => setFormData(f => ({ ...f, gstBusinessName: e.target.value }))} 
+                          placeholder="As per GST certificate"
+                          className="h-12 border-2 border-blue-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 rounded-xl text-slate-900"
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-slate-700 font-semibold mb-2 block">Upload GST Certificate</Label>
+                        <Input 
+                          type="file" 
+                          accept=".pdf,.jpeg,.jpg,.png" 
+                          onChange={e => setFormData(f => ({ ...f, gstCertificate: e.target.files?.[0] || null }))}
+                          className="h-12 border-2 border-blue-200 rounded-xl"
+                        />
+                        {formData.gstCertificate && (
+                          <div className="mt-2 text-green-700">{formData.gstCertificate.name}</div>
+                        )}
+                      </div>
+                      <div>
+                        <Label className="text-slate-700 font-semibold mb-3 block">GST Status</Label>
+                        <div className="grid grid-cols-2 gap-4">
+                          <button
+                            type="button"
+                            onClick={() => setFormData(f => ({ ...f, gstStatus: "active" }))}
+                            className={`py-3 px-4 rounded-xl text-sm font-bold transition-all duration-300 border-2 ${
+                              formData.gstStatus === "active"
+                                ? 'bg-green-500 text-white border-green-600 shadow-lg'
+                                : 'bg-white text-slate-700 border-blue-200 hover:border-green-400'
+                            }`}
+                          >
+                            ✓ Active
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setFormData(f => ({ ...f, gstStatus: "inactive" }))}
+                            className={`py-3 px-4 rounded-xl text-sm font-bold transition-all duration-300 border-2 ${
+                              formData.gstStatus === "inactive"
+                                ? 'bg-red-500 text-white border-red-600 shadow-lg'
+                                : 'bg-white text-slate-700 border-blue-200 hover:border-red-400'
+                            }`}
+                          >
+                            ✗ Inactive/Cancelled
+                          </button>
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-slate-700 font-semibold mb-2 block">State/UT of GST Registration</Label>
+                        <select 
+                          value={formData.gstState} 
+                          onChange={e => setFormData(f => ({ ...f, gstState: e.target.value }))}
+                          className="w-full h-12 border-2 border-blue-200 rounded-xl px-4 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none text-slate-900 font-medium bg-white"
+                        >
+                          <option value="">Select State/UT</option>
+                          {indianStates.map(s => (
+                            <option key={s} value={s}>{s}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  )}
+                  {formData.gstRegistered === "no" && (
+                    <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl p-6 border-2 border-amber-200 shadow-sm">
+                      <div className="flex gap-4">
+                        <div className="flex-shrink-0">
+                          <div className="w-10 h-10 bg-amber-500 rounded-full flex items-center justify-center">
+                            <AlertCircle className="w-6 h-6 text-white" />
+                          </div>
+                        </div>
+                        <div className="flex-1">
+                          <Label className="text-amber-900 font-bold text-base mb-3 block">Declaration</Label>
+                          <p className="text-slate-700 text-sm leading-relaxed mb-4 bg-white/50 p-4 rounded-xl">
+                            "I confirm that my annual professional turnover is below ₹20,00,000 and that I am not registered under GST as per current Indian GST laws. I understand that TheraTreat will deduct TDS as applicable under Section 194J for professional services."
+                          </p>
+                          <label className="flex items-start gap-3 cursor-pointer group">
+                            <div className="relative flex-shrink-0 mt-1">
+                              <input 
+                                type="checkbox" 
+                                checked={formData.gstDeclarationAgreed} 
+                                onChange={e => setFormData(f => ({ ...f, gstDeclarationAgreed: e.target.checked }))}
+                                className="w-6 h-6 rounded-lg border-2 border-amber-400 appearance-none checked:bg-blue-600 checked:border-blue-600 cursor-pointer transition-all"
+                              />
+                              {formData.gstDeclarationAgreed && (
+                                <Check className="w-4 h-4 text-white absolute top-1 left-1 pointer-events-none" />
+                              )}
+                            </div>
+                            <span className="text-slate-900 font-bold group-hover:text-blue-600 transition-colors">
+                              I agree and confirm the above declaration
+                            </span>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  {/* Compliance & Registrations (merged) */}
+                  <div className="space-y-6 bg-white rounded-2xl p-6 border-2 border-blue-100 shadow-sm mt-8">
+                    <Label className="text-slate-700 font-semibold mb-2 block">Clinic Registration Type*</Label>
+                    <div className="flex flex-wrap gap-4 mb-2">
+                      {['Shop & Establishment License','Clinical Establishment Registration','RCI Approved'].map(type => (
+                        <label key={type} className="flex items-center gap-2">
+                          <input type="checkbox" checked={formData.registrationTypes?.includes(type)} onChange={e => {
+                            const arr = formData.registrationTypes || [];
+                            setFormData(f => ({ ...f, registrationTypes: e.target.checked ? [...arr, type] : arr.filter(t => t !== type) }));
+                          }} className="accent-blue-600" />
+                          <span>{type}</span>
+                        </label>
+                      ))}
+                      <label className="flex items-center gap-2">
+                        <input type="checkbox" checked={formData.registrationTypes?.includes('Other')} onChange={e => {
+                          const arr = formData.registrationTypes || [];
+                          setFormData(f => ({ ...f, registrationTypes: e.target.checked ? [...arr, 'Other'] : arr.filter(t => t !== 'Other') }));
+                        }} className="accent-blue-600" />
+                        <span>Other:</span>
+                        <Input value={formData.registrationTypeOther||''} onChange={e=>setFormData(f=>({...f,registrationTypeOther:e.target.value}))} placeholder="Specify" className="ml-2 h-10 border-blue-200 rounded" />
+                      </label>
+                    </div>
+                    <Label className="text-slate-700 font-semibold mb-2 block">Registration Number (if applicable)</Label>
+                    <Input value={formData.registrationNumber||''} onChange={e=>setFormData(f=>({...f,registrationNumber:e.target.value}))} placeholder="Enter registration/license number" className="h-12 border-2 border-blue-200 rounded-xl" />
+                    <Label className="text-slate-700 font-semibold mb-2 block">Upload Clinic License / Registration Proof*</Label>
+                    <Input type="file" accept=".pdf,.jpeg,.jpg,.png" onChange={e=>setFormData(f=>({...f,clinicLicenseProof:e.target.files?.[0]||null}))} className="h-12 border-2 border-blue-200 rounded-xl" />
+                    {formData.clinicLicenseProof && (<div className="mt-2 text-green-700">{formData.clinicLicenseProof.name}</div>)}
+                  </div>
+                  <div className="space-y-6 bg-white rounded-2xl p-6 border-2 border-blue-100 shadow-sm">
+                    <Label className="text-slate-700 font-semibold mb-2 block">Photos of Clinic (Reception / Therapy Rooms)</Label>
+                    <Input type="file" multiple accept=".jpeg,.jpg,.png" onChange={e=>setFormData(f=>({...f,clinicPhotos:e.target.files}))} className="h-12 border-2 border-blue-200 rounded-xl" />
+                    {formData.clinicPhotos && (<div className="mt-2 text-green-700">{Array.from(formData.clinicPhotos).map(f=>f.name).join(', ')}</div>)}
+                    <Label className="text-slate-700 font-semibold mb-2 block">Clinic Brochure / Pamphlet (Optional)</Label>
+                    <Input type="file" accept=".pdf,.jpeg,.jpg,.png" onChange={e=>setFormData(f=>({...f,clinicBrochure:e.target.files?.[0]||null}))} className="h-12 border-2 border-blue-200 rounded-xl" />
+                    {formData.clinicBrochure && (<div className="mt-2 text-green-700">{formData.clinicBrochure.name}</div>)}
+                  </div>
+                  <div className="bg-blue-50 rounded-2xl p-6 border-2 border-blue-100 mt-4">
+                    <p className="text-slate-700 text-sm leading-relaxed">
+                      <span className="font-bold">🏥 Clinics registered under the Shop & Establishment Act or Clinical Establishment Act are recognized as “Clinical Establishments” under Indian law and are eligible for healthcare GST exemption.</span> TheraTreat collects this information for regulatory verification only.
+                    </p>
+                  </div>
+                </div>
+              )}
+              {/* Step 5: Bank Details, Agreements & Submit */}
+              {currentStep === 5 && (
+                <div className="space-y-6">
+                  <div className="flex items-center gap-4 pb-4 border-b-2 border-blue-100">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
+                      <CheckCircle2 className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-black text-slate-900">Bank Details</h2>
+                      <p className="text-sm text-slate-500">For payments and settlements</p>
+                    </div>
+                  </div>
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div>
+                      <Label className="text-slate-700 font-semibold mb-2 block">Account Holder Name</Label>
+                      <Input 
+                        value={formData.bankAccountName}
+                        onChange={e => setFormData(f => ({ ...f, bankAccountName: e.target.value }))}
+                        placeholder="Name as per bank"
+                        className="h-12 border-2 border-blue-200 rounded-xl"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-slate-700 font-semibold mb-2 block">Account Number</Label>
+                      <Input 
+                        value={formData.bankAccountNumber}
+                        onChange={e => setFormData(f => ({ ...f, bankAccountNumber: e.target.value }))}
+                        placeholder="Bank account number"
+                        className="h-12 border-2 border-blue-200 rounded-xl"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid md:grid-cols-2 gap-6">
+                    <div>
+                      <Label className="text-slate-700 font-semibold mb-2 block">IFSC Code</Label>
+                      <Input 
+                        value={formData.bankIfsc}
+                        onChange={e => setFormData(f => ({ ...f, bankIfsc: e.target.value }))}
+                        placeholder="IFSC code"
+                        className="h-12 border-2 border-blue-200 rounded-xl"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-slate-700 font-semibold mb-2 block">Upload Bank Proof</Label>
+                      <Input 
+                        type="file"
+                        accept=".pdf,.jpeg,.jpg,.png"
+                        onChange={e => setFormData(f => ({ ...f, bankProof: e.target.files?.[0] || null }))}
+                        className="h-12 border-2 border-blue-200 rounded-xl"
+                      />
+                      {formData.bankProof && (
+                        <div className="mt-2 text-green-700">{formData.bankProof.name}</div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="space-y-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-6 border-2 border-blue-200">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
+                        <Shield className="w-5 h-5 text-white" />
+                      </div>
+                      <Label className="text-slate-900 font-black text-lg">Agreements & Consent</Label>
+                    </div>
+                    <div className="space-y-4">
+                      {[
+                        { key: 'accuracy', label: 'I confirm all information provided is accurate and up-to-date', icon: CheckCircle2 },
+                        { key: 'terms', label: 'I agree to the terms and conditions of the platform', icon: FileText },
+                        { key: 'consent', label: 'I give consent for data processing and communication', icon: Shield }
+                      ].map((agreement) => {
+                        const IconComponent = agreement.icon;
+                        return (
+                          <label key={agreement.key} className="flex items-start gap-4 cursor-pointer group bg-white rounded-xl p-4 border-2 border-blue-100 hover:border-blue-400 hover:shadow-md transition-all">
+                            <div className="relative flex-shrink-0 mt-0.5">
+                              <input 
+                                type="checkbox" 
+                                checked={formData.agreements[agreement.key as keyof typeof formData.agreements]} 
+                                onChange={e => handleAgreementChange(agreement.key as keyof typeof formData.agreements, e.target.checked)}
+                                className="w-6 h-6 rounded-lg border-2 border-blue-300 appearance-none checked:bg-blue-600 checked:border-blue-600 cursor-pointer transition-all"
+                              />
+                              {formData.agreements[agreement.key as keyof typeof formData.agreements] && (
+                                <Check className="w-4 h-4 text-white absolute top-1 left-1 pointer-events-none" />
+                              )}
+                            </div>
+                            <div className="flex-1 flex items-center gap-3">
+                              <IconComponent className="w-5 h-5 text-blue-500 flex-shrink-0" />
+                              <span className="text-slate-700 font-medium group-hover:text-blue-600 transition-colors">
+                                {agreement.label}
+                              </span>
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  {/* SECTION 7: Signature & Consent */}
+                  <div className="space-y-6 bg-white rounded-2xl p-6 border-2 border-blue-100 shadow-sm mt-6">
+                    <h3 className="text-xl font-black text-slate-900 mb-2">Signature & Consent</h3>
+                    <Label className="text-slate-700 font-semibold mb-2 block">Signature / Stamp*</Label>
+                    <Input type="file" accept=".jpeg,.jpg,.png,.pdf" onChange={e=>setFormData(f=>({...f,signatureStamp:e.target.files?.[0]||null}))} className="h-12 border-2 border-blue-200 rounded-xl" />
+                    {formData.signatureStamp && (<div className="mt-2 text-green-700">{formData.signatureStamp.name}</div>)}
+                    <Label className="text-slate-700 font-semibold mb-2 block">Date*</Label>
+                    <Input type="date" value={formData.signatureDate||''} onChange={e=>setFormData(f=>({...f,signatureDate:e.target.value}))} className="h-12 border-2 border-blue-200 rounded-xl w-48" />
+                  </div>
+                  <div className="pt-6">
+                    <Button 
+                      type="submit" 
+                      disabled={isSubmitting}
+                      className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white h-14 rounded-xl text-lg font-black shadow-xl shadow-blue-500/50 transition-all duration-500 transform hover:scale-105 hover:shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                    >
+                      {isSubmitting ? (
+                        <div className="flex items-center justify-center gap-3">
+                          <div className="w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin" />
+                          Processing Your Registration...
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-center gap-3">
+                          <Zap className="w-6 h-6" />
+                          Complete Registration
+                          <ArrowRight className="w-6 h-6" />
+                        </div>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </form>
+            {/* Step Navigation outside the form */}
+            <div className="flex justify-between pt-4">
+              <Button
+                variant="outline"
+                disabled={currentStep === 1 || isSubmitting}
+                onClick={() => setCurrentStep(s => Math.max(1, s - 1))}
+                className="flex items-center gap-2 px-6 py-3 rounded-xl border-2 border-blue-300 text-blue-700 font-bold bg-white hover:bg-blue-50 hover:border-blue-500 transition-all shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2"><polyline points="15 18 9 12 15 6"/></svg>
+                Previous
+              </Button>
+              <div className="flex gap-2">
+                {currentStep < steps.length && (
+                  <Button
+                    type="button"
+                    disabled={isSubmitting}
+                    onClick={() => setCurrentStep(s => Math.min(steps.length, s + 1))}
+                    className="flex items-center gap-2 px-6 py-3 rounded-xl border-2 border-blue-600 text-white font-bold bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Next Step
+                    <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="ml-2"><polyline points="9 18 15 12 9 6"/></svg>
+                  </Button>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Trust Indicators */}
+        <div className={`mt-12 transition-all duration-1000 delay-700 ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+          <div className="bg-white rounded-2xl shadow-xl shadow-blue-100/50 p-6 border-2 border-blue-100">
+            <div className="flex flex-wrap justify-center items-center gap-8 text-sm">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                  <Shield className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <p className="font-bold text-slate-900">Secure & Encrypted</p>
+                  <p className="text-xs text-slate-500">Bank-grade security</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                  <CheckCircle2 className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <p className="font-bold text-slate-900">Verified Process</p>
+                  <p className="text-xs text-slate-500">Quick approval</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                  <Heart className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <p className="font-bold text-slate-900">Join 2000+ Clinics</p>
+                  <p className="text-xs text-slate-500">Growing network</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                  <Award className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <p className="font-bold text-slate-900">Professional Support</p>
+                  <p className="text-xs text-slate-500">24/7 assistance</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

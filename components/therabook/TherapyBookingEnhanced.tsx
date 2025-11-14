@@ -9,7 +9,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import TextField from '@mui/material/TextField';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/components/ui/utils';
 import { ArrowLeft, Building, Calendar as CalendarIcon, Calendar, CheckCircle, Clock, CreditCard, Heart, MapPin, Phone, Shield, Star, Timer, Video } from 'lucide-react';
@@ -249,7 +252,12 @@ export function TherapyBookingEnhanced({ therapistId }: TherapyBookingProps) {
       };
       const booking = await bookingService.createBooking(bookingData, token || undefined);
       const bookingId = (booking as any)?._id || (booking as any)?.bookingId || 'unknown';
-      router.push(`/therabook/therapists/${therapistId}/book/payment?bookingId=${bookingId}`);
+      if (user?.email === 'sachinparihar10@gmail.com') {
+        // Skip payment page for developer
+        router.push(`/therabook/therapists/${therapistId}/book/confirmation?bookingId=${bookingId}`);
+      } else {
+        router.push(`/therabook/therapists/${therapistId}/book/payment?bookingId=${bookingId}`);
+      }
     } catch (error: any) {
       console.error('Booking error:', error);
       setBookingError(error.message || 'Failed to create booking');
@@ -267,7 +275,7 @@ export function TherapyBookingEnhanced({ therapistId }: TherapyBookingProps) {
   };
 
   const userRole = (user?.userType || '').toLowerCase();
-  const isEndUser = userRole === 'user' || userRole === 'patient';
+  const isEndUser = userRole === 'user' || userRole === 'patient' || userRole === 'client';
 
   // Loading state while auth is being checked
   if (isLoading) {
@@ -317,8 +325,9 @@ export function TherapyBookingEnhanced({ therapistId }: TherapyBookingProps) {
     );
   }
 
-  // If logged in as therapist/admin (non end-user), block booking creation and guide
+  // If logged in as therapist/admin/clinic-owner (non end-user), block booking creation and guide
   if (isAuthenticated && user && !isEndUser) {
+    const isClinicOwner = userRole === 'clinic-owner';
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
         <div className="container mx-auto px-4 py-16 max-w-2xl">
@@ -328,14 +337,24 @@ export function TherapyBookingEnhanced({ therapistId }: TherapyBookingProps) {
             </div>
             <h1 className="text-3xl font-bold text-gray-900 mb-4">Bookings are for end users</h1>
             <p className="text-gray-600 mb-8 text-lg leading-relaxed">
-              You are logged in as <span className="font-semibold">{userRole}</span>. Only end users (patients) can create bookings.
+              {isClinicOwner 
+                ? "You are logged in as a clinic owner. Clinic accounts cannot book therapy sessions. Please use a patient account to book sessions."
+                : <>You are logged in as <span className="font-semibold">{userRole}</span>. Only end users (patients) can create bookings.</>}
             </p>
             <div className="space-y-4">
-              <Link href="/auth/logout">
-                <Button className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-4 rounded-2xl text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300">
-                  Switch Account
-                </Button>
-              </Link>
+              {isClinicOwner ? (
+                <Link href="/clinics/dashboard">
+                  <Button className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-4 rounded-2xl text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300">
+                    Go to Clinic Dashboard
+                  </Button>
+                </Link>
+              ) : (
+                <Link href="/auth/logout">
+                  <Button className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-4 rounded-2xl text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300">
+                    Switch Account
+                  </Button>
+                </Link>
+              )}
               <Link href={`/therabook/therapists/${therapistId}`}>
                 <Button variant="outline" className="w-full py-4 rounded-2xl text-lg border-2 border-gray-200 hover:border-gray-300">Back to Therapist Profile</Button>
               </Link>
@@ -519,37 +538,18 @@ export function TherapyBookingEnhanced({ therapistId }: TherapyBookingProps) {
                     </div>
 
                     {/* Inline Calendar */}
-                    <div className="rounded-2xl border border-gray-100 p-3 sm:p-4">
-                      <CalendarComponent
-                        mode="single"
-                        selected={selectedDate}
-                        onSelect={setSelectedDate}
-                        numberOfMonths={2}
-                        showOutsideDays
-                        fromDate={new Date()}
-                        disabled={(date) => date < new Date() || date < new Date('1900-01-01')}
-                        className="w-full"
-                        classNames={{
-                          months: 'flex flex-col lg:flex-row gap-4',
-                          month: 'space-y-4 w-full',
-                          caption: 'flex justify-center relative items-center',
-                          caption_label: 'text-base font-medium',
-                          nav: 'space-x-1 flex items-center',
-                          nav_button: 'h-8 w-8 bg-transparent hover:bg-gray-100 rounded-md',
-                          table: 'w-full border-collapse',
-                          head_row: 'grid grid-cols-7',
-                          head_cell: 'text-gray-500 rounded-md w-9 font-normal text-[0.85rem]',
-                          row: 'grid grid-cols-7 mt-2',
-                          cell: 'h-9 w-9 text-center text-sm p-0 relative',
-                          day: 'h-9 w-9 p-0 font-normal aria-selected:opacity-100 rounded-md hover:bg-gray-100',
-                          day_selected: 'bg-blue-600 text-white hover:bg-blue-600',
-                          day_today: 'bg-blue-50 text-blue-700 font-semibold',
-                          day_outside: 'text-gray-300',
-                          day_disabled: 'text-gray-300 opacity-50',
-                        }}
-                        initialFocus
-                      />
-                    </div>
+                      <div className="rounded-2xl border border-gray-100 p-3 sm:p-4">
+                        <LocalizationProvider dateAdapter={AdapterDateFns}>
+                          <DatePicker
+                            label="Select session date"
+                            value={selectedDate}
+                            onChange={(newValue: Date | null) => setSelectedDate(newValue ?? undefined)}
+                            disablePast
+                            enableAccessibleFieldDOMStructure={false}
+                            slots={{ textField: TextField }}
+                          />
+                        </LocalizationProvider>
+                      </div>
 
                     <p className="text-xs text-gray-500">Select a date to view available time slots below.</p>
                   </CardContent>

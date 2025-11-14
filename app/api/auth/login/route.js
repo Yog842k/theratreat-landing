@@ -18,32 +18,60 @@ export async function POST(request) {
 
     // For demo purposes, if database is not available, allow demo login
     try {
+      const emailLower = email.toLowerCase();
+      console.log('[LOGIN] Attempting login:', {
+        email: emailLower,
+        hasPassword: !!password,
+        passwordLength: password ? password.length : 0
+      });
+      
       // Find user
       const user = await database.findOne('users', { 
-        email: email.toLowerCase() 
+        email: emailLower 
       });
 
       if (!user) {
-        if (process.env.NODE_ENV !== 'production') {
-          console.warn('[LOGIN] User not found for email', email.toLowerCase());
-        }
+        console.warn('[LOGIN] User not found for email:', emailLower);
         return ResponseUtils.unauthorized('Invalid email or password');
       }
 
+      console.log('[LOGIN] User found:', {
+        userId: user._id.toString(),
+        email: user.email,
+        userType: user.userType,
+        isActive: user.isActive,
+        hasPassword: !!user.password,
+        passwordLength: user.password ? user.password.length : 0,
+        passwordIsHashed: user.password && user.password.length > 50 && user.password.startsWith('$2')
+      });
+
       // Check if user is active
       if (!user.isActive) {
-        if (process.env.NODE_ENV !== 'production') {
-          console.warn('[LOGIN] Inactive user attempted login', user._id.toString());
-        }
+        console.warn('[LOGIN] Inactive user attempted login:', user._id.toString());
         return ResponseUtils.forbidden('Account is deactivated');
       }
 
       // Verify password
+      if (!user.password) {
+        console.error('[LOGIN] User has no password stored!', {
+          userId: user._id.toString(),
+          email: user.email
+        });
+        return ResponseUtils.unauthorized('Invalid email or password');
+      }
+
       const isPasswordValid = await AuthUtils.comparePassword(password, user.password);
+      console.log('[LOGIN] Password verification result:', {
+        userId: user._id.toString(),
+        isValid: isPasswordValid
+      });
+      
       if (!isPasswordValid) {
-        if (process.env.NODE_ENV !== 'production') {
-          console.warn('[LOGIN] Password mismatch for', user._id.toString());
-        }
+        console.warn('[LOGIN] Password mismatch for user:', {
+          userId: user._id.toString(),
+          email: user.email,
+          storedPasswordPrefix: user.password.substring(0, 20) + '...'
+        });
         return ResponseUtils.unauthorized('Invalid email or password');
       }
 

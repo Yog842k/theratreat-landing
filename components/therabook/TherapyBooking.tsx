@@ -267,8 +267,9 @@ export function TherapyBooking({ therapistId }: TherapyBookingProps) {
     );
   }
 
-  // If logged in as therapist/admin (non end-user), block booking creation and guide
+  // If logged in as therapist/admin/clinic-owner (non end-user), block booking creation and guide
   if (isAuthenticated && user && !isEndUser) {
+    const isClinicOwner = userRole === 'clinic-owner';
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
         <div className="container mx-auto px-4 py-16 max-w-2xl">
@@ -278,14 +279,24 @@ export function TherapyBooking({ therapistId }: TherapyBookingProps) {
             </div>
             <h1 className="text-3xl font-bold text-gray-900 mb-4">Bookings are for end users</h1>
             <p className="text-gray-600 mb-8 text-lg leading-relaxed">
-              You are logged in as <span className="font-semibold">{userRole}</span>. Only end users (patients) can create bookings.
+              {isClinicOwner 
+                ? "You are logged in as a clinic owner. Clinic accounts cannot book therapy sessions. Please use a patient account to book sessions."
+                : <>You are logged in as <span className="font-semibold">{userRole}</span>. Only end users (patients) can create bookings.</>}
             </p>
             <div className="space-y-4">
-              <Link href="/auth/logout">
-                <Button className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-4 rounded-2xl text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300">
-                  Switch Account
-                </Button>
-              </Link>
+              {isClinicOwner ? (
+                <Link href="/clinics/dashboard">
+                  <Button className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-4 rounded-2xl text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300">
+                    Go to Clinic Dashboard
+                  </Button>
+                </Link>
+              ) : (
+                <Link href="/auth/logout">
+                  <Button className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-4 rounded-2xl text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300">
+                    Switch Account
+                  </Button>
+                </Link>
+              )}
               <Link href={`/therabook/therapists/${therapistId}`}>
                 <Button variant="outline" className="w-full py-4 rounded-2xl text-lg border-2 border-gray-200 hover:border-gray-300">Back to Therapist Profile</Button>
               </Link>

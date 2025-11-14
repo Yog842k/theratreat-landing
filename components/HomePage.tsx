@@ -199,15 +199,12 @@ export function HomePage({ setCurrentView }: HomePageProps) {
     }
   ];
 
-  // Testimonials removed per request (placeholder if needed later)
-  // const testimonials: any[] = [];
-
   return (
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.6 }}
-  className="space-y-12 sm:space-y-16"
+      className="space-y-12 sm:space-y-16"
     >
       {/* Modern Hero Section */}
       <motion.div
@@ -218,10 +215,8 @@ export function HomePage({ setCurrentView }: HomePageProps) {
         <ModernHero setCurrentView={setCurrentView} />
       </motion.div>
 
-      {/* Platform Stats removed */}
-
       {/* Core Services Sections */}
-  <section className="space-y-16 sm:space-y-24">
+      <section className="space-y-16 sm:space-y-24">
         <motion.div 
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -230,7 +225,7 @@ export function HomePage({ setCurrentView }: HomePageProps) {
           className="text-center space-y-3 sm:space-y-4 max-w-7xl mx-auto px-4 sm:px-6"
         >
           <motion.h2 
-            className="text-2xl sm:text-3xl md:text-4xl font-bold text-blue-600 tracking-tight"
+            className="text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent tracking-tight"
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -239,7 +234,7 @@ export function HomePage({ setCurrentView }: HomePageProps) {
             Our Core Services
           </motion.h2>
           <motion.p 
-            className="text-base sm:text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto"
+            className="text-base sm:text-lg md:text-xl text-slate-600 max-w-3xl mx-auto"
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -281,17 +276,18 @@ export function HomePage({ setCurrentView }: HomePageProps) {
                       transition={{ duration: 0.6, delay: 0.4 }}
                     >
                       <motion.div 
-                        className={`p-3 rounded-lg bg-gradient-to-r ${service.gradient} text-white`}
+                        className={`p-3 rounded-xl bg-gradient-to-br ${service.gradient} text-white shadow-lg`}
                         whileHover={{ 
                           scale: 1.1, 
                           rotate: 5,
+                          boxShadow: "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)",
                           transition: { duration: 0.2 }
                         }}
                         whileTap={{ scale: 0.95 }}
                       >
                         <service.icon className="w-8 h-8" />
                       </motion.div>
-                      <Badge variant="secondary" className="px-3 py-1 hover:bg-blue-100 transition-colors">
+                      <Badge variant="secondary" className="px-4 py-1.5 text-sm font-medium bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-colors">
                         {service.stats}
                       </Badge>
                     </motion.div>
@@ -303,12 +299,12 @@ export function HomePage({ setCurrentView }: HomePageProps) {
                       viewport={{ once: true }}
                       transition={{ duration: 0.6, delay: 0.6 }}
                     >
-                      <h3 className="text-2xl sm:text-3xl font-bold text-blue-600 tracking-tight">{service.title}</h3>
-                      <p className="text-base sm:text-lg text-muted-foreground">{service.subtitle}</p>
+                      <h3 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent tracking-tight">{service.title}</h3>
+                      <p className="text-base sm:text-lg text-slate-600 font-medium">{service.subtitle}</p>
                     </motion.div>
                     
                     <motion.p 
-                      className="text-sm sm:text-base leading-relaxed text-foreground"
+                      className="text-sm sm:text-base leading-relaxed text-slate-700"
                       initial={{ opacity: 0, y: 20 }}
                       whileInView={{ opacity: 1, y: 0 }}
                       viewport={{ once: true }}
@@ -336,7 +332,7 @@ export function HomePage({ setCurrentView }: HomePageProps) {
                         transition={{ duration: 0.4, delay: 0.8 + featureIndex * 0.1 }}
                       >
                         <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                        <span className="text-foreground text-sm sm:text-base">{feature}</span>
+                        <span className="text-slate-700 text-sm sm:text-base">{feature}</span>
                       </motion.div>
                     ))}
                   </motion.div>
@@ -352,7 +348,7 @@ export function HomePage({ setCurrentView }: HomePageProps) {
                     <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
                       <Button 
                         onClick={() => setCurrentView(service.id as ViewType)}
-                        className={`bg-gradient-to-r ${service.gradient} text-white hover:shadow-lg transition-all duration-300 text-sm sm:text-base`}
+                        className={`bg-gradient-to-r ${service.gradient} text-white hover:shadow-xl hover:shadow-blue-200 transition-all duration-300 text-sm sm:text-base font-semibold`}
                         size="lg"
                       >
                         {service.bookingText}
@@ -363,7 +359,7 @@ export function HomePage({ setCurrentView }: HomePageProps) {
                       <Button 
                         variant="outline" 
                         onClick={() => setCurrentView(service.id as ViewType)}
-                        className="border-2 hover:bg-blue-50 transition-all duration-300 text-sm sm:text-base"
+                        className="border-2 border-blue-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300 transition-all duration-300 text-sm sm:text-base font-semibold"
                         size="lg"
                       >
                         {service.exploreText}
@@ -381,15 +377,15 @@ export function HomePage({ setCurrentView }: HomePageProps) {
                   transition={{ duration: 0.8, delay: 0.5 }}
                 >
                   {service.id === "book" && (
-                    <Card className="p-4 sm:p-6 border-0 shadow-xl bg-white/80 backdrop-blur-sm">
+                    <Card className="p-4 sm:p-6 border-2 border-blue-100 shadow-2xl bg-white hover:shadow-blue-200 transition-shadow duration-300">
                       <div className="space-y-4">
                         <div className="flex items-center justify-between">
-                          <Badge variant="secondary" className="text-sm">
+                          <Badge variant="secondary" className="text-sm font-medium bg-blue-50 text-blue-700 border border-blue-200">
                             Featured Therapists
                           </Badge>
                           <motion.div 
-                            className={`p-2 rounded-full bg-gradient-to-r ${service.gradient}`}
-                            whileHover={{ rotate: 360 }}
+                            className={`p-2 rounded-full bg-gradient-to-br ${service.gradient} shadow-md`}
+                            whileHover={{ rotate: 360, scale: 1.1 }}
                             transition={{ duration: 0.5 }}
                           >
                             <service.icon className="w-4 h-4 text-white" />
@@ -404,17 +400,20 @@ export function HomePage({ setCurrentView }: HomePageProps) {
                             ].map((therapist, idx) => (
                               <CarouselItem key={idx}>
                                 <div className="text-center space-y-2 p-4">
-                                  <img
-                                    src={therapist.image}
-                                    alt={therapist.name}
-                                    className="w-16 h-16 rounded-full mx-auto object-cover"
-                                  />
+                                  <div className="relative inline-block">
+                                    <img
+                                      src={therapist.image}
+                                      alt={therapist.name}
+                                      className="w-20 h-20 rounded-full mx-auto object-cover border-4 border-blue-100 shadow-lg"
+                                    />
+                                    <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full border-2 border-white"></div>
+                                  </div>
                                   <div>
-                                    <h4 className="font-semibold text-sm text-blue-600">{therapist.name}</h4>
-                                    <p className="text-xs text-muted-foreground">{therapist.specialty}</p>
-                                    <div className="flex items-center justify-center space-x-1 mt-1">
-                                      <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-                                      <span className="text-xs">{therapist.rating}</span>
+                                    <h4 className="font-bold text-base text-blue-600">{therapist.name}</h4>
+                                    <p className="text-sm text-slate-600">{therapist.specialty}</p>
+                                    <div className="flex items-center justify-center space-x-1 mt-2">
+                                      <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                                      <span className="text-sm font-semibold text-slate-700">{therapist.rating}</span>
                                     </div>
                                   </div>
                                 </div>
@@ -424,7 +423,7 @@ export function HomePage({ setCurrentView }: HomePageProps) {
                           <CarouselPrevious className="left-2" />
                           <CarouselNext className="right-2" />
                         </Carousel>
-                        <p className="text-sm text-muted-foreground text-center">
+                        <p className="text-sm text-slate-600 text-center font-medium">
                           {service.stats} and growing
                         </p>
                       </div>
@@ -432,15 +431,15 @@ export function HomePage({ setCurrentView }: HomePageProps) {
                   )}
 
                   {service.id === "self-test" && (
-                    <Card className="p-4 sm:p-6 border-0 shadow-xl bg-white/80 backdrop-blur-sm">
+                    <Card className="p-4 sm:p-6 border-2 border-purple-100 shadow-2xl bg-white hover:shadow-purple-200 transition-shadow duration-300">
                       <div className="space-y-4">
                         <div className="flex items-center justify-between">
-                          <Badge variant="secondary" className="text-sm">
+                          <Badge variant="secondary" className="text-sm font-medium bg-purple-50 text-purple-700 border border-purple-200">
                             Popular Assessments
                           </Badge>
                           <motion.div 
-                            className={`p-2 rounded-full bg-gradient-to-r ${service.gradient}`}
-                            whileHover={{ rotate: 360 }}
+                            className={`p-2 rounded-full bg-gradient-to-br ${service.gradient} shadow-md`}
+                            whileHover={{ rotate: 360, scale: 1.1 }}
                             transition={{ duration: 0.5 }}
                           >
                             <service.icon className="w-4 h-4 text-white" />
@@ -455,15 +454,15 @@ export function HomePage({ setCurrentView }: HomePageProps) {
                             ].map((assessment, idx) => (
                               <CarouselItem key={idx}>
                                 <div className="text-center space-y-2 p-4">
-                                  <div className="w-12 h-12 rounded-lg bg-purple-100 p-3 mx-auto">
-                                    <assessment.icon className="w-6 h-6 text-purple-600" />
+                                  <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-purple-100 to-purple-50 p-4 mx-auto shadow-md border border-purple-200">
+                                    <assessment.icon className="w-8 h-8 text-purple-600" />
                                   </div>
                                   <div>
-                                    <h4 className="font-semibold text-sm text-purple-600">{assessment.name}</h4>
-                                    <p className="text-xs text-muted-foreground">{assessment.questions} questions</p>
-                                    <div className="flex items-center justify-center space-x-1 mt-1">
-                                      <Clock className="w-3 h-3 text-muted-foreground" />
-                                      <span className="text-xs text-muted-foreground">{assessment.duration}</span>
+                                    <h4 className="font-bold text-base text-purple-600">{assessment.name}</h4>
+                                    <p className="text-sm text-slate-600">{assessment.questions} questions</p>
+                                    <div className="flex items-center justify-center space-x-1 mt-2 bg-purple-50 rounded-full px-3 py-1 inline-flex">
+                                      <Clock className="w-3 h-3 text-purple-600" />
+                                      <span className="text-sm text-purple-600 font-medium">{assessment.duration}</span>
                                     </div>
                                   </div>
                                 </div>
@@ -473,7 +472,7 @@ export function HomePage({ setCurrentView }: HomePageProps) {
                           <CarouselPrevious className="left-2" />
                           <CarouselNext className="right-2" />
                         </Carousel>
-                        <p className="text-sm text-muted-foreground text-center">
+                        <p className="text-sm text-slate-600 text-center font-medium">
                           {service.stats} and growing
                         </p>
                       </div>
@@ -481,15 +480,15 @@ export function HomePage({ setCurrentView }: HomePageProps) {
                   )}
 
                   {service.id === "store" && (
-                    <Card className="p-4 sm:p-6 border-0 shadow-xl bg-white/80 backdrop-blur-sm">
+                    <Card className="p-4 sm:p-6 border-2 border-green-100 shadow-2xl bg-white hover:shadow-green-200 transition-shadow duration-300">
                       <div className="space-y-4">
                         <div className="flex items-center justify-between">
-                          <Badge variant="secondary" className="text-sm">
+                          <Badge variant="secondary" className="text-sm font-medium bg-green-50 text-green-700 border border-green-200">
                             Featured Products
                           </Badge>
                           <motion.div 
-                            className={`p-2 rounded-full bg-gradient-to-r ${service.gradient}`}
-                            whileHover={{ rotate: 360 }}
+                            className={`p-2 rounded-full bg-gradient-to-br ${service.gradient} shadow-md`}
+                            whileHover={{ rotate: 360, scale: 1.1 }}
                             transition={{ duration: 0.5 }}
                           >
                             <service.icon className="w-4 h-4 text-white" />
@@ -504,15 +503,15 @@ export function HomePage({ setCurrentView }: HomePageProps) {
                             ].map((product, idx) => (
                               <CarouselItem key={idx}>
                                 <div className="text-center space-y-2 p-4">
-                                  <div className="w-12 h-12 rounded-lg bg-green-100 p-3 mx-auto">
-                                    <product.icon className="w-6 h-6 text-green-600" />
+                                  <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-green-100 to-green-50 p-4 mx-auto shadow-md border border-green-200">
+                                    <product.icon className="w-8 h-8 text-green-600" />
                                   </div>
                                   <div>
-                                    <h4 className="font-semibold text-sm text-green-600">{product.name}</h4>
-                                    <p className="text-xs font-medium text-green-700">{product.price}</p>
-                                    <div className="flex items-center justify-center space-x-1 mt-1">
-                                      <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-                                      <span className="text-xs">{product.rating}</span>
+                                    <h4 className="font-bold text-base text-green-600">{product.name}</h4>
+                                    <p className="text-sm font-bold text-green-700 bg-green-50 rounded-full px-3 py-1 inline-block">{product.price}</p>
+                                    <div className="flex items-center justify-center space-x-1 mt-2">
+                                      <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                                      <span className="text-sm font-semibold text-slate-700">{product.rating}</span>
                                     </div>
                                   </div>
                                 </div>
@@ -522,7 +521,7 @@ export function HomePage({ setCurrentView }: HomePageProps) {
                           <CarouselPrevious className="left-2" />
                           <CarouselNext className="right-2" />
                         </Carousel>
-                        <p className="text-sm text-muted-foreground text-center">
+                        <p className="text-sm text-slate-600 text-center font-medium">
                           {service.stats} and growing
                         </p>
                       </div>
@@ -530,15 +529,15 @@ export function HomePage({ setCurrentView }: HomePageProps) {
                   )}
 
                   {service.id === "learn" && (
-                    <Card className="p-4 sm:p-6 border-0 shadow-xl bg-white/80 backdrop-blur-sm">
+                    <Card className="p-4 sm:p-6 border-2 border-orange-100 shadow-2xl bg-white hover:shadow-orange-200 transition-shadow duration-300">
                       <div className="space-y-4">
                         <div className="flex items-center justify-between">
-                          <Badge variant="secondary" className="text-sm">
+                          <Badge variant="secondary" className="text-sm font-medium bg-orange-50 text-orange-700 border border-orange-200">
                             Popular Courses
                           </Badge>
                           <motion.div 
-                            className={`p-2 rounded-full bg-gradient-to-r ${service.gradient}`}
-                            whileHover={{ rotate: 360 }}
+                            className={`p-2 rounded-full bg-gradient-to-br ${service.gradient} shadow-md`}
+                            whileHover={{ rotate: 360, scale: 1.1 }}
                             transition={{ duration: 0.5 }}
                           >
                             <service.icon className="w-4 h-4 text-white" />
@@ -553,15 +552,15 @@ export function HomePage({ setCurrentView }: HomePageProps) {
                             ].map((course, idx) => (
                               <CarouselItem key={idx}>
                                 <div className="text-center space-y-2 p-4">
-                                  <div className="w-12 h-12 rounded-lg bg-orange-100 p-3 mx-auto">
-                                    <course.icon className="w-6 h-6 text-orange-600" />
+                                  <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-orange-100 to-orange-50 p-4 mx-auto shadow-md border border-orange-200">
+                                    <course.icon className="w-8 h-8 text-orange-600" />
                                   </div>
                                   <div>
-                                    <h4 className="font-semibold text-sm text-orange-600">{course.name}</h4>
-                                    <p className="text-xs text-muted-foreground">{course.students} students</p>
-                                    <div className="flex items-center justify-center space-x-1 mt-1">
-                                      <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-                                      <span className="text-xs">{course.rating}</span>
+                                    <h4 className="font-bold text-base text-orange-600">{course.name}</h4>
+                                    <p className="text-sm text-slate-600">{course.students} students</p>
+                                    <div className="flex items-center justify-center space-x-1 mt-2">
+                                      <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                                      <span className="text-sm font-semibold text-slate-700">{course.rating}</span>
                                     </div>
                                   </div>
                                 </div>
@@ -571,7 +570,7 @@ export function HomePage({ setCurrentView }: HomePageProps) {
                           <CarouselPrevious className="left-2" />
                           <CarouselNext className="right-2" />
                         </Carousel>
-                        <p className="text-sm text-muted-foreground text-center">
+                        <p className="text-sm text-slate-600 text-center font-medium">
                           {service.stats} and growing
                         </p>
                       </div>
@@ -585,8 +584,9 @@ export function HomePage({ setCurrentView }: HomePageProps) {
       </section>
 
       {/* Why TheraTreat Section */}
-      <section className="py-12 sm:py-16 bg-gradient-to-r from-blue-50 via-white to-blue-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+      <section className="py-12 sm:py-16 bg-gradient-to-br from-blue-50 via-white to-blue-50 relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_50%,rgba(59,130,246,0.05),transparent_50%)]"></div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -595,7 +595,7 @@ export function HomePage({ setCurrentView }: HomePageProps) {
             className="text-center space-y-3 sm:space-y-4 mb-10 sm:mb-16"
           >
             <motion.h2 
-              className="text-2xl sm:text-3xl md:text-4xl font-bold text-blue-600 tracking-tight"
+              className="text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent tracking-tight"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
@@ -604,7 +604,7 @@ export function HomePage({ setCurrentView }: HomePageProps) {
               Why TheraTreat?
             </motion.h2>
             <motion.p 
-              className="text-base sm:text-lg md:text-xl text-muted-foreground max-w-4xl mx-auto"
+              className="text-base sm:text-lg md:text-xl text-slate-600 max-w-4xl mx-auto"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
@@ -624,22 +624,23 @@ export function HomePage({ setCurrentView }: HomePageProps) {
                 transition={{ duration: 0.6, delay: index * 0.1 }}
                 whileHover={{ y: -5, transition: { duration: 0.2 } }}
               >
-                <Card className="h-full hover:shadow-xl transition-all duration-300 border-0 bg-white/80 backdrop-blur-sm">
+                <Card className="h-full hover:shadow-2xl transition-all duration-300 border-2 border-blue-100 hover:border-blue-200 bg-white group">
                   <CardContent className="p-5 sm:p-6">
                     <motion.div
-                      className={`w-12 h-12 rounded-lg bg-gradient-to-r ${highlight.gradient} p-3 mb-4`}
+                      className={`w-14 h-14 rounded-xl bg-gradient-to-br ${highlight.gradient} p-3.5 mb-4 shadow-lg`}
                       whileHover={{ 
                         scale: 1.1, 
                         rotate: 5,
+                        boxShadow: "0 25px 50px -12px rgb(0 0 0 / 0.25)",
                         transition: { duration: 0.2 }
                       }}
                     >
-                      <highlight.icon className="w-6 h-6 text-white" />
+                      <highlight.icon className="w-full h-full text-white" />
                     </motion.div>
-                    <h3 className="text-xl font-semibold text-blue-600 mb-3">
+                    <h3 className="text-xl font-bold text-blue-600 mb-3 group-hover:text-blue-700 transition-colors">
                       {highlight.title}
                     </h3>
-                    <p className="text-muted-foreground leading-relaxed">
+                    <p className="text-slate-600 leading-relaxed">
                       {highlight.description}
                     </p>
                   </CardContent>
@@ -651,8 +652,9 @@ export function HomePage({ setCurrentView }: HomePageProps) {
       </section>
 
       {/* Trust & Compliance Section */}
-      <section className="py-12 sm:py-16 bg-gradient-to-r from-slate-50 via-blue-50 to-slate-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+      <section className="py-12 sm:py-16 bg-gradient-to-br from-slate-50 via-blue-50 to-slate-50 relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_50%,rgba(59,130,246,0.05),transparent_50%)]"></div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -667,11 +669,11 @@ export function HomePage({ setCurrentView }: HomePageProps) {
               viewport={{ once: true }}
               transition={{ duration: 0.6, delay: 0.2 }}
             >
-              <Shield className="w-8 h-8 text-blue-600" />
-              <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-blue-600 tracking-tight">We Prioritize Trust & Compliance</h2>
+              <Shield className="w-8 h-8 sm:w-10 sm:h-10 text-blue-600" />
+              <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent tracking-tight">We Prioritize Trust & Compliance</h2>
             </motion.div>
             <motion.p 
-              className="text-base sm:text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto"
+              className="text-base sm:text-lg md:text-xl text-slate-600 max-w-3xl mx-auto"
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
@@ -691,28 +693,28 @@ export function HomePage({ setCurrentView }: HomePageProps) {
                 transition={{ duration: 0.6, delay: index * 0.1 }}
                 whileHover={{ y: -3, transition: { duration: 0.2 } }}
               >
-                <Card className="h-full hover:shadow-lg transition-all duration-300 border-green-200 hover:border-green-300 bg-white/90">
+                <Card className="h-full hover:shadow-xl transition-all duration-300 border-2 border-green-200 hover:border-green-300 bg-white group">
                   <CardContent className="p-5 sm:p-6">
                     <motion.div 
                       className="flex items-center space-x-3 mb-4"
                       whileHover={{ scale: 1.05, transition: { duration: 0.2 } }}
                     >
                       <motion.div
-                        className="w-10 h-10 rounded-lg bg-green-100 p-2 flex items-center justify-center"
+                        className="w-11 h-11 rounded-xl bg-gradient-to-br from-green-100 to-green-50 p-2.5 flex items-center justify-center shadow-md border border-green-200"
                         whileHover={{ 
                           rotate: 5,
                           scale: 1.1,
                           transition: { duration: 0.2 }
                         }}
                       >
-                        <feature.icon className="w-6 h-6 text-green-600" />
+                        <feature.icon className="w-full h-full text-green-600" />
                       </motion.div>
                       <CheckCircle className="w-5 h-5 text-green-600" />
                     </motion.div>
-                    <h3 className="text-lg font-semibold text-slate-800 mb-2">
+                    <h3 className="text-lg font-bold text-slate-800 mb-2 group-hover:text-blue-600 transition-colors">
                       {feature.title}
                     </h3>
-                    <p className="text-muted-foreground text-sm leading-relaxed">
+                    <p className="text-slate-600 text-sm leading-relaxed">
                       {feature.description}
                     </p>
                   </CardContent>
@@ -722,159 +724,6 @@ export function HomePage({ setCurrentView }: HomePageProps) {
           </div>
         </div>
       </section>
-
-      {/* Testimonials removed */}
-      {/* New Era of Therapy - Comprehensive Section */}
-  <section className="relative py-16 sm:py-24 bg-gradient-to-br from-blue-900 via-blue-800 to-indigo-900 overflow-hidden">
-        {/* Background Effects */}
-        <div className="absolute inset-0 bg-gradient-to-br from-blue-900/50 via-purple-900/30 to-indigo-900/50"></div>
-        <div className="absolute inset-0">
-          <div className="absolute top-0 left-0 w-96 h-96 bg-blue-400/10 rounded-full blur-3xl animate-pulse"></div>
-          <div className="absolute bottom-0 right-0 w-96 h-96 bg-purple-400/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
-        </div>
-
-        <div className="relative max-w-6xl mx-auto px-6 text-center text-white">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.8 }}
-            className="space-y-8"
-          >
-            {/* Title */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.8, delay: 0.2 }}
-              className="space-y-4"
-            >
-              <div className="flex items-center justify-center gap-3 mb-6">
-                <motion.span
-                  initial={{ rotate: 0 }}
-                  animate={{ rotate: 360 }}
-                  transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                  className="text-4xl"
-                >
-                  🌍
-                </motion.span>
-                <h2 className="text-2xl sm:text-4xl md:text-5xl font-bold tracking-tight">
-                  A New Era of Therapy Starts With TheraTreat
-                </h2>
-              </div>
-            </motion.div>
-
-            {/* Main Message */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.8, delay: 0.4 }}
-              className="space-y-6"
-            >
-              <p className="text-lg sm:text-xl md:text-2xl font-medium leading-relaxed max-w-4xl mx-auto">
-                We didn't build TheraTreat to follow trends —<br />
-                we built it to transform lives.
-              </p>
-
-              {/* Three Principles */}
-              <motion.div
-                initial={{ opacity: 0 }}
-                whileInView={{ opacity: 1 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.8, delay: 0.6 }}
-                className="grid gap-4 sm:gap-6 my-10 sm:my-12 md:grid-cols-3 max-w-4xl mx-auto"
-              >
-                <motion.div
-                  whileHover={{ scale: 1.05, y: -5 }}
-                  className="flex items-center gap-3 bg-white/10 backdrop-blur-sm rounded-lg p-4"
-                >
-                  <span className="text-2xl">🌱</span>
-                  <span className="text-lg font-medium">Therapy meets Technology</span>
-                </motion.div>
-                <motion.div
-                  whileHover={{ scale: 1.05, y: -5 }}
-                  className="flex items-center gap-3 bg-white/10 backdrop-blur-sm rounded-lg p-4"
-                >
-                  <span className="text-2xl">🤝</span>
-                  <span className="text-lg font-medium">Compassion meets Community</span>
-                </motion.div>
-                <motion.div
-                  whileHover={{ scale: 1.05, y: -5 }}
-                  className="flex items-center gap-3 bg-white/10 backdrop-blur-sm rounded-lg p-4"
-                >
-                  <span className="text-2xl">🚀</span>
-                  <span className="text-lg font-medium">India leads the World in Accessible Wellness</span>
-                </motion.div>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.8, delay: 0.8 }}
-                className="space-y-6"
-              >
-                <p className="text-xl md:text-2xl leading-relaxed max-w-4xl mx-auto">
-                  More than a platform —<br />
-                  It's a Revolution in Care: Breaking stigma, Opening doors, and Shaping the Future of Health.
-                </p>
-
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  whileInView={{ opacity: 1, scale: 1 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.8, delay: 1 }}
-                  className="flex items-center justify-center gap-3 text-2xl md:text-3xl font-bold"
-                >
-                  <motion.span
-                    animate={{ 
-                      rotate: [0, 10, -10, 0],
-                      scale: [1, 1.1, 1]
-                    }}
-                    transition={{ 
-                      duration: 2, 
-                      repeat: Infinity, 
-                      ease: "easeInOut" 
-                    }}
-                  >
-                    ✨
-                  </motion.span>
-                  <span>The future of therapy isn't coming.</span>
-                </motion.div>
-
-                <p className="text-2xl md:text-3xl font-bold">
-                  It's here. And it begins with us.
-                </p>
-              </motion.div>
-            </motion.div>
-
-            {/* CTA Button */}
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.8, delay: 1.2 }}
-              className="pt-8"
-            >
-              <motion.div
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <Button
-                  onClick={() => setCurrentView("patient-register")}
-                  size="lg"
-                  className="bg-gradient-to-r from-white to-blue-50 text-blue-900 hover:from-blue-50 hover:to-white font-bold px-12 py-4 text-lg rounded-full shadow-xl hover:shadow-2xl transition-all duration-300"
-                >
-                  Join the Movement
-                  <ArrowRight className="ml-3 w-6 h-6" />
-                </Button>
-              </motion.div>
-            </motion.div>
-          </motion.div>
-        </div>
-      </section>
-
     </motion.div>
   );
 }

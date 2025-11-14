@@ -28,6 +28,8 @@ export function PatientRegistration({ onSuccess, setCurrentView }: Props) {
   const [success, setSuccess] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
+    alert('submit');
+    console.log('submit event');
     e.preventDefault();
     setError(null); setSuccess(false);
     if (!fullName || !email || !password || !city || !stateVal) {
@@ -40,29 +42,36 @@ export function PatientRegistration({ onSuccess, setCurrentView }: Props) {
     }
     setLoading(true);
     try {
+      console.log('[PatientRegistration] Submitting registration:', { fullName, email, password, phone, city, stateVal });
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: fullName,
           email,
-            password,
+          password,
           phone,
-          userType: 'patient',
+          userType: 'patient', // Enforced as 'patient'
           profile: { city, state: stateVal }
         })
       });
-      const json = await res.json();
+      console.log('[PatientRegistration] Fetch response:', res.status, res.statusText);
+      const json = await res.json().catch(err => {
+        console.error('[PatientRegistration] Error parsing JSON:', err);
+        throw new Error('Invalid server response');
+      });
       if (!res.ok) throw new Error(json.message || json.error || 'Registration failed');
       setSuccess(true);
       onSuccess?.();
-      // Optionally redirect after short delay
       setTimeout(() => {
-  if (setCurrentView) setCurrentView('home');
+        if (setCurrentView) setCurrentView('home');
       }, 1500);
     } catch (e: any) {
+      console.error('[PatientRegistration] Registration error:', e);
       setError(e.message);
-    } finally { setLoading(false); }
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -114,7 +123,7 @@ export function PatientRegistration({ onSuccess, setCurrentView }: Props) {
                         <SelectValue placeholder="Select State" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">Select State</SelectItem>
+                        {/* Removed empty value item to fix Select error */}
                         {INDIA_STATES.map(s => (
                           <SelectItem key={s} value={s}>{s}</SelectItem>
                         ))}

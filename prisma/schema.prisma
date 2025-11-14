@@ -1,6 +1,13 @@
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
 // Prisma schema for bank verification
 model BankVerification {
-  id                 String   @id @default(uuid())
+  id                 String   @id @default(uuid()) @map("_id")
   user_id            String
   account_number_encrypted String
   ifsc               String
@@ -15,7 +22,7 @@ model BankVerification {
 }
 
 model MicroDeposit {
-  id                 String   @id @default(uuid())
+  id                 String   @id @default(uuid()) @map("_id")
   verification_id    String
   deposit_amount_paise Int
   deposit_txn_id     String?

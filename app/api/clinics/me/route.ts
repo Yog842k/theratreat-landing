@@ -19,8 +19,16 @@ export async function GET(request: NextRequest) {
     if (!clinic) return ResponseUtils.notFound('Clinic not found for owner');
 
     // Gather therapists linked to clinic
-    const therapists = await database.find('therapists', { clinicId: clinic._id });
-    const therapistUserIds = therapists.map((t: any) => t.userId).filter(Boolean);
+    // Handle both ObjectId and string clinicId
+    const clinicId = clinic._id instanceof ObjectId ? clinic._id : new ObjectId(clinic._id);
+    const therapists = await database.findMany('therapists', { clinicId: clinicId });
+    const therapistUserIds = therapists.map((t: any) => {
+      // Handle both ObjectId and string userId
+      if (t.userId) {
+        return t.userId instanceof ObjectId ? t.userId : new ObjectId(t.userId);
+      }
+      return null;
+    }).filter(Boolean);
 
     // Time window for current month
     const now = new Date();
@@ -30,26 +38,42 @@ export async function GET(request: NextRequest) {
     // Bookings where therapistId in therapist user IDs
     let monthlyBookingsCount = 0; let monthlyRevenue = 0; let recentBookings: any[] = [];
     if (therapistUserIds.length) {
-      const bookingsCursor = await database.find('bookings', {
-        therapistId: { $in: therapistUserIds },
-        date: { $gte: monthStart, $lt: monthEnd }
+      // Get all bookings for these therapists (both by date and appointmentDate fields)
+      const allBookings = await database.findMany('bookings', {
+        therapistId: { $in: therapistUserIds }
       });
-      monthlyBookingsCount = bookingsCursor.length;
+      
+      // Filter for current month bookings (check both date and appointmentDate fields)
+      const monthlyBookings = allBookings.filter((b: any) => {
+        const bookingDate = b.appointmentDate ? new Date(b.appointmentDate) : (b.date ? new Date(b.date) : null);
+        if (!bookingDate) return false;
+        return bookingDate >= monthStart && bookingDate < monthEnd;
+      });
+      
+      monthlyBookingsCount = monthlyBookings.length;
       // Revenue fields may differ (amount or totalAmount)
-      monthlyRevenue = bookingsCursor.reduce((sum: number, b: any) => sum + (b.amount || b.totalAmount || 0), 0);
+      monthlyRevenue = monthlyBookings.reduce((sum: number, b: any) => sum + (b.amount || b.totalAmount || 0), 0);
+      
       // Recent bookings (latest 5 overall for those therapists) by createdAt/ date
-      recentBookings = bookingsCursor
-        .sort((a: any, b: any) => (b.createdAt || b.date || 0) - (a.createdAt || a.date || 0))
+      recentBookings = allBookings
+        .sort((a: any, b: any) => {
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : (a.appointmentDate ? new Date(a.appointmentDate).getTime() : (a.date ? new Date(a.date).getTime() : 0));
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : (b.appointmentDate ? new Date(b.appointmentDate).getTime() : (b.date ? new Date(b.date).getTime() : 0));
+          return dateB - dateA;
+        })
         .slice(0, 5)
-        .map((b: any) => ({
-          id: b._id,
-          patient: b.userId?.toString?.() || 'User',
+        .map((b: any) => {
+          const bookingDate = b.appointmentDate || b.date;
+          return {
+            id: b._id?.toString() || '',
+            patient: b.userId?.toString?.() || 'User',
             therapist: b.therapistId?.toString?.() || 'Therapist',
-          date: b.date ? new Date(b.date).toISOString().slice(0,10) : '',
-          time: b.timeSlot || '',
-          type: b.sessionType || '',
-          status: b.status || ''
-        }));
+            date: bookingDate ? new Date(bookingDate).toISOString().slice(0,10) : '',
+            time: b.appointmentTime || b.timeSlot || '',
+            type: b.sessionType || '',
+            status: b.status || ''
+          };
+        });
     }
 
     const notifications = [

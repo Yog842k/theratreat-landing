@@ -3,8 +3,7 @@ export const metadata = {
   description: 'Comprehensive TheraTreat Privacy & Security Policy covering collection, usage, sharing, security, DPDP compliance, HIPAA‑like safeguards, rights, cookies, retention, and grievance process.'
 };
 
-import Navigation from '@/components/Navigation';
-
+// Navigation is already included in root layout
 // Table of contents (mirrors enumerated sections below)
 const sections = [
   { id: 'information-we-collect', title: '1. Information We Collect' },
@@ -28,7 +27,6 @@ const sections = [
 export default function PrivacyPolicyPage() {
   return (
     <div className="relative min-h-screen flex flex-col">
-      <Navigation />
       <main className="flex-1 bg-white">
         {/* Decorative top band */}
         <div className="max-w-7xl mt-10 mx-auto px-5 lg:px-8 pb-24">
