@@ -831,7 +831,7 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
                     isMulti
                     options={(Array.isArray(languages) ? languages : []).map(lang => ({ label: lang, value: lang }))}
                     value={(Array.isArray(formData.preferredLanguages) ? formData.preferredLanguages : []).map(lang => ({ label: lang, value: lang }))}
-                    onChange={selected => handleInputChange("preferredLanguages", selected ? selected.map((opt: any) => opt.value) : [])}
+                    onChange={selected => handleInputChange("preferredLanguages", selected && Array.isArray(selected) ? selected.map((opt: any) => opt.value) : [])}
                     className="w-full"
                     classNamePrefix="react-select"
                     placeholder="Select preferred languages..."
@@ -1655,7 +1655,7 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
                     isMulti
                     options={(Array.isArray(languages) ? languages : []).map(lang => ({ label: lang, value: lang }))}
                     value={(Array.isArray(formData.therapyLanguages) ? formData.therapyLanguages : []).map(lang => ({ label: lang, value: lang }))}
-                    onChange={selected => handleInputChange("therapyLanguages", selected ? selected.map((opt: any) => opt.value) : [])}
+                    onChange={selected => handleInputChange("therapyLanguages", selected && Array.isArray(selected) ? selected.map((opt: any) => opt.value) : [])}
                     className="w-full"
                     classNamePrefix="react-select"
                     placeholder="Select therapy languages..."

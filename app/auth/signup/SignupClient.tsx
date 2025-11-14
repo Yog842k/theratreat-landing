@@ -18,7 +18,7 @@ export default function SignupClient() {
   const { login } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const accountType = searchParams.get('type') || 'patient';
+  const accountType = searchParams?.get('type') || 'patient';
 
   const [formData, setFormData] = useState({
     name: '',
@@ -35,13 +35,13 @@ export default function SignupClient() {
   const [success, setSuccess] = useState('');
 
   useEffect(() => {
-    if (!searchParams.get('type')) {
+    if (!searchParams?.get('type')) {
       router.push('/auth/signup/account-type');
     }
   }, [searchParams, router]);
 
   useEffect(() => {
-    const type = searchParams.get('type');
+    const type = searchParams?.get('type');
     if (type) setFormData(prev => ({ ...prev, userType: type }));
   }, [searchParams]);
 

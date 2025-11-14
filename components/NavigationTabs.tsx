@@ -30,6 +30,7 @@ export function NavigationTabs({ currentView, setCurrentView }: NavigationTabsPr
 
   // Determine active tab based on pathname
   const getActiveTab = (): ViewType => {
+    if (!pathname) return 'book';
     if (pathname.startsWith('/therabook')) return 'book';
     if (pathname.startsWith('/theraself')) return 'self-test';
     if (pathname.startsWith('/therastore')) return 'store';

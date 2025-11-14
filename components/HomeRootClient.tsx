@@ -21,7 +21,7 @@ export default function HomeRootClient() {
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    if (searchParams.get("registered") === "true") {
+    if (searchParams?.get("registered") === "true") {
       setShowSuccessMessage(true);
       const t = setTimeout(() => setShowSuccessMessage(false), 5000);
       return () => clearTimeout(t);

@@ -51,6 +51,7 @@ export default function TherapistsSection({ clinicData, onRefresh }: TherapistsS
     experience: '',
     consultationFee: '',
     bio: '',
+
   });
 
   const [files, setFiles] = useState({

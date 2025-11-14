@@ -1,7 +1,20 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import React from "react";
 import { FileBarChart } from "lucide-react";
-export default function ReportsSection() {
+
+interface ClinicData {
+  clinic: { _id: string; name: string; [key: string]: any; };
+  metrics: { monthlyBookings: number; revenue: number; therapists: number; rating: number; totalReviews: number; completionScore: number; pendingPayments: number; };
+  therapists: any[];
+  recentBookings: any[];
+  notifications: any[];
+}
+
+interface ReportsSectionProps {
+  clinicData: ClinicData;
+}
+
+export default function ReportsSection({ clinicData }: ReportsSectionProps) {
   return (
     <div className="space-y-6">
       <Card className="bg-white border-2 border-blue-100 shadow-lg">

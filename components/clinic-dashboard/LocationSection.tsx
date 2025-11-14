@@ -1,7 +1,20 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import React from "react";
 import { MapPin } from "lucide-react";
-export default function LocationSection() {
+
+interface ClinicData {
+  clinic: { _id: string; name: string; [key: string]: any; };
+  metrics: { monthlyBookings: number; revenue: number; therapists: number; rating: number; totalReviews: number; completionScore: number; pendingPayments: number; };
+  therapists: any[];
+  recentBookings: any[];
+  notifications: any[];
+}
+
+interface LocationSectionProps {
+  clinicData: ClinicData;
+}
+
+export default function LocationSection({ clinicData }: LocationSectionProps) {
   return (
     <div className="space-y-6">
       <Card className="bg-white border-2 border-blue-100 shadow-lg">

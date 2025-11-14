@@ -69,16 +69,16 @@ export default function TherapistsListingPage() {
 
   // Handle URL parameters on component mount
   useEffect(() => {
-    const search = searchParams.get('search') || '';
-    const condition = searchParams.get('condition') || '';
-    const therapy = searchParams.get('therapy') || '';
-  const sessionType = searchParams.get('sessionType') || '';
-  const category = searchParams.get('category') || '';
-  const source = searchParams.get('source') || '';
+    const search = searchParams?.get('search') || '';
+    const condition = searchParams?.get('condition') || '';
+    const therapy = searchParams?.get('therapy') || '';
+  const sessionType = searchParams?.get('sessionType') || '';
+  const category = searchParams?.get('category') || '';
+  const source = searchParams?.get('source') || '';
     
     // Handle smart selector results
-    const q0 = searchParams.get('q0') || ''; // Therapy type from smart selector
-    const q1 = searchParams.get('q1') || ''; // Session type from smart selector
+    const q0 = searchParams?.get('q0') || ''; // Therapy type from smart selector
+    const q1 = searchParams?.get('q1') || ''; // Session type from smart selector
     
     // Set search query based on therapy type from smart selector or regular search
     let finalSearchQuery = search || condition || therapy;

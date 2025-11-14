@@ -3,7 +3,32 @@ import React from "react";
 import Button from "@mui/material/Button";
 import { Filter } from "lucide-react";
 import { Plus } from "lucide-react";
-export default function AppointmentsSection() {
+
+interface ClinicData {
+  clinic: {
+    _id: string;
+    name: string;
+    [key: string]: any;
+  };
+  metrics: {
+    monthlyBookings: number;
+    revenue: number;
+    therapists: number;
+    rating: number;
+    totalReviews: number;
+    completionScore: number;
+    pendingPayments: number;
+  };
+  therapists: any[];
+  recentBookings: any[];
+  notifications: any[];
+}
+
+interface AppointmentsSectionProps {
+  clinicData: ClinicData;
+}
+
+export default function AppointmentsSection({ clinicData }: AppointmentsSectionProps) {
   return (
     <div className="space-y-6">
       <Card className="bg-white border-2 border-blue-100 shadow-lg">

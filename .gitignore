@@ -153,3 +153,27 @@ cypress.config.*
 
 # If you want to keep a sample test template tracked, negate it below (example):
 # !tests/sample.test.ts
+
+# Test and Debug Pages (exclude from main project)
+# Test pages
+app/**/*test*/**/*.tsx
+app/**/*test*/**/*.ts
+app/**/*test*/**/*.jsx
+app/**/*test*/**/*.js
+app/**/payments-test/**
+app/**/cloudinary-test/**
+app/**/100ms-test/**
+app/**/notifications-test/**
+app/**/notifications-email-test/**
+app/**/razorpay-test/**
+
+# Debug pages
+app/debug/**
+app/**/debug/**
+
+# API test and debug routes
+app/api/**/*test*/**/*.ts
+app/api/**/*test*/**/*.js
+app/api/debug/**
+app/api/**/email-test/**
+app/api/**/network-test/**

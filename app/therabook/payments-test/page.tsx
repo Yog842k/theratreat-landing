@@ -12,7 +12,7 @@ import { useAuth } from '@/components/auth/NewAuthContext';
 export default function TestPaymentPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const bookingId = searchParams.get('bookingId');
+  const bookingId = searchParams?.get('bookingId');
   const { token } = useAuth();
 
   const [creating, setCreating] = useState(false);

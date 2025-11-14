@@ -1,39 +1,36 @@
-import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Check, X } from "lucide-react";
 
-export default function ProfileSection() {
-  const [clinic, setClinic] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+interface ClinicData {
+  clinic: {
+    _id: string;
+    name: string;
+    [key: string]: any;
+  };
+  metrics: {
+    monthlyBookings: number;
+    revenue: number;
+    therapists: number;
+    rating: number;
+    totalReviews: number;
+    completionScore: number;
+    pendingPayments: number;
+  };
+  therapists: any[];
+  recentBookings: any[];
+  notifications: any[];
+}
 
-  useEffect(() => {
-    async function fetchClinic() {
-      setLoading(true);
-      setError(null);
-      try {
-        const res = await fetch('/api/clinics/me');
-        if (!res.ok) throw new Error('Failed to fetch clinic data');
-        const json = await res.json();
-        setClinic(json?.clinic || json?.data?.clinic || null);
-      } catch (err) {
-        if (err instanceof Error) {
-          setError(err.message || 'Error loading clinic data');
-        } else {
-          setError('Error loading clinic data');
-        }
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchClinic();
-  }, []);
+interface ProfileSectionProps {
+  clinicData: ClinicData;
+}
 
-  if (loading) return <div className="p-8 text-center text-blue-600">Loading clinic profile...</div>;
-  if (error) return <div className="p-8 text-center text-red-600">{error}</div>;
+export default function ProfileSection({ clinicData }: ProfileSectionProps) {
+  const clinic = clinicData?.clinic;
+
   if (!clinic) return <div className="p-8 text-center text-slate-600">No clinic profile found.</div>;
 
   return (

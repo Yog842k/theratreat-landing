@@ -27,7 +27,7 @@ export default function ConfirmationPage(_props: any) {
   const [now, setNow] = useState<number>(Date.now());
   const [unlockAt, setUnlockAt] = useState<number | null>(null);
   const searchParams = useSearchParams();
-  const bookingId = searchParams.get('bookingId');
+  const bookingId = searchParams?.get('bookingId');
   const { token, isAuthenticated, isLoading: authLoading } = useAuth();
 
   useEffect(() => {

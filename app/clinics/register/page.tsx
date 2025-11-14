@@ -8,10 +8,6 @@ import { Label } from "@/components/ui/label";
 import { Upload, CheckCircle2, Building2, MapPin, Phone, Mail, Calendar, Clock, Briefcase, Globe, Instagram, FileText, Shield, Sparkles, ArrowRight, Check, AlertCircle, Heart, Award, Users, Zap, TrendingUp, Bot, Star, Network } from "lucide-react";
 
 
-interface ClinicRegistrationProps {
-  setCurrentView?: (view: any) => void;
-}
-
 interface ClinicFormData {
   
   ownerName?: string;
@@ -81,7 +77,7 @@ const indianStates = [
   "West Bengal", "Rajasthan", "Uttar Pradesh", "Kerala", "Punjab", "Haryana"
 ];
 
-export default function ClinicRegistration({ setCurrentView }: ClinicRegistrationProps) {
+export default function ClinicRegistration() {
   // Clinic registration form state (typed)
   const [formData, setFormData] = useState<ClinicFormData>({
     ownerName: "",

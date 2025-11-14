@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import Therapist from '@/lib/models/Therapist';
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, context: any) {
   try {
-    const { id } = await params;
+    // Handle both Promise and direct params (for Next.js version compatibility)
+    const params = context?.params && typeof context.params.then === 'function' ? await context.params : context?.params;
+    const { id } = params;
     console.log('[API] Therapist GET called with id:', id);
     await connectDB();
     const therapist = await Therapist.findById(id).lean();

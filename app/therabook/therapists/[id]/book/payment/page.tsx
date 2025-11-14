@@ -40,7 +40,7 @@ export default function PaymentPage({}: PaymentPageProps) {
   const [diagnosticsUrl] = useState<string>('/api/payments/razorpay/diag');
   const searchParams = useSearchParams();
   const router = useRouter();
-  const bookingId = searchParams.get('bookingId');
+  const bookingId = searchParams?.get('bookingId');
   const routeParams = useParams();
   const id = Array.isArray(routeParams?.id) ? (routeParams?.id?.[0] as string) : ((routeParams?.id as string) || "");
   const { token } = useAuth();
