@@ -9,6 +9,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from '@/components/auth/NewAuthContext';
 import { bookingService, type Booking } from "@/lib/booking-service";
+import { hmsConfig } from "@/lib/hms-config";
 
 // Avoid strict param typing to satisfy generated Next.js PageProps diff validation.
 
@@ -205,8 +206,16 @@ export default function ConfirmationPage(_props: any) {
 
     {/* Meeting link section - always show if available */}
     {(() => {
-      const meetingUrl = booking.meetingUrl || (booking as any).meetingLink;
+      let meetingUrl = booking.meetingUrl || (booking as any).meetingLink;
       const roomCode = booking.roomCode || (booking as any).roomCode;
+      
+      // Generate meeting URL from room code if not available
+      if (!meetingUrl && roomCode) {
+        meetingUrl = hmsConfig.getRoomUrl(roomCode) || 
+          (typeof window !== 'undefined' 
+            ? `${window.location.origin}/video-call/room?roomCode=${roomCode}`
+            : null);
+      }
       
       if (meetingUrl || roomCode) {
         return (
@@ -224,26 +233,26 @@ export default function ConfirmationPage(_props: any) {
               <p className="text-sm text-blue-700 mb-3">Click the button below to join your video/audio session:</p>
             )}
             {meetingUrl && (
-              <Button
-                variant="outline"
-                className="w-full border-2 border-blue-300 text-blue-700 hover:bg-blue-100 disabled:opacity-60 font-semibold"
-                disabled={Boolean(unlockAt && now < unlockAt)}
-                onClick={() => {
-                  if (meetingUrl) window.open(meetingUrl, '_blank');
-                }}
-              >
-                <Video className="w-4 h-4 mr-2" />
-                Join Session Now
-              </Button>
-            )}
-            {/* Display the actual meeting URL */}
-            {meetingUrl && (
-              <div className="mt-3 p-2 bg-white/70 rounded border border-blue-200">
-                <p className="text-xs text-blue-600 font-medium mb-1">Meeting Link:</p>
-                <p className="text-[11px] text-blue-700 break-all font-mono">
-                  {meetingUrl}
-                </p>
-              </div>
+              <>
+                <Button
+                  variant="outline"
+                  className="w-full border-2 border-blue-300 text-blue-700 hover:bg-blue-100 disabled:opacity-60 font-semibold"
+                  disabled={Boolean(unlockAt && now < unlockAt)}
+                  onClick={() => {
+                    if (meetingUrl) window.open(meetingUrl, '_blank');
+                  }}
+                >
+                  <Video className="w-4 h-4 mr-2" />
+                  Join Session Now
+                </Button>
+                {/* Display the actual meeting URL */}
+                <div className="mt-3 p-2 bg-white/70 rounded border border-blue-200">
+                  <p className="text-xs text-blue-600 font-medium mb-1">Meeting Link:</p>
+                  <p className="text-[11px] text-blue-700 break-all font-mono">
+                    {meetingUrl}
+                  </p>
+                </div>
+              </>
             )}
             {roomCode && (
               <div className="mt-2 p-2 bg-white/70 rounded border border-blue-200">
@@ -251,29 +260,12 @@ export default function ConfirmationPage(_props: any) {
                 <p className="text-sm font-mono font-bold text-blue-800">{roomCode}</p>
               </div>
             )}
-            {!meetingUrl && roomCode && (
-              <p className="text-xs text-blue-600 mt-2 italic">
-                Meeting link will be available soon. You can use the room code above to join.
-              </p>
-            )}
           </div>
         );
       }
       
-      // Fallback: Show demo link only if no real link exists
-      return (
-        <div className="mt-4 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-          <h4 className="font-medium text-yellow-900 mb-2">Meeting Link</h4>
-          <p className="text-sm text-yellow-700 mb-2">
-            Your meeting link is being generated. It will be sent to your email and SMS shortly.
-          </p>
-          {roomCode && (
-            <p className="text-xs text-yellow-600 mt-2">
-              Room Code: <span className="font-mono font-semibold">{roomCode}</span>
-            </p>
-          )}
-        </div>
-      );
+      // Only show fallback if there's truly no meeting link or room code
+      return null;
     })()}
           </CardContent>
         </Card>

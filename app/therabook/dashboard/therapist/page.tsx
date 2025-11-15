@@ -220,7 +220,13 @@ export default function TherapistDashboardPage() {
 
   // Save profile handler
   const handleSaveProfile = async () => {
+    if (!resolvedTherapistId) {
+      setError('Therapist ID not found');
+      return;
+    }
+    
     try {
+      setError(null);
       const payload = {
         name: editProfileFields.name,
         gender: editProfileFields.gender,
@@ -229,6 +235,7 @@ export default function TherapistDashboardPage() {
         clinicAddress: editProfileFields.clinicAddress,
         bio: editProfileFields.bio
       };
+      
       const res = await fetch(`/api/therapists/${resolvedTherapistId}`, {
         method: 'PATCH',
         headers: {
@@ -237,11 +244,21 @@ export default function TherapistDashboardPage() {
         },
         body: JSON.stringify(payload)
       });
-      if (!res.ok) throw new Error('Failed to update profile');
+      
+      const data = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(data.message || 'Failed to update profile');
+      }
+      
       setIsEditingProfile(false);
       await fetchTherapistFullProfile();
+      // Show success message (you can add a success state if needed)
+      setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to save profile');
+      const errorMessage = e instanceof Error ? e.message : 'Failed to save profile';
+      setError(errorMessage);
+      console.error('Error saving profile:', e);
     }
   };
   const { user, token, isAuthenticated, isLoading, logout } = useAuth();
@@ -859,27 +876,35 @@ export default function TherapistDashboardPage() {
             <div className="space-y-4 sm:space-y-6">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
                 <h3 className="text-xl sm:text-2xl font-bold text-gray-800">Profile Management</h3>
-                <Button 
-                  onClick={() => setIsEditingProfile(!isEditingProfile)}
-                  size="sm"
-                  className={`${
-                    isEditingProfile 
-                      ? 'bg-green-600 hover:bg-green-700' 
-                      : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700'
-                  } text-white shadow-md transition-all duration-200 w-full sm:w-auto`}
-                >
-                  {isEditingProfile ? (
-                    <span onClick={handleSaveProfile} style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
+                {isEditingProfile ? (
+                  <div className="flex gap-2 w-full sm:w-auto">
+                    <Button 
+                      onClick={handleSaveProfile}
+                      size="sm"
+                      className="bg-green-600 hover:bg-green-700 text-white shadow-md transition-all duration-200 flex-1 sm:flex-none"
+                    >
                       <Save className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                       <span className="text-xs sm:text-sm">Save Changes</span>
-                    </span>
-                  ) : (
-                    <>
-                      <Edit className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                      <span className="text-xs sm:text-sm">Edit Profile</span>
-                    </>
-                  )}
-                </Button>
+                    </Button>
+                    <Button 
+                      onClick={() => setIsEditingProfile(false)}
+                      size="sm"
+                      variant="outline"
+                      className="border-gray-300 hover:bg-gray-50 flex-1 sm:flex-none"
+                    >
+                      <span className="text-xs sm:text-sm">Cancel</span>
+                    </Button>
+                  </div>
+                ) : (
+                  <Button 
+                    onClick={() => setIsEditingProfile(true)}
+                    size="sm"
+                    className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md transition-all duration-200 w-full sm:w-auto"
+                  >
+                    <Edit className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                    <span className="text-xs sm:text-sm">Edit Profile</span>
+                  </Button>
+                )}
               </div>
 
               <Card className="shadow-lg border-blue-100">

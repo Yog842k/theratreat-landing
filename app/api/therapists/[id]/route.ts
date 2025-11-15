@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import database from '@/lib/database';
 import { ObjectId } from 'mongodb';
+import AuthMiddleware from '@/lib/middleware';
 
 export async function GET(request: NextRequest, context: any) {
   try {
@@ -124,6 +125,116 @@ export async function GET(request: NextRequest, context: any) {
     return NextResponse.json({ 
       success: false, 
       message: 'Internal server error', 
+      error: errMsg
+    }, { status: 500 });
+  }
+}
+
+export async function PATCH(request: NextRequest, context: any) {
+  try {
+    // Authenticate user
+    const user = await AuthMiddleware.authenticate(request);
+    
+    // Handle both Promise and direct params (for Next.js version compatibility)
+    const params = context?.params && typeof context.params.then === 'function' ? await context.params : context?.params;
+    const { id } = params;
+    
+    if (!id) {
+      return NextResponse.json({ success: false, message: 'Therapist ID is required' }, { status: 400 });
+    }
+    
+    const body = await request.json();
+    const { name, gender, experience, languages, clinicAddress, bio } = body;
+    
+    // Verify that the user is updating their own therapist profile
+    let therapist;
+    try {
+      const objectId = new ObjectId(id);
+      therapist = await database.findOne('therapists', { _id: objectId });
+    } catch {
+      therapist = await database.findOne('therapists', { _id: id });
+    }
+    
+    if (!therapist) {
+      return NextResponse.json({ success: false, message: 'Therapist not found' }, { status: 404 });
+    }
+    
+    // Check if user owns this therapist profile (userId should match)
+    const therapistUserId = therapist.userId?.toString() || therapist.userId;
+    const currentUserId = user._id?.toString() || user._id;
+    
+    if (therapistUserId !== currentUserId && user.userType !== 'admin') {
+      return NextResponse.json({ success: false, message: 'Unauthorized to update this profile' }, { status: 403 });
+    }
+    
+    // Build update object
+    const updateData: any = { updatedAt: new Date() };
+    
+    if (name !== undefined) {
+      updateData.displayName = name;
+      updateData.name = name;
+    }
+    
+    if (gender !== undefined) {
+      updateData.gender = gender;
+    }
+    
+    if (experience !== undefined) {
+      updateData.experience = experience;
+    }
+    
+    if (languages !== undefined && Array.isArray(languages)) {
+      updateData.languages = languages;
+    }
+    
+    if (clinicAddress !== undefined) {
+      updateData.clinicAddress = clinicAddress;
+      updateData.location = clinicAddress;
+    }
+    
+    if (bio !== undefined) {
+      updateData.bio = bio;
+    }
+    
+    // Update therapist in database
+    const coll = await database.getCollection('therapists');
+    let objectId: ObjectId | null = null;
+    try {
+      objectId = new ObjectId(id);
+    } catch {
+      // If not a valid ObjectId, use string
+    }
+    
+    const filter = objectId ? { _id: objectId } : { _id: id };
+    const result = await coll.updateOne(filter, { $set: updateData });
+    
+    if (result.matchedCount === 0) {
+      return NextResponse.json({ success: false, message: 'Therapist not found' }, { status: 404 });
+    }
+    
+    // Fetch updated therapist
+    const updatedTherapist = await database.findOne('therapists', filter);
+    
+    return NextResponse.json({ 
+      success: true, 
+      message: 'Profile updated successfully',
+      therapist: updatedTherapist
+    });
+  } catch (error) {
+    console.error('[API] Error updating therapist profile:', error);
+    const errMsg = error instanceof Error ? error.message : String(error);
+    
+    // Handle authentication errors
+    if (errMsg.includes('auth') || errMsg.includes('token') || errMsg.includes('Unauthorized')) {
+      return NextResponse.json({ 
+        success: false, 
+        message: 'Authentication required' 
+      }, { status: 401 });
+    }
+    
+    return NextResponse.json({ 
+      success: false, 
+      message: 'Failed to update profile', 
       error: errMsg
     }, { status: 500 });
   }

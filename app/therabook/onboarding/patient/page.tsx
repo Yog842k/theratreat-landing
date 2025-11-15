@@ -256,47 +256,72 @@ export default function PatientOnboarding() {
     }
   };
 
+  const normalizePhoneForOtp = (phone: string): string => {
+    if (!phone) return '';
+    // Remove all non-digits
+    const digits = phone.replace(/\D/g, '');
+    // If starts with country code, use as is, otherwise add default
+    const defaultCountryCode = process.env.NEXT_PUBLIC_OTP_DEFAULT_COUNTRY_CODE || '+91';
+    if (digits.length === 10) {
+      return defaultCountryCode + digits;
+    } else if (digits.length > 10 && digits.startsWith('91')) {
+      return '+' + digits;
+    } else if (digits.length > 10) {
+      return '+' + digits;
+    }
+    return defaultCountryCode + digits;
+  };
+
   const canSendOtp = useMemo(() => {
     return Boolean(
       data.fullName &&
       data.emailId &&
       data.password && data.password.length >= 8 &&
-      data.phoneNumber && data.phoneNumber.length === 10
+      data.phoneNumber && data.phoneNumber.length >= 10
     );
   }, [data.fullName, data.emailId, data.password, data.phoneNumber]);
 
   const sendOtp = async () => {
-    if (!canSendOtp || otpSending) return;
+    if (!canSendOtp || otpSending || resendSeconds > 0) return;
     setOtpSending(true);
     setOtpError("");
     setOtpInfo("");
     setOtpVerified(false);
+    setOtpSent(false);
     try {
-      let phone = data.phoneNumber.replace(/\D/g, '');
-      if (phone.length !== 10) {
-        setOtpError('Please enter a valid 10-digit phone number');
+      const normalizedPhone = normalizePhoneForOtp(data.phoneNumber);
+      if (!normalizedPhone || normalizedPhone.length < 10) {
+        setOtpError('Please enter a valid phone number');
         setOtpSending(false);
         return;
       }
-      const res = await fetch('/api/auth/verify-otp', {
+
+      const res = await fetch('/api/otp/request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phoneNumber: phone, purpose: 'patient_registration' })
+        body: JSON.stringify({ 
+          phone: normalizedPhone, 
+          purpose: 'patient_registration' 
+        })
       });
+      
       const json = await res.json();
-      if (res.ok && json?.success) {
+      
+      if (res.ok && json?.success && json?.data?.otpSent) {
         setOtpSent(true);
-        setOtpInfo(`OTP sent to ${phone}`);
-        setResendSeconds(60);
+        setOtpInfo(`OTP sent to ${json?.data?.phone || normalizedPhone}. Expires in ${json?.data?.ttlMinutes || 10} minutes.`);
+        setResendSeconds(json?.data?.nextSendSeconds || 60);
+        setOtpError("");
       } else {
-        throw new Error(json?.message || 'Failed to send OTP');
+        // Extract error message from various possible response formats
+        const errorMsg = json?.message || json?.data?.message || json?.errors || 'Failed to send OTP';
+        setOtpError(errorMsg);
+        setOtpSent(false);
+        console.error('[OTP Send Error]', { response: json, status: res.status });
       }
-    } catch (e) {
-      let msg = 'Failed to send OTP';
-      if (e && typeof e === 'object' && 'message' in e && typeof (e as any).message === 'string') {
-        msg = (e as any).message;
-      }
-      setOtpError(msg);
+    } catch (e: any) {
+      setOtpError(e?.message || 'Failed to send OTP. Please try again.');
+      setOtpSent(false);
     } finally {
       setOtpSending(false);
     }
@@ -304,35 +329,49 @@ export default function PatientOnboarding() {
 
   const verifyOtpCode = async () => {
     if (!data.phoneNumber || !otpCode || otpVerifying) return;
+    
+    // Validate OTP code format
+    if (!/^\d{4,6}$/.test(otpCode.trim())) {
+      setOtpError('Please enter a valid OTP code (4-6 digits)');
+      return;
+    }
+
     setOtpVerifying(true);
     setOtpError("");
     setOtpInfo("");
+    
     try {
-      let phone = data.phoneNumber.replace(/\D/g, '');
-      if (phone.length !== 10) {
-        setOtpError('Please enter a valid 10-digit phone number');
+      const normalizedPhone = normalizePhoneForOtp(data.phoneNumber);
+      if (!normalizedPhone) {
+        setOtpError('Please enter a valid phone number');
         setOtpVerifying(false);
         return;
       }
-      console.log('Verifying OTP:', { phoneNumber: phone, otp: otpCode });
-      const res = await fetch('/api/auth/verify-otp', {
+
+      const res = await fetch('/api/otp/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phoneNumber: phone, otp: otpCode, purpose: 'patient_registration' })
+        body: JSON.stringify({ 
+          phone: normalizedPhone, 
+          code: otpCode.trim(), 
+          purpose: 'patient_registration' 
+        })
       });
+      
       const json = await res.json();
-      if (!res.ok || !json?.success) {
-        throw new Error(json?.message || 'OTP verification failed');
+      
+      if (res.ok && json?.success && json?.data?.verified) {
+        setOtpVerified(true);
+        setOtpInfo('Phone verified successfully! ✓');
+        setOtpError("");
+      } else {
+        const errorMsg = json?.message || json?.data?.message || 'OTP verification failed';
+        setOtpError(errorMsg);
+        setOtpVerified(false);
       }
-      setOtpVerified(true);
-      setOtpInfo('Phone verified successfully');
-    } catch (e) {
+    } catch (e: any) {
       setOtpVerified(false);
-      let msg = 'OTP verification failed';
-      if (e && typeof e === 'object' && 'message' in e && typeof (e as any).message === 'string') {
-        msg = (e as any).message;
-      }
-      setOtpError(msg);
+      setOtpError(e?.message || 'OTP verification failed. Please try again.');
     } finally {
       setOtpVerifying(false);
     }

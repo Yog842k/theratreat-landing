@@ -29,6 +29,7 @@ const DEFAULT_TTL_MIN = Number(process.env.OTP_EXP_MIN || 10); // minutes
 const DEFAULT_MAX_ATTEMPTS = Number(process.env.OTP_MAX_ATTEMPTS || 5);
 const OTP_DEBUG = (process.env.OTP_DEBUG || '').toString() === '1';
 const RESEND_INTERVAL_SEC = Number(process.env.OTP_RESEND_INTERVAL_SEC || 60);
+const IS_DEVELOPMENT = process.env.NODE_ENV !== 'production';
 
 let indexesEnsured = false;
 async function ensureIndexes() {
@@ -109,16 +110,60 @@ export async function requestOtp({ phone, purpose }: { phone: string; purpose: s
   await ensureIndexes();
   const normalized = normalizePhone(phone);
   if (!normalized) {
-    return { ok: false, error: 'INVALID_PHONE' };
+    console.error('[OTP] Invalid phone number format:', phone);
+    return { ok: false, error: 'INVALID_PHONE', detail: `Invalid phone number format: ${phone}. Expected E.164 format (e.g., +911234567890)` };
+  }
+  
+  // Log OTP request attempt
+  if (IS_DEVELOPMENT || OTP_DEBUG) {
+    console.log('[OTP] Request received:', { phone: normalized, purpose });
   }
 
   const client = getTwilio();
   const verifySid = process.env.TWILIO_VERIFY_SERVICE_SID;
-  if (!client) {
-    console.error('[OTP] Twilio client not available. Check credentials and network.');
+  const smsFrom = getSmsFrom();
+  
+  // Debug: Log environment variable status (without exposing the actual value)
+  if (IS_DEVELOPMENT || OTP_DEBUG) {
+    console.log('[OTP] Environment check:', {
+      hasClient: !!client,
+      hasVerifySid: !!verifySid,
+      verifySidLength: verifySid?.length || 0,
+      verifySidPrefix: verifySid?.substring(0, 3) || 'N/A',
+      nodeEnv: process.env.NODE_ENV
+    });
   }
+  
+  if (!client) {
+    const errorMsg = 'Twilio client not available. Check TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN environment variables.';
+    console.error('[OTP]', errorMsg);
+    return { ok: false, error: 'TWILIO_NOT_CONFIGURED', detail: errorMsg };
+  }
+  
+  // Twilio Verify is the primary and recommended method
   if (!verifySid) {
-    console.warn('[OTP] TWILIO_VERIFY_SERVICE_SID not set. Falling back to Programmable SMS.');
+    // Check for common variations of the env var name
+    const altVerifySid = process.env.TWILIO_VERIFY_SID || 
+                        process.env.VERIFY_SERVICE_SID || 
+                        process.env.TWILIO_VERIFY_SERVICE_ID;
+    
+    if (altVerifySid) {
+      console.warn('[OTP] Found alternative env var name. Using TWILIO_VERIFY_SERVICE_SID is recommended.');
+      // Use the alternative if found (but warn)
+      const errorMsg = `TWILIO_VERIFY_SERVICE_SID is not set, but found alternative variable. Please use TWILIO_VERIFY_SERVICE_SID instead. Current value: ${altVerifySid ? 'found' : 'not found'}`;
+      console.error('[OTP]', errorMsg);
+      return { ok: false, error: 'TWILIO_VERIFY_NOT_CONFIGURED', detail: errorMsg };
+    }
+    
+    const errorMsg = 'TWILIO_VERIFY_SERVICE_SID is not configured. Twilio Verify is required for OTP sending. Please set TWILIO_VERIFY_SERVICE_SID in your environment variables.';
+    console.error('[OTP] Configuration error:', {
+      message: errorMsg,
+      allEnvKeys: Object.keys(process.env).filter(k => k.includes('TWILIO') || k.includes('VERIFY')).join(', '),
+      hasAccountSid: !!process.env.TWILIO_ACCOUNT_SID,
+      hasAuthToken: !!process.env.TWILIO_AUTH_TOKEN,
+      hasVerifySid: false
+    });
+    return { ok: false, error: 'TWILIO_VERIFY_NOT_CONFIGURED', detail: errorMsg };
   }
 
   // Rate limit resends per phone+purpose
@@ -136,81 +181,115 @@ export async function requestOtp({ phone, purpose }: { phone: string; purpose: s
     }
   } catch { /* ignore if DB missing */ }
 
-  // Prefer Twilio Verify if configured
-  if (client && verifySid) {
-    try {
-      await client.verify.v2.services(verifySid).verifications.create({ to: normalized, channel: 'sms' });
-      // Optional: write minimal audit record (no code stored)
-      try {
-        const coll = await database.getCollection('otp_codes');
-        const now = new Date();
-        await coll.updateOne(
-          { phone: normalized, purpose },
-          { $set: { phone: normalized, purpose, updatedAt: now, lastSentAt: now, verified: false }, $setOnInsert: { createdAt: now } },
-          { upsert: true }
-        );
-      } catch { /* non-blocking */ }
-  // TTL is managed by Verify; we surface configured default if provided
-  if (OTP_DEBUG) console.log('[OTP] Verify sent', { to: normalized });
-  return { ok: true, phone: normalized, ttlMinutes: DEFAULT_TTL_MIN, channel: 'verify' } as any;
-    } catch (err: any) {
-      // Map common Verify errors
-      const code = (err && (err.code || err.status)) || 'VERIFY_SEND_FAILED';
-      return { ok: false, error: 'OTP_ERROR', detail: `${code}: ${err?.message || 'verify send failed'}` };
-    }
+  // Use Twilio Verify Service (primary and recommended method)
+  if (!verifySid) {
+    const errorMsg = 'TWILIO_VERIFY_SERVICE_SID is required. Twilio Verify is the only supported method for OTP sending.';
+    console.error('[OTP]', errorMsg);
+    return { ok: false, error: 'TWILIO_VERIFY_NOT_CONFIGURED', detail: errorMsg };
   }
-
-  // Fallback to Programmable SMS with self-managed OTP
-  if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN || !process.env.TWILIO_SMS_FROM) {
-    return { ok: false, error: 'TWILIO_NOT_CONFIGURED' };
-  }
-
-  const code = randomNumeric(DEFAULT_LEN);
-  const salt = crypto.randomBytes(8).toString('hex');
-  const codeHash = hashCode(code, salt);
-  const now = new Date();
-  const expiresAt = new Date(now.getTime() + DEFAULT_TTL_MIN * 60 * 1000);
-
-  const coll = await database.getCollection('otp_codes');
-  await coll.updateOne(
-    { phone: normalized, purpose },
-    {
-      $set: {
-        phone: normalized,
-        purpose,
-        codeHash,
-        salt,
-        expiresAt,
-        updatedAt: now,
-        lastSentAt: now,
-        verified: false,
-      },
-      $setOnInsert: {
-        createdAt: now,
-        attempts: 0,
-        maxAttempts: DEFAULT_MAX_ATTEMPTS,
-      }
-    },
-    { upsert: true }
-  );
 
   try {
-    if (!client) throw new Error('Twilio client init failed');
-    const body = `Your verification code is ${code}. It expires in ${DEFAULT_TTL_MIN} minutes. — TheraTreat`;
-    const from = getSmsFrom();
-    if (!from) {
-      return { ok: false, error: 'TWILIO_NOT_CONFIGURED', detail: 'Invalid TWILIO_SMS_FROM format. Use E.164 like +1234567890' };
+    // Custom OTP message template
+    // To use a custom message, you need to:
+    // 1. Request a custom template from Twilio Support with message: "Welcome to theratreat, your OTP is {{code}}"
+    // 2. Get the Template SID (starts with HJ...)
+    // 3. Set it in environment variable: TWILIO_VERIFY_TEMPLATE_SID
+    const customTemplateSid = process.env.TWILIO_VERIFY_TEMPLATE_SID;
+    
+    const verificationParams: any = {
+      to: normalized,
+      channel: 'sms',
+      friendlyName: 'TheraTreat'
+    };
+    
+    // Use custom template if provided, otherwise use default
+    if (customTemplateSid) {
+      verificationParams.templateSid = customTemplateSid;
+      if (OTP_DEBUG || IS_DEVELOPMENT) {
+        console.log('[OTP] Using custom template:', customTemplateSid);
+      }
     }
-    const msg = await client.messages.create({ from, to: normalized, body });
-    if (OTP_DEBUG) console.log('[OTP] SMS queued', { sid: msg?.sid, from, to: normalized });
-    if ((process.env.OTP_DEV_ECHO || '') === '1') {
-      console.log('[OTP][dev] code', { to: normalized, purpose, code });
+    
+    const verification = await client.verify.v2.services(verifySid).verifications.create(verificationParams);
+    
+    // Optional: write minimal audit record (no code stored - Twilio manages the code)
+    try {
+      const coll = await database.getCollection('otp_codes');
+      const now = new Date();
+      await coll.updateOne(
+        { phone: normalized, purpose },
+        { 
+          $set: { 
+            phone: normalized, 
+            purpose, 
+            updatedAt: now, 
+            lastSentAt: now, 
+            verified: false 
+          }, 
+          $setOnInsert: { createdAt: now } 
+        },
+        { upsert: true }
+      );
+    } catch { /* non-blocking - DB might not be available */ }
+    
+    // Log successful send
+    if (OTP_DEBUG || IS_DEVELOPMENT) {
+      console.log('[OTP] Twilio Verify OTP sent successfully', { 
+        to: normalized, 
+        purpose, 
+        sid: verification?.sid,
+        status: verification?.status 
+      });
     }
+    
+    return { 
+      ok: true, 
+      phone: normalized, 
+      ttlMinutes: DEFAULT_TTL_MIN, 
+      channel: 'verify',
+      sid: verification?.sid 
+    } as any;
   } catch (err: any) {
-    return { ok: false, error: 'SMS_SEND_FAILED', detail: err?.message };
+    // Map common Verify errors to user-friendly messages
+    const code = (err && (err.code || err.status)) || 'VERIFY_SEND_FAILED';
+    const errorDetail = err?.message || 'verify send failed';
+    
+    // Common Twilio Verify error codes
+    let userMessage = errorDetail;
+    if (code === 60200) {
+      userMessage = 'Invalid phone number format';
+    } else if (code === 60203) {
+      userMessage = 'Max send attempts reached. Please try again later.';
+    } else if (code === 20404) {
+      userMessage = 'Twilio Verify Service not found. Check your TWILIO_VERIFY_SERVICE_SID.';
+    } else if (code === 20003) {
+      userMessage = 'Twilio account authentication failed. Check your credentials.';
+    }
+    
+    console.error('[OTP] Twilio Verify send failed:', { 
+      code, 
+      error: errorDetail, 
+      to: normalized, 
+      verifySid,
+      fullError: err 
+    });
+    
+    return { 
+      ok: false, 
+      error: 'OTP_ERROR', 
+      detail: userMessage,
+      code: code.toString()
+    };
   }
-
-  return { ok: true, phone: normalized, ttlMinutes: DEFAULT_TTL_MIN, channel: 'sms' } as any;
+  
+  // Note: Programmable SMS fallback has been removed
+  // Twilio Verify is now the only supported method
+  // This code should never be reached due to the check above, but included for safety
+  return { 
+    ok: false, 
+    error: 'TWILIO_VERIFY_NOT_CONFIGURED', 
+    detail: 'Twilio Verify is required. Please configure TWILIO_VERIFY_SERVICE_SID.' 
+  };
 }
 
 export async function verifyOtp({ phone, purpose, code }: { phone: string; purpose: string; code: string; }) {
@@ -220,49 +299,62 @@ export async function verifyOtp({ phone, purpose, code }: { phone: string; purpo
 
   const client = getTwilio();
   const verifySid = process.env.TWILIO_VERIFY_SERVICE_SID;
-  if (client && verifySid) {
-    try {
-      const res = await client.verify.v2.services(verifySid).verificationChecks.create({ to: normalized, code });
-      // res.status can be 'approved' when code is valid
-      if (res && res.status === 'approved') {
-        // Optional: mark audit as verified
-        try {
-          const coll = await database.getCollection('otp_codes');
-          await coll.updateOne({ phone: normalized, purpose }, { $set: { verified: true, updatedAt: new Date() } }, { upsert: true });
-        } catch { /* ignore */ }
-        return { ok: true, verified: true };
+  
+  // Twilio Verify is the primary and only supported method
+  if (!client || !verifySid) {
+    const errorMsg = 'Twilio Verify is not configured. TWILIO_VERIFY_SERVICE_SID is required.';
+    console.error('[OTP Verify]', errorMsg);
+    return { ok: false, error: 'TWILIO_VERIFY_NOT_CONFIGURED', detail: errorMsg };
+  }
+  
+  try {
+    const res = await client.verify.v2.services(verifySid).verificationChecks.create({ 
+      to: normalized, 
+      code: code.trim() 
+    });
+    
+    // res.status can be 'approved' when code is valid
+    if (res && res.status === 'approved') {
+      // Optional: mark audit as verified
+      try {
+        const coll = await database.getCollection('otp_codes');
+        await coll.updateOne(
+          { phone: normalized, purpose }, 
+          { $set: { verified: true, updatedAt: new Date() } }, 
+          { upsert: true }
+        );
+      } catch { /* ignore - non-blocking */ }
+      
+      if (OTP_DEBUG || IS_DEVELOPMENT) {
+        console.log('[OTP] Verification successful', { phone: normalized, purpose });
       }
-      // If not approved, treat as invalid
-      return { ok: false, error: 'INVALID_CODE' };
-    } catch (err: any) {
-      const msg = (err?.message || '').toLowerCase();
-      if (msg.includes('expired')) return { ok: false, error: 'EXPIRED' };
-      if (err?.status === 429 || (err?.code && String(err.code) === '20429')) return { ok: false, error: 'TOO_MANY_ATTEMPTS' };
-      if (err?.status === 404) return { ok: false, error: 'NOT_FOUND' };
-      return { ok: false, error: 'OTP_VERIFY_FAILED', detail: err?.message };
+      
+      return { ok: true, verified: true };
     }
+    
+    // If not approved, treat as invalid
+    if (OTP_DEBUG || IS_DEVELOPMENT) {
+      console.log('[OTP] Verification failed - invalid code', { phone: normalized, status: res?.status });
+    }
+    return { ok: false, error: 'INVALID_CODE', detail: 'The verification code is incorrect' };
+  } catch (err: any) {
+    const msg = (err?.message || '').toLowerCase();
+    const code = err?.code || err?.status;
+    
+    // Map common verification errors
+    if (msg.includes('expired') || code === 20404) {
+      return { ok: false, error: 'EXPIRED', detail: 'The verification code has expired' };
+    }
+    if (err?.status === 429 || code === 20429) {
+      return { ok: false, error: 'TOO_MANY_ATTEMPTS', detail: 'Too many verification attempts. Please request a new code.' };
+    }
+    if (err?.status === 404 || code === 20404) {
+      return { ok: false, error: 'NOT_FOUND', detail: 'Verification not found. Please request a new code.' };
+    }
+    
+    console.error('[OTP] Verification error:', { code, error: err?.message, phone: normalized });
+    return { ok: false, error: 'OTP_VERIFY_FAILED', detail: err?.message || 'Verification failed' };
   }
-
-  // Fallback: self-managed verification
-  const coll = await database.getCollection('otp_codes');
-  const rec: WithId<Document> | null = await coll.findOne({ phone: normalized, purpose });
-  if (!rec) return { ok: false, error: 'NOT_FOUND' };
-  if (rec.verified) return { ok: true, alreadyVerified: true };
-  const now = new Date();
-  if (rec.expiresAt && new Date(rec.expiresAt) < now) {
-    return { ok: false, error: 'EXPIRED' };
-  }
-  if (typeof rec.attempts === 'number' && typeof rec.maxAttempts === 'number' && rec.attempts >= rec.maxAttempts) {
-    return { ok: false, error: 'TOO_MANY_ATTEMPTS' };
-  }
-  const expectedHash = hashCode(code, rec.salt);
-  const matches = expectedHash === rec.codeHash;
-  if (!matches) {
-    await coll.updateOne({ _id: rec._id }, { $inc: { attempts: 1 }, $set: { updatedAt: now } });
-    return { ok: false, error: 'INVALID_CODE', attemptsRemaining: (rec.maxAttempts || DEFAULT_MAX_ATTEMPTS) - (rec.attempts + 1) };
-  }
-  await coll.updateOne({ _id: rec._id }, { $set: { verified: true, updatedAt: now } });
-  return { ok: true, verified: true };
 }
 
 export async function isPhoneVerified({ phone, purpose }: { phone: string; purpose: string; }) {

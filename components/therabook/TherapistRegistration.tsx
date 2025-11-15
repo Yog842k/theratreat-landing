@@ -379,9 +379,11 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
         setResendSeconds(60);
         setOtpError("");
       } else {
-        const errorMsg = json?.message || json?.data?.message || 'Failed to send OTP';
+        // Extract error message from various possible response formats
+        const errorMsg = json?.message || json?.data?.message || json?.errors || 'Failed to send OTP';
         setOtpError(errorMsg);
         setOtpSent(false);
+        console.error('[OTP Send Error]', { response: json, status: res.status });
       }
     } catch (e: any) {
       setOtpError(e?.message || 'Failed to send OTP. Please try again.');
