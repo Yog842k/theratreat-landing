@@ -568,7 +568,7 @@ export default function TherapistDashboardPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 xl:px-8 py-4 sm:py-6 lg:py-8">
         {error && (
           <Alert className="mb-6 border-red-300 bg-red-50 shadow-sm">
             <AlertCircle className="h-5 w-5 text-red-600" />
@@ -576,32 +576,33 @@ export default function TherapistDashboardPage() {
           </Alert>
         )}
 
-        <div className="bg-white rounded-2xl shadow-lg p-6 mb-8 border border-blue-100">
+        <div className="bg-white rounded-2xl shadow-lg p-4 sm:p-6 mb-6 sm:mb-8 border border-blue-100">
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
-            <div className="flex items-center space-x-4">
-              <Avatar className="w-16 h-16 border-4 border-blue-100 shadow-md">
+            <div className="flex items-center space-x-3 sm:space-x-4 w-full lg:w-auto">
+              <Avatar className="w-12 h-12 sm:w-16 sm:h-16 border-4 border-blue-100 shadow-md flex-shrink-0">
                 <AvatarImage src={therapistData.profile.avatar} />
-                <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-xl font-bold">
+                <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-lg sm:text-xl font-bold">
                   {user?.name?.charAt(0) || 'T'}
                 </AvatarFallback>
               </Avatar>
-              <div>
-                <h1 className="text-3xl font-extrabold text-blue-900 mb-2">
+              <div className="min-w-0 flex-1">
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-blue-900 mb-1 sm:mb-2 truncate">
                   Welcome, {therapistData.profile.name || user?.name || 'Therapist'}!
                 </h1>
-                <h2 className="text-lg font-semibold text-gray-600">Therapist Dashboard</h2>
+                <h2 className="text-sm sm:text-base lg:text-lg font-semibold text-gray-600">Therapist Dashboard</h2>
               </div>
             </div>
             
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full lg:w-auto">
               <Button 
                 variant="outline" 
                 onClick={refreshData}
                 disabled={isLoadingData}
-                className="border-blue-200 hover:bg-blue-50 hover:border-blue-300 transition-all"
+                size="sm"
+                className="border-blue-200 hover:bg-blue-50 hover:border-blue-300 transition-all text-xs sm:text-sm flex-1 sm:flex-initial"
               >
-                <RefreshCw className={`w-4 h-4 mr-2 ${isLoadingData ? 'animate-spin' : ''}`} />
-                Refresh
+                <RefreshCw className={`w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 ${isLoadingData ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline">Refresh</span>
               </Button>
               <Button
                 variant="outline"
@@ -609,88 +610,93 @@ export default function TherapistDashboardPage() {
                   sessionStorage.setItem('originalUserType', user?.userType || 'therapist');
                   router.push('/therabook/dashboard/patient');
                 }}
-                className="border-blue-200 hover:bg-blue-50 hover:border-blue-300 transition-all"
+                size="sm"
+                className="border-blue-200 hover:bg-blue-50 hover:border-blue-300 transition-all text-xs sm:text-sm flex-1 sm:flex-initial"
               >
-                <UserCog className="w-4 h-4 mr-2" />
-                Use Mode
+                <UserCog className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">Use Mode</span>
+                <span className="sm:hidden">Mode</span>
               </Button>
               <Button
                 variant="outline"
                 onClick={() => router.push('/theralearn')}
-                className="border-blue-200 hover:bg-blue-50 hover:border-blue-300 transition-all"
+                size="sm"
+                className="border-blue-200 hover:bg-blue-50 hover:border-blue-300 transition-all text-xs sm:text-sm flex-1 sm:flex-initial"
               >
-                <GraduationCap className="w-4 h-4 mr-2" />
-                Instructor
+                <GraduationCap className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">Instructor</span>
               </Button>
               <Button
                 variant="outline"
                 onClick={() => { logout(); router.push('/'); }}
-                className="border-red-200 hover:bg-red-50 hover:border-red-300 transition-all text-red-600"
+                size="sm"
+                className="border-red-200 hover:bg-red-50 hover:border-red-300 transition-all text-red-600 text-xs sm:text-sm flex-1 sm:flex-initial"
               >
-                <LogOut className="w-4 h-4 mr-2" />
-                Log Out
+                <LogOut className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                <span className="hidden sm:inline">Log Out</span>
+                <span className="sm:hidden">Logout</span>
               </Button>
             </div>
           </div>
         </div>
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 mb-6 sm:mb-8">
           <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0 shadow-lg hover:shadow-xl transition-shadow duration-300">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <Users className="w-10 h-10 opacity-80" />
-                <div className="bg-white/20 rounded-full px-3 py-1 text-xs font-semibold">Today</div>
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex items-center justify-between mb-3 sm:mb-4">
+                <Users className="w-6 h-6 sm:w-8 sm:h-10 opacity-80" />
+                <div className="bg-white/20 rounded-full px-2 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-xs font-semibold">Today</div>
               </div>
-              <div className="text-3xl font-bold mb-1">
-                {isLoadingData ? <Loader2 className="w-8 h-8 animate-spin" /> : dashboardStats.thisMonthSessions}
+              <div className="text-xl sm:text-2xl lg:text-3xl font-bold mb-1">
+                {isLoadingData ? <Loader2 className="w-6 h-6 sm:w-8 sm:h-8 animate-spin" /> : dashboardStats.thisMonthSessions}
               </div>
-              <p className="text-blue-100 text-sm font-medium">Today's Sessions</p>
+              <p className="text-blue-100 text-[10px] sm:text-xs lg:text-sm font-medium">Today's Sessions</p>
             </CardContent>
           </Card>
 
           <Card className="bg-gradient-to-br from-amber-500 to-yellow-600 text-white border-0 shadow-lg hover:shadow-xl transition-shadow duration-300">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <Star className="w-10 h-10 opacity-80" />
-                <div className="bg-white/20 rounded-full px-3 py-1 text-xs font-semibold">Rating</div>
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex items-center justify-between mb-3 sm:mb-4">
+                <Star className="w-6 h-6 sm:w-8 sm:h-10 opacity-80" />
+                <div className="bg-white/20 rounded-full px-2 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-xs font-semibold">Rating</div>
               </div>
-              <div className="text-3xl font-bold mb-1">
-                {isLoadingData ? <Loader2 className="w-8 h-8 animate-spin" /> : formatFixed(dashboardStats.averageRating, 1)}
+              <div className="text-xl sm:text-2xl lg:text-3xl font-bold mb-1">
+                {isLoadingData ? <Loader2 className="w-6 h-6 sm:w-8 sm:h-8 animate-spin" /> : formatFixed(dashboardStats.averageRating, 1)}
               </div>
-              <p className="text-yellow-100 text-sm font-medium">Average Rating</p>
+              <p className="text-yellow-100 text-[10px] sm:text-xs lg:text-sm font-medium">Average Rating</p>
             </CardContent>
           </Card>
 
           <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white border-0 shadow-lg hover:shadow-xl transition-shadow duration-300">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <DollarSign className="w-10 h-10 opacity-80" />
-                <div className="bg-white/20 rounded-full px-3 py-1 text-xs font-semibold">Month</div>
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex items-center justify-between mb-3 sm:mb-4">
+                <DollarSign className="w-6 h-6 sm:w-8 sm:h-10 opacity-80" />
+                <div className="bg-white/20 rounded-full px-2 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-xs font-semibold">Month</div>
               </div>
-              <div className="text-3xl font-bold mb-1">
-                {isLoadingData ? <Loader2 className="w-8 h-8 animate-spin" /> : formatCurrency(dashboardStats.thisMonthEarnings)}
+              <div className="text-xl sm:text-2xl lg:text-3xl font-bold mb-1">
+                {isLoadingData ? <Loader2 className="w-6 h-6 sm:w-8 sm:h-8 animate-spin" /> : formatCurrency(dashboardStats.thisMonthEarnings)}
               </div>
-              <p className="text-green-100 text-sm font-medium">This Month</p>
+              <p className="text-green-100 text-[10px] sm:text-xs lg:text-sm font-medium">This Month</p>
             </CardContent>
           </Card>
 
           <Card className="bg-gradient-to-br from-indigo-500 to-purple-600 text-white border-0 shadow-lg hover:shadow-xl transition-shadow duration-300">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <CheckCircle className="w-10 h-10 opacity-80" />
-                <div className="bg-white/20 rounded-full px-3 py-1 text-xs font-semibold">Status</div>
+            <CardContent className="p-4 sm:p-6">
+              <div className="flex items-center justify-between mb-3 sm:mb-4">
+                <CheckCircle className="w-6 h-6 sm:w-8 sm:h-10 opacity-80" />
+                <div className="bg-white/20 rounded-full px-2 py-0.5 sm:px-3 sm:py-1 text-[10px] sm:text-xs font-semibold">Status</div>
               </div>
-              <div className="text-3xl font-bold mb-1">
-                {isLoadingData ? <Loader2 className="w-8 h-8 animate-spin" /> : `${toNumber(dashboardStats.verificationPercentage, 0)}%`}
+              <div className="text-xl sm:text-2xl lg:text-3xl font-bold mb-1">
+                {isLoadingData ? <Loader2 className="w-6 h-6 sm:w-8 sm:h-8 animate-spin" /> : `${toNumber(dashboardStats.verificationPercentage, 0)}%`}
               </div>
-              <p className="text-indigo-100 text-sm font-medium">Verified</p>
+              <p className="text-indigo-100 text-[10px] sm:text-xs lg:text-sm font-medium">Verified</p>
             </CardContent>
           </Card>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <div className="bg-white rounded-2xl shadow-lg p-2 border border-blue-100">
-            <TabsList className="grid grid-cols-4 lg:grid-cols-8 w-full bg-gray-50 rounded-xl p-1">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 sm:space-y-6">
+          <div className="bg-white rounded-2xl shadow-lg p-1 sm:p-2 border border-blue-100 overflow-x-auto">
+            <TabsList className="grid grid-cols-4 lg:grid-cols-8 w-full min-w-max bg-gray-50 rounded-xl p-0.5 sm:p-1">
               {[
                 { value: "profile", icon: User, label: "Profile" },
                 { value: "settings", icon: Settings, label: "Settings" },
@@ -704,55 +710,57 @@ export default function TherapistDashboardPage() {
                 <TabsTrigger 
                   key={value}
                   value={value}
-                  className="flex items-center justify-center space-x-2 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg transition-all duration-200"
+                  className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 sm:py-2.5 text-[10px] sm:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg transition-all duration-200"
                 >
-                  <Icon className="w-4 h-4" />
+                  <Icon className="w-3 h-3 sm:w-4 sm:h-4" />
                   <span className="hidden sm:inline">{label}</span>
+                  <span className="sm:hidden text-[9px] leading-tight text-center">{label}</span>
                 </TabsTrigger>
               ))}
             </TabsList>
           </div>
 
           <TabsContent value="profile">
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h3 className="text-2xl font-bold text-gray-800">Profile Management</h3>
+            <div className="space-y-4 sm:space-y-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+                <h3 className="text-xl sm:text-2xl font-bold text-gray-800">Profile Management</h3>
                 <Button 
                   onClick={() => setIsEditingProfile(!isEditingProfile)}
+                  size="sm"
                   className={`${
                     isEditingProfile 
                       ? 'bg-green-600 hover:bg-green-700' 
                       : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700'
-                  } text-white shadow-md transition-all duration-200`}
+                  } text-white shadow-md transition-all duration-200 w-full sm:w-auto`}
                 >
                   {isEditingProfile ? (
                     <span onClick={handleSaveProfile} style={{ display: 'flex', alignItems: 'center', cursor: 'pointer' }}>
-                      <Save className="w-4 h-4 mr-2" />
-                      Save Changes
+                      <Save className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                      <span className="text-xs sm:text-sm">Save Changes</span>
                     </span>
                   ) : (
                     <>
-                      <Edit className="w-4 h-4 mr-2" />
-                      Edit Profile
+                      <Edit className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                      <span className="text-xs sm:text-sm">Edit Profile</span>
                     </>
                   )}
                 </Button>
               </div>
 
               <Card className="shadow-lg border-blue-100">
-                <CardContent className="p-8">
-                  <div className="grid md:grid-cols-3 gap-8">
-                    <div className="space-y-4">
+                <CardContent className="p-4 sm:p-6 lg:p-8">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
+                    <div className="space-y-4 flex flex-col items-center md:items-start">
                       <div className="relative">
-                        <Avatar className="w-40 h-40 mx-auto border-4 border-blue-200 shadow-xl">
+                        <Avatar className="w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 mx-auto border-4 border-blue-200 shadow-xl">
                           <AvatarImage src={therapistData.profile.avatar} />
-                          <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-4xl font-bold">
+                          <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-2xl sm:text-3xl md:text-4xl font-bold">
                             {user?.name?.charAt(0) || 'T'}
                           </AvatarFallback>
                         </Avatar>
                         {isEditingProfile && (
-                          <Button size="sm" className="absolute bottom-2 right-1/4 rounded-full bg-blue-600 hover:bg-blue-700 shadow-lg">
-                            <Upload className="w-4 h-4" />
+                          <Button size="sm" className="absolute bottom-0 right-0 sm:bottom-2 sm:right-1/4 rounded-full bg-blue-600 hover:bg-blue-700 shadow-lg">
+                            <Upload className="w-3 h-3 sm:w-4 sm:h-4" />
                           </Button>
                         )}
                       </div>
@@ -779,21 +787,21 @@ export default function TherapistDashboardPage() {
                       </div>
                     </div>
 
-                    <div className="space-y-5">
+                    <div className="space-y-4 sm:space-y-5 w-full">
                       <div className="space-y-2">
-                        <Label className="text-sm font-semibold text-gray-700">Full Name</Label>
+                        <Label className="text-xs sm:text-sm font-semibold text-gray-700">Full Name</Label>
                         {isEditingProfile ? (
-                          <Input value={editProfileFields.name} onChange={e => setEditProfileFields(f => ({ ...f, name: e.target.value }))} className="border-blue-200 focus:border-blue-500" />
+                          <Input value={editProfileFields.name} onChange={e => setEditProfileFields(f => ({ ...f, name: e.target.value }))} className="border-blue-200 focus:border-blue-500 text-sm" />
                         ) : (
-                          <p className="text-gray-900 font-medium bg-gray-50 p-3 rounded-lg">{therapistData.profile.name}</p>
+                          <p className="text-gray-900 font-medium bg-gray-50 p-2 sm:p-3 rounded-lg text-sm sm:text-base">{therapistData.profile.name}</p>
                         )}
                       </div>
                       
                       <div className="space-y-2">
-                        <Label className="text-sm font-semibold text-gray-700">Gender</Label>
+                        <Label className="text-xs sm:text-sm font-semibold text-gray-700">Gender</Label>
                         {isEditingProfile ? (
                           <Select value={editProfileFields.gender.toLowerCase()} onValueChange={val => setEditProfileFields(f => ({ ...f, gender: val }))}>
-                            <SelectTrigger className="border-blue-200 focus:border-blue-500">
+                            <SelectTrigger className="border-blue-200 focus:border-blue-500 text-sm">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -804,27 +812,27 @@ export default function TherapistDashboardPage() {
                             </SelectContent>
                           </Select>
                         ) : (
-                          <p className="text-gray-900 font-medium bg-gray-50 p-3 rounded-lg">{therapistData.profile.gender}</p>
+                          <p className="text-gray-900 font-medium bg-gray-50 p-2 sm:p-3 rounded-lg text-sm sm:text-base">{therapistData.profile.gender}</p>
                         )}
                       </div>
 
                       <div className="space-y-2">
-                        <Label className="text-sm font-semibold text-gray-700">Experience</Label>
+                        <Label className="text-xs sm:text-sm font-semibold text-gray-700">Experience</Label>
                         {isEditingProfile ? (
-                          <Input value={editProfileFields.experience} onChange={e => setEditProfileFields(f => ({ ...f, experience: e.target.value }))} className="border-blue-200 focus:border-blue-500" />
+                          <Input value={editProfileFields.experience} onChange={e => setEditProfileFields(f => ({ ...f, experience: e.target.value }))} className="border-blue-200 focus:border-blue-500 text-sm" />
                         ) : (
-                          <p className="text-gray-900 font-medium bg-gray-50 p-3 rounded-lg">{therapistData.profile.experience}</p>
+                          <p className="text-gray-900 font-medium bg-gray-50 p-2 sm:p-3 rounded-lg text-sm sm:text-base">{therapistData.profile.experience}</p>
                         )}
                       </div>
 
                       <div className="space-y-2">
-                        <Label className="text-sm font-semibold text-gray-700">Languages</Label>
+                        <Label className="text-xs sm:text-sm font-semibold text-gray-700">Languages</Label>
                         {isEditingProfile ? (
-                          <Input value={editProfileFields.languages} onChange={e => setEditProfileFields(f => ({ ...f, languages: e.target.value }))} className="border-blue-200 focus:border-blue-500" />
+                          <Input value={editProfileFields.languages} onChange={e => setEditProfileFields(f => ({ ...f, languages: e.target.value }))} className="border-blue-200 focus:border-blue-500 text-sm" />
                         ) : (
                           <div className="flex flex-wrap gap-2 mt-1">
                             {therapistData.profile.languages.map((lang, index) => (
-                              <Badge key={index} variant="secondary" className="bg-blue-100 text-blue-800 border border-blue-200">
+                              <Badge key={index} variant="secondary" className="bg-blue-100 text-blue-800 border border-blue-200 text-xs">
                                 {lang}
                               </Badge>
                             ))}
@@ -833,18 +841,18 @@ export default function TherapistDashboardPage() {
                       </div>
                     </div>
 
-                    <div className="space-y-5">
+                    <div className="space-y-4 sm:space-y-5 w-full">
                       <div className="space-y-2">
-                        <Label className="text-sm font-semibold text-gray-700">Clinic Address</Label>
+                        <Label className="text-xs sm:text-sm font-semibold text-gray-700">Clinic Address</Label>
                         {isEditingProfile ? (
-                          <Textarea value={editProfileFields.clinicAddress} onChange={e => setEditProfileFields(f => ({ ...f, clinicAddress: e.target.value }))} className="border-blue-200 focus:border-blue-500" />
+                          <Textarea value={editProfileFields.clinicAddress} onChange={e => setEditProfileFields(f => ({ ...f, clinicAddress: e.target.value }))} className="border-blue-200 focus:border-blue-500 text-sm" />
                         ) : (
-                          <p className="text-gray-900 text-sm bg-gray-50 p-3 rounded-lg">{therapistData.profile.clinicAddress}</p>
+                          <p className="text-gray-900 text-xs sm:text-sm bg-gray-50 p-2 sm:p-3 rounded-lg">{therapistData.profile.clinicAddress}</p>
                         )}
                       </div>
 
                       <div className="space-y-2">
-                        <Label className="text-sm font-semibold text-gray-700">Service Modes</Label>
+                        <Label className="text-xs sm:text-sm font-semibold text-gray-700">Service Modes</Label>
                         <div className="flex flex-wrap gap-2 mt-1">
                           {therapistData.services.modes.map((mode, index) => {
                             const icons = {
@@ -854,7 +862,7 @@ export default function TherapistDashboardPage() {
                               "Home Visit": <Home className="w-3 h-3" />
                             };
                             return (
-                              <Badge key={index} className="bg-blue-100 text-blue-800 border border-blue-200">
+                              <Badge key={index} className="bg-blue-100 text-blue-800 border border-blue-200 text-xs">
                                 {icons[mode as keyof typeof icons]}
                                 <span className="ml-1">{mode}</span>
                               </Badge>
@@ -865,14 +873,14 @@ export default function TherapistDashboardPage() {
                     </div>
                   </div>
 
-                  <Separator className="my-8 bg-blue-100" />
+                  <Separator className="my-6 sm:my-8 bg-blue-100" />
 
                   <div className="space-y-3">
-                    <Label className="text-sm font-semibold text-gray-700">Professional Bio</Label>
+                    <Label className="text-xs sm:text-sm font-semibold text-gray-700">Professional Bio</Label>
                     {isEditingProfile ? (
-                      <Textarea value={editProfileFields.bio} onChange={e => setEditProfileFields(f => ({ ...f, bio: e.target.value }))} rows={5} className="border-blue-200 focus:border-blue-500" />
+                      <Textarea value={editProfileFields.bio} onChange={e => setEditProfileFields(f => ({ ...f, bio: e.target.value }))} rows={5} className="border-blue-200 focus:border-blue-500 text-sm" />
                     ) : (
-                      <p className="text-gray-700 leading-relaxed bg-gray-50 p-4 rounded-lg">{therapistData.profile.bio}</p>
+                      <p className="text-gray-700 leading-relaxed bg-gray-50 p-3 sm:p-4 rounded-lg text-sm sm:text-base">{therapistData.profile.bio}</p>
                     )}
                   </div>
                 </CardContent>
@@ -881,18 +889,18 @@ export default function TherapistDashboardPage() {
           </TabsContent>
 
           <TabsContent value="settings">
-            <div className="space-y-6">
-              <h3 className="text-2xl font-bold text-gray-800">Settings & Availability</h3>
+            <div className="space-y-4 sm:space-y-6">
+              <h3 className="text-xl sm:text-2xl font-bold text-gray-800">Settings & Availability</h3>
               {/* Availability Calendar */}
               <Card className="shadow-lg border-blue-100">
-                <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100">
-                  <CardTitle className="flex items-center text-blue-800">
-                    <CalendarIcon className="w-5 h-5 mr-2" />
+                <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100 p-4 sm:p-6">
+                  <CardTitle className="flex items-center text-blue-800 text-base sm:text-lg">
+                    <CalendarIcon className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
                     Availability Calendar
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="p-6">
-                  <div className="grid md:grid-cols-2 gap-8">
+                <CardContent className="p-4 sm:p-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
                     <div className="flex justify-center">
                       <LocalizationProvider dateAdapter={AdapterDateFns}>
                         <DatePicker
@@ -906,21 +914,21 @@ export default function TherapistDashboardPage() {
                       </LocalizationProvider>
                     </div>
                     <div className="space-y-4">
-                      <h4 className="font-semibold text-lg text-gray-800 mb-4">Weekly Time Slots</h4>
+                      <h4 className="font-semibold text-base sm:text-lg text-gray-800 mb-4">Weekly Time Slots</h4>
                       <div className="space-y-3">
                         {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].map((day) => (
-                          <div key={day} className="flex items-center justify-between p-4 border-2 border-blue-100 rounded-xl hover:border-blue-300 transition-colors bg-white shadow-sm">
-                            <span className="font-semibold text-gray-800">{day}</span>
-                            <div className="flex items-center space-x-3">
-                              <Input placeholder="9:00 AM" className="w-24 border-blue-200" />
-                              <span className="text-gray-500">to</span>
-                              <Input placeholder="5:00 PM" className="w-24 border-blue-200" />
+                          <div key={day} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 sm:p-4 border-2 border-blue-100 rounded-xl hover:border-blue-300 transition-colors bg-white shadow-sm">
+                            <span className="font-semibold text-gray-800 text-sm sm:text-base">{day}</span>
+                            <div className="flex items-center space-x-2 sm:space-x-3 w-full sm:w-auto">
+                              <Input placeholder="9:00 AM" className="w-20 sm:w-24 border-blue-200 text-xs sm:text-sm" />
+                              <span className="text-gray-500 text-xs sm:text-sm">to</span>
+                              <Input placeholder="5:00 PM" className="w-20 sm:w-24 border-blue-200 text-xs sm:text-sm" />
                               <Switch className="data-[state=checked]:bg-blue-600" />
                             </div>
                           </div>
                         ))}
                       </div>
-                      <Button className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md">
+                      <Button className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md text-sm sm:text-base">
                         Update Availability
                       </Button>
                     </div>
@@ -930,18 +938,18 @@ export default function TherapistDashboardPage() {
 
               {/* Service Options Settings */}
               <Card className="shadow-lg border-green-100">
-                <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 border-b border-green-100">
-                  <CardTitle className="flex items-center text-green-800">
-                    <DollarSign className="w-5 h-5 mr-2" />
+                <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 border-b border-green-100 p-4 sm:p-6">
+                  <CardTitle className="flex items-center text-green-800 text-base sm:text-lg">
+                    <DollarSign className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
                     Service Options
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="p-6 space-y-4">
-                  <div className="grid md:grid-cols-2 gap-6">
+                <CardContent className="p-4 sm:p-6 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                     <div className="space-y-3">
-                      <Label className="text-sm font-semibold text-gray-700">Session Type</Label>
+                      <Label className="text-xs sm:text-sm font-semibold text-gray-700">Session Type</Label>
                       <Select value={serviceTypes[0] || ""} onValueChange={v => setServiceTypes([v])}>
-                        <SelectTrigger className="border-green-200">
+                        <SelectTrigger className="border-green-200 text-sm">
                           <SelectValue placeholder="Select session type" />
                         </SelectTrigger>
                         <SelectContent>
@@ -953,15 +961,15 @@ export default function TherapistDashboardPage() {
                       </Select>
                     </div>
                     <div className="space-y-3">
-                      <Label className="text-sm font-semibold text-gray-700">Pricing per Session (₹)</Label>
-                      <Input type="number" min={0} value={pricing} onChange={e => setPricing(Number(e.target.value))} className="border-green-200" />
+                      <Label className="text-xs sm:text-sm font-semibold text-gray-700">Pricing per Session (₹)</Label>
+                      <Input type="number" min={0} value={pricing} onChange={e => setPricing(Number(e.target.value))} className="border-green-200 text-sm" />
                     </div>
                     <div className="space-y-3">
-                      <Label className="text-sm font-semibold text-gray-700">Session Duration (minutes)</Label>
-                      <Input type="number" min={15} max={120} value={duration} onChange={e => setDuration(Number(e.target.value))} className="border-green-200" />
+                      <Label className="text-xs sm:text-sm font-semibold text-gray-700">Session Duration (minutes)</Label>
+                      <Input type="number" min={15} max={120} value={duration} onChange={e => setDuration(Number(e.target.value))} className="border-green-200 text-sm" />
                     </div>
                   </div>
-                  <Button className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white shadow-md" onClick={handleUpdateServiceOptions}>
+                  <Button className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white shadow-md text-sm sm:text-base" onClick={handleUpdateServiceOptions}>
                     Update Service Options
                   </Button>
                 </CardContent>
@@ -969,26 +977,32 @@ export default function TherapistDashboardPage() {
 
               {/* Privacy & Notification Settings */}
               <Card className="shadow-lg border-purple-100">
-                <CardHeader className="bg-gradient-to-r from-purple-50 to-indigo-50 border-b border-purple-100">
-                  <CardTitle className="flex items-center text-purple-800">
-                    <Shield className="w-5 h-5 mr-2" />
+                <CardHeader className="bg-gradient-to-r from-purple-50 to-indigo-50 border-b border-purple-100 p-4 sm:p-6">
+                  <CardTitle className="flex items-center text-purple-800 text-base sm:text-lg">
+                    <Shield className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
                     Privacy & Notification Settings
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="p-6 space-y-4">
+                <CardContent className="p-4 sm:p-6 space-y-4">
                   <div className="space-y-3">
-                    <Label className="text-sm font-semibold text-gray-700">Receive Email Notifications</Label>
-                    <Switch checked={emailNotifications} onCheckedChange={setEmailNotifications} className="data-[state=checked]:bg-purple-600" />
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs sm:text-sm font-semibold text-gray-700">Receive Email Notifications</Label>
+                      <Switch checked={emailNotifications} onCheckedChange={setEmailNotifications} className="data-[state=checked]:bg-purple-600" />
+                    </div>
                   </div>
                   <div className="space-y-3">
-                    <Label className="text-sm font-semibold text-gray-700">Receive SMS/WhatsApp Notifications</Label>
-                    <Switch checked={smsNotifications} onCheckedChange={setSmsNotifications} className="data-[state=checked]:bg-purple-600" />
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs sm:text-sm font-semibold text-gray-700">Receive SMS/WhatsApp Notifications</Label>
+                      <Switch checked={smsNotifications} onCheckedChange={setSmsNotifications} className="data-[state=checked]:bg-purple-600" />
+                    </div>
                   </div>
                   <div className="space-y-3">
-                    <Label className="text-sm font-semibold text-gray-700">Show Profile Publicly</Label>
-                    <Switch checked={publicProfile} onCheckedChange={setPublicProfile} className="data-[state=checked]:bg-purple-600" />
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs sm:text-sm font-semibold text-gray-700">Show Profile Publicly</Label>
+                      <Switch checked={publicProfile} onCheckedChange={setPublicProfile} className="data-[state=checked]:bg-purple-600" />
+                    </div>
                   </div>
-                  <Button className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-md" onClick={handleUpdatePrivacySettings}>
+                  <Button className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white shadow-md text-sm sm:text-base" onClick={handleUpdatePrivacySettings}>
                     Update Privacy & Notification Settings
                   </Button>
                 </CardContent>
@@ -997,18 +1011,18 @@ export default function TherapistDashboardPage() {
           </TabsContent>
 
           <TabsContent value="verification">
-            <div className="space-y-6">
-              <h3 className="text-2xl font-bold text-gray-800">Verification Status</h3>
+            <div className="space-y-4 sm:space-y-6">
+              <h3 className="text-xl sm:text-2xl font-bold text-gray-800">Verification Status</h3>
               
               <Card className="shadow-lg border-blue-100">
-                <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100">
-                  <CardTitle className="flex items-center gap-2 text-blue-800">
-                    <Shield className="w-5 h-5" /> 
+                <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100 p-4 sm:p-6">
+                  <CardTitle className="flex items-center gap-2 text-blue-800 text-base sm:text-lg">
+                    <Shield className="w-4 h-4 sm:w-5 sm:h-5" /> 
                     Current Verification Progress
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="p-6 space-y-6">
-                  <div className="grid md:grid-cols-3 gap-6">
+                <CardContent className="p-4 sm:p-6 space-y-4 sm:space-y-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
                     {/* Use therapist data object keys for document URLs */}
                     {[{
                       key: 'Degrees',
@@ -1019,21 +1033,21 @@ export default function TherapistDashboardPage() {
                       label: 'Professional License',
                       url: therapistData.profile.licenseDocumentUrl || null
                     }].map(item => (
-                      <div key={item.key} className="p-6 border-2 border-blue-100 rounded-xl space-y-4 hover:shadow-lg transition-shadow bg-white">
+                      <div key={item.key} className="p-4 sm:p-6 border-2 border-blue-100 rounded-xl space-y-3 sm:space-y-4 hover:shadow-lg transition-shadow bg-white">
                         <div className="flex items-center justify-between">
-                          <span className="font-semibold text-gray-800">{item.label}</span>
-                          <Badge className={`bg-blue-100 text-blue-800 border-blue-200 border shadow-sm`}>{item.url ? 'Uploaded' : 'Missing'}</Badge>
+                          <span className="font-semibold text-gray-800 text-sm sm:text-base">{item.label}</span>
+                          <Badge className={`bg-blue-100 text-blue-800 border-blue-200 border shadow-sm text-xs`}>{item.url ? 'Uploaded' : 'Missing'}</Badge>
                         </div>
                         <Progress value={item.url ? 100 : 0} className="h-2" />
                         {item.url ? (
                           <a href={item.url} target="_blank" rel="noopener noreferrer">
-                            <Button size="sm" variant="outline" className="w-full border-blue-200 hover:bg-blue-50 hover:border-blue-300">
-                              <Eye className="w-4 h-4 mr-2" />View Document
+                            <Button size="sm" variant="outline" className="w-full border-blue-200 hover:bg-blue-50 hover:border-blue-300 text-xs sm:text-sm">
+                              <Eye className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />View Document
                             </Button>
                           </a>
                         ) : (
-                          <Button size="sm" variant="outline" className="w-full border-blue-200 hover:bg-blue-50 hover:border-blue-300">
-                            <Upload className="w-4 h-4 mr-2" />Upload
+                          <Button size="sm" variant="outline" className="w-full border-blue-200 hover:bg-blue-50 hover:border-blue-300 text-xs sm:text-sm">
+                            <Upload className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />Upload
                           </Button>
                         )}
                       </div>
@@ -1057,20 +1071,21 @@ export default function TherapistDashboardPage() {
           </TabsContent>
 
           <TabsContent value="appointments">
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h3 className="text-2xl font-bold text-gray-800">Appointments</h3>
+            <div className="space-y-4 sm:space-y-6">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+                <h3 className="text-xl sm:text-2xl font-bold text-gray-800">Appointments</h3>
                 <Button 
-                  className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md"
+                  className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md w-full sm:w-auto text-sm sm:text-base"
                   onClick={refreshData}
                   disabled={isLoadingData}
+                  size="sm"
                 >
-                  <RefreshCw className={`w-4 h-4 mr-2 ${isLoadingData ? 'animate-spin' : ''}`} />
+                  <RefreshCw className={`w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2 ${isLoadingData ? 'animate-spin' : ''}`} />
                   Refresh
                 </Button>
               </div>
 
-              <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
                 <Card className="shadow-lg border-blue-100 hover:shadow-xl transition-shadow">
                   <CardContent className="p-6 text-center">
                     <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -1119,35 +1134,37 @@ export default function TherapistDashboardPage() {
 
               {todaySessions.length > 0 && (
                 <Card className="shadow-lg border-blue-100">
-                  <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100">
-                    <CardTitle className="text-blue-800">Today's Sessions</CardTitle>
+                  <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100 p-4 sm:p-6">
+                    <CardTitle className="text-blue-800 text-base sm:text-lg">Today's Sessions</CardTitle>
                   </CardHeader>
-                  <CardContent className="p-6">
-                    <div className="grid gap-4">
+                  <CardContent className="p-4 sm:p-6">
+                    <div className="grid gap-3 sm:gap-4">
                       {todaySessions.map((session) => (
-                        <div key={session.id} className="flex items-center justify-between p-5 border-2 border-blue-100 rounded-xl hover:shadow-md transition-all bg-white">
-                          <div className="flex items-center space-x-4">
-                            <Avatar className="w-12 h-12 border-2 border-blue-200">
-                              <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-bold">
+                        <div key={session.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4 p-4 sm:p-5 border-2 border-blue-100 rounded-xl hover:shadow-md transition-all bg-white">
+                          <div className="flex items-center space-x-3 sm:space-x-4 w-full sm:w-auto">
+                            <Avatar className="w-10 h-10 sm:w-12 sm:h-12 border-2 border-blue-200 flex-shrink-0">
+                              <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-bold text-sm sm:text-base">
                                 {session.patientName.charAt(0)}
                               </AvatarFallback>
                             </Avatar>
-                            <div>
-                              <p className="font-semibold text-gray-900">{session.patientName}</p>
-                              <p className="text-sm text-gray-600">{session.patientEmail}</p>
+                            <div className="min-w-0 flex-1">
+                              <p className="font-semibold text-gray-900 text-sm sm:text-base truncate">{session.patientName}</p>
+                              <p className="text-xs sm:text-sm text-gray-600 truncate">{session.patientEmail}</p>
                             </div>
                           </div>
-                          <div className="text-right">
-                            <p className="font-semibold text-gray-900">{new Date(session.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                            <Badge variant="outline" className="border-blue-200 text-blue-700 bg-blue-50 mt-1">{session.sessionType}</Badge>
-                          </div>
-                          <div className="flex space-x-2">
-                            <Button size="sm" variant="outline" className="border-blue-200 hover:bg-blue-50">
-                              <MessageCircle className="w-4 h-4 text-blue-600" />
-                            </Button>
-                            <Button size="sm" variant="outline" className="border-blue-200 hover:bg-blue-50">
-                              <FileText className="w-4 h-4 text-blue-600" />
-                            </Button>
+                          <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
+                            <div className="text-left sm:text-right">
+                              <p className="font-semibold text-gray-900 text-sm sm:text-base">{new Date(session.startTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                              <Badge variant="outline" className="border-blue-200 text-blue-700 bg-blue-50 mt-1 text-xs">{session.sessionType}</Badge>
+                            </div>
+                            <div className="flex space-x-2">
+                              <Button size="sm" variant="outline" className="border-blue-200 hover:bg-blue-50 p-2">
+                                <MessageCircle className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600" />
+                              </Button>
+                              <Button size="sm" variant="outline" className="border-blue-200 hover:bg-blue-50 p-2">
+                                <FileText className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600" />
+                              </Button>
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -1157,61 +1174,97 @@ export default function TherapistDashboardPage() {
               )}
 
               <Card className="shadow-lg border-blue-100">
-                <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100">
-                  <CardTitle className="text-blue-800">Upcoming Appointments</CardTitle>
+                <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100 p-4 sm:p-6">
+                  <CardTitle className="text-blue-800 text-base sm:text-lg">Upcoming Appointments</CardTitle>
                 </CardHeader>
-                <CardContent className="p-6">
+                <CardContent className="p-4 sm:p-6">
                   {isLoadingData ? (
-                    <div className="flex items-center justify-center py-12">
-                      <Loader2 className="w-12 h-12 animate-spin text-blue-600" />
+                    <div className="flex items-center justify-center py-8 sm:py-12">
+                      <Loader2 className="w-8 h-8 sm:w-12 sm:h-12 animate-spin text-blue-600" />
                     </div>
                   ) : therapistData.appointments.upcoming.length > 0 ? (
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow className="border-blue-100 hover:bg-blue-50/50">
-                            <TableHead className="font-semibold text-gray-700">Patient</TableHead>
-                            <TableHead className="font-semibold text-gray-700">Date & Time</TableHead>
-                            <TableHead className="font-semibold text-gray-700">Type</TableHead>
-                            <TableHead className="font-semibold text-gray-700">Status</TableHead>
-                            <TableHead className="font-semibold text-gray-700">Actions</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {therapistData.appointments.upcoming.map((appointment) => (
-                            <TableRow key={appointment.id} className="border-blue-50 hover:bg-blue-50/30">
-                              <TableCell className="font-medium text-gray-900">{appointment.patient}</TableCell>
-                              <TableCell className="text-gray-700">{`${appointment.date} at ${appointment.time}`}</TableCell>
-                              <TableCell>
-                                <Badge variant="outline" className="border-blue-200 text-blue-700 bg-blue-50">
-                                  {appointment.type}
-                                </Badge>
-                              </TableCell>
-                              <TableCell>
-                                <Badge className="bg-green-100 text-green-800 border border-green-200">
-                                  <CheckCircle className="w-3 h-3 mr-1" />
-                                  Confirmed
-                                </Badge>
-                              </TableCell>
-                              <TableCell>
-                                <div className="flex space-x-2">
-                                  <Button size="sm" variant="outline" className="border-blue-200 hover:bg-blue-50">
-                                    <MessageCircle className="w-4 h-4 text-blue-600" />
-                                  </Button>
-                                  <Button size="sm" variant="outline" className="border-blue-200 hover:bg-blue-50">
-                                    <FileText className="w-4 h-4 text-blue-600" />
-                                  </Button>
-                                </div>
-                              </TableCell>
+                    <>
+                      {/* Mobile Card View */}
+                      <div className="block sm:hidden space-y-3">
+                        {therapistData.appointments.upcoming.map((appointment) => (
+                          <div key={appointment.id} className="p-4 border-2 border-blue-100 rounded-xl bg-white space-y-3">
+                            <div className="flex items-center justify-between">
+                              <p className="font-semibold text-gray-900 text-sm">{appointment.patient}</p>
+                              <Badge className="bg-green-100 text-green-800 border border-green-200 text-xs">
+                                <CheckCircle className="w-2 h-2 mr-1" />
+                                Confirmed
+                              </Badge>
+                            </div>
+                            <div className="space-y-2">
+                              <p className="text-xs text-gray-600">
+                                <CalendarIcon className="w-3 h-3 inline mr-1" />
+                                {appointment.date} at {appointment.time}
+                              </p>
+                              <Badge variant="outline" className="border-blue-200 text-blue-700 bg-blue-50 text-xs">
+                                {appointment.type}
+                              </Badge>
+                            </div>
+                            <div className="flex space-x-2 pt-2">
+                              <Button size="sm" variant="outline" className="border-blue-200 hover:bg-blue-50 flex-1 text-xs">
+                                <MessageCircle className="w-3 h-3 mr-1" />
+                                Message
+                              </Button>
+                              <Button size="sm" variant="outline" className="border-blue-200 hover:bg-blue-50 flex-1 text-xs">
+                                <FileText className="w-3 h-3 mr-1" />
+                                Details
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      {/* Desktop Table View */}
+                      <div className="hidden sm:block overflow-x-auto">
+                        <Table>
+                          <TableHeader>
+                            <TableRow className="border-blue-100 hover:bg-blue-50/50">
+                              <TableHead className="font-semibold text-gray-700 text-sm">Patient</TableHead>
+                              <TableHead className="font-semibold text-gray-700 text-sm">Date & Time</TableHead>
+                              <TableHead className="font-semibold text-gray-700 text-sm">Type</TableHead>
+                              <TableHead className="font-semibold text-gray-700 text-sm">Status</TableHead>
+                              <TableHead className="font-semibold text-gray-700 text-sm">Actions</TableHead>
                             </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
+                          </TableHeader>
+                          <TableBody>
+                            {therapistData.appointments.upcoming.map((appointment) => (
+                              <TableRow key={appointment.id} className="border-blue-50 hover:bg-blue-50/30">
+                                <TableCell className="font-medium text-gray-900 text-sm">{appointment.patient}</TableCell>
+                                <TableCell className="text-gray-700 text-sm">{`${appointment.date} at ${appointment.time}`}</TableCell>
+                                <TableCell>
+                                  <Badge variant="outline" className="border-blue-200 text-blue-700 bg-blue-50 text-xs">
+                                    {appointment.type}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  <Badge className="bg-green-100 text-green-800 border border-green-200 text-xs">
+                                    <CheckCircle className="w-3 h-3 mr-1" />
+                                    Confirmed
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex space-x-2">
+                                    <Button size="sm" variant="outline" className="border-blue-200 hover:bg-blue-50">
+                                      <MessageCircle className="w-4 h-4 text-blue-600" />
+                                    </Button>
+                                    <Button size="sm" variant="outline" className="border-blue-200 hover:bg-blue-50">
+                                      <FileText className="w-4 h-4 text-blue-600" />
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </>
                   ) : (
-                    <div className="text-center py-12">
-                      <CalendarIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                      <p className="text-gray-600 font-medium">No upcoming appointments</p>
+                    <div className="text-center py-8 sm:py-12">
+                      <CalendarIcon className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 mx-auto mb-4" />
+                      <p className="text-gray-600 font-medium text-sm sm:text-base">No upcoming appointments</p>
                     </div>
                   )}
                 </CardContent>
@@ -1220,77 +1273,77 @@ export default function TherapistDashboardPage() {
           </TabsContent>
 
           <TabsContent value="earnings">
-            <div className="space-y-6">
-              <h3 className="text-2xl font-bold text-gray-800">Earnings Dashboard</h3>
+            <div className="space-y-4 sm:space-y-6">
+              <h3 className="text-xl sm:text-2xl font-bold text-gray-800">Earnings Dashboard</h3>
               
-              <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
                 <Card className="shadow-lg border-green-100 hover:shadow-xl transition-shadow">
-                  <CardContent className="p-6 text-center">
-                    <div className="bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <DollarSign className="w-8 h-8 text-green-600" />
+                  <CardContent className="p-4 sm:p-6 text-center">
+                    <div className="bg-green-100 w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                      <DollarSign className="w-6 h-6 sm:w-8 sm:h-8 text-green-600" />
                     </div>
-                    <div className="text-3xl font-bold text-green-600 mb-1">
-                      {isLoadingData ? <Loader2 className="w-8 h-8 animate-spin mx-auto" /> : formatCurrency(dashboardStats.thisMonthEarnings)}
+                    <div className="text-xl sm:text-2xl lg:text-3xl font-bold text-green-600 mb-1">
+                      {isLoadingData ? <Loader2 className="w-6 h-6 sm:w-8 sm:h-8 animate-spin mx-auto" /> : formatCurrency(dashboardStats.thisMonthEarnings)}
                     </div>
-                    <p className="text-sm text-gray-600 font-medium">This Month</p>
+                    <p className="text-[10px] sm:text-xs lg:text-sm text-gray-600 font-medium">This Month</p>
                   </CardContent>
                 </Card>
                 
                 <Card className="shadow-lg border-blue-100 hover:shadow-xl transition-shadow">
-                  <CardContent className="p-6 text-center">
-                    <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <TrendingUp className="w-8 h-8 text-blue-600" />
+                  <CardContent className="p-4 sm:p-6 text-center">
+                    <div className="bg-blue-100 w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                      <TrendingUp className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600" />
                     </div>
-                    <div className="text-3xl font-bold text-gray-900 mb-1">
-                      {isLoadingData ? <Loader2 className="w-8 h-8 animate-spin mx-auto text-blue-600" /> : formatCurrency(dashboardStats.lastMonthEarnings)}
+                    <div className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 mb-1">
+                      {isLoadingData ? <Loader2 className="w-6 h-6 sm:w-8 sm:h-8 animate-spin mx-auto text-blue-600" /> : formatCurrency(dashboardStats.lastMonthEarnings)}
                     </div>
-                    <p className="text-sm text-gray-600 font-medium">Last Month</p>
+                    <p className="text-[10px] sm:text-xs lg:text-sm text-gray-600 font-medium">Last Month</p>
                   </CardContent>
                 </Card>
                 
                 <Card className="shadow-lg border-purple-100 hover:shadow-xl transition-shadow">
-                  <CardContent className="p-6 text-center">
-                    <div className="bg-purple-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <BarChart3 className="w-8 h-8 text-purple-600" />
+                  <CardContent className="p-4 sm:p-6 text-center">
+                    <div className="bg-purple-100 w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                      <BarChart3 className="w-6 h-6 sm:w-8 sm:h-8 text-purple-600" />
                     </div>
-                    <div className="text-3xl font-bold text-purple-600 mb-1">
-                      {isLoadingData ? <Loader2 className="w-8 h-8 animate-spin mx-auto" /> : formatCurrency(dashboardStats.totalEarnings)}
+                    <div className="text-xl sm:text-2xl lg:text-3xl font-bold text-purple-600 mb-1">
+                      {isLoadingData ? <Loader2 className="w-6 h-6 sm:w-8 sm:h-8 animate-spin mx-auto" /> : formatCurrency(dashboardStats.totalEarnings)}
                     </div>
-                    <p className="text-sm text-gray-600 font-medium">Total Earnings</p>
+                    <p className="text-[10px] sm:text-xs lg:text-sm text-gray-600 font-medium">Total Earnings</p>
                   </CardContent>
                 </Card>
                 
                 <Card className="shadow-lg border-orange-100 hover:shadow-xl transition-shadow">
-                  <CardContent className="p-6 text-center">
-                    <div className="bg-orange-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <Clock className="w-8 h-8 text-orange-600" />
+                  <CardContent className="p-4 sm:p-6 text-center">
+                    <div className="bg-orange-100 w-12 h-12 sm:w-16 sm:h-16 rounded-full flex items-center justify-center mx-auto mb-3 sm:mb-4">
+                      <Clock className="w-6 h-6 sm:w-8 sm:h-8 text-orange-600" />
                     </div>
-                    <div className="text-3xl font-bold text-orange-600 mb-1">
-                      {isLoadingData ? <Loader2 className="w-8 h-8 animate-spin mx-auto" /> : formatCurrency(dashboardStats.pendingWithdrawal)}
+                    <div className="text-xl sm:text-2xl lg:text-3xl font-bold text-orange-600 mb-1">
+                      {isLoadingData ? <Loader2 className="w-6 h-6 sm:w-8 sm:h-8 animate-spin mx-auto" /> : formatCurrency(dashboardStats.pendingWithdrawal)}
                     </div>
-                    <p className="text-sm text-gray-600 font-medium">Available</p>
+                    <p className="text-[10px] sm:text-xs lg:text-sm text-gray-600 font-medium">Available</p>
                   </CardContent>
                 </Card>
               </div>
 
-              <div className="grid md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                 <Card className="shadow-lg border-blue-100">
-                  <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100">
-                    <CardTitle className="text-blue-800">Request Withdrawal</CardTitle>
+                  <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100 p-4 sm:p-6">
+                    <CardTitle className="text-blue-800 text-base sm:text-lg">Request Withdrawal</CardTitle>
                   </CardHeader>
-                  <CardContent className="p-6 space-y-5">
-                    <div className="bg-green-50 border-2 border-green-200 rounded-xl p-4">
-                      <Label className="text-sm font-semibold text-gray-700">Available Balance</Label>
-                      <p className="text-3xl font-bold text-green-600 mt-1">{formatCurrency(dashboardStats.pendingWithdrawal)}</p>
+                  <CardContent className="p-4 sm:p-6 space-y-4 sm:space-y-5">
+                    <div className="bg-green-50 border-2 border-green-200 rounded-xl p-3 sm:p-4">
+                      <Label className="text-xs sm:text-sm font-semibold text-gray-700">Available Balance</Label>
+                      <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-green-600 mt-1">{formatCurrency(dashboardStats.pendingWithdrawal)}</p>
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-sm font-semibold text-gray-700">Withdrawal Amount</Label>
-                      <Input type="number" placeholder="Enter amount" className="border-blue-200 focus:border-blue-500" />
+                      <Label className="text-xs sm:text-sm font-semibold text-gray-700">Withdrawal Amount</Label>
+                      <Input type="number" placeholder="Enter amount" className="border-blue-200 focus:border-blue-500 text-sm" />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-sm font-semibold text-gray-700">Bank Account</Label>
+                      <Label className="text-xs sm:text-sm font-semibold text-gray-700">Bank Account</Label>
                       <Select>
-                        <SelectTrigger className="border-blue-200">
+                        <SelectTrigger className="border-blue-200 text-sm">
                           <SelectValue placeholder="Select account" />
                         </SelectTrigger>
                         <SelectContent>
@@ -1299,25 +1352,25 @@ export default function TherapistDashboardPage() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <Button className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white shadow-md">
-                      <Download className="w-4 h-4 mr-2" />
+                    <Button className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white shadow-md text-sm sm:text-base">
+                      <Download className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                       Request Withdrawal
                     </Button>
                   </CardContent>
                 </Card>
                 
                 <Card className="shadow-lg border-blue-100">
-                  <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100">
-                    <CardTitle className="text-blue-800">Earnings Overview</CardTitle>
+                  <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100 p-4 sm:p-6">
+                    <CardTitle className="text-blue-800 text-base sm:text-lg">Earnings Overview</CardTitle>
                   </CardHeader>
-                  <CardContent className="p-6 space-y-4">
-                    <div className="flex items-center justify-between p-4 bg-blue-50 rounded-xl border border-blue-100">
-                      <span className="text-gray-700 font-medium">Sessions Completed</span>
-                      <span className="text-2xl font-bold text-blue-600">{toNumber(dashboardStats.totalSessions, 0)}</span>
+                  <CardContent className="p-4 sm:p-6 space-y-3 sm:space-y-4">
+                    <div className="flex items-center justify-between p-3 sm:p-4 bg-blue-50 rounded-xl border border-blue-100">
+                      <span className="text-gray-700 font-medium text-xs sm:text-sm">Sessions Completed</span>
+                      <span className="text-xl sm:text-2xl font-bold text-blue-600">{toNumber(dashboardStats.totalSessions, 0)}</span>
                     </div>
-                    <div className="flex items-center justify-between p-4 bg-green-50 rounded-xl border border-green-100">
-                      <span className="text-gray-700 font-medium">Average per Session</span>
-                      <span className="text-2xl font-bold text-green-600">
+                    <div className="flex items-center justify-between p-3 sm:p-4 bg-green-50 rounded-xl border border-green-100">
+                      <span className="text-gray-700 font-medium text-xs sm:text-sm">Average per Session</span>
+                      <span className="text-xl sm:text-2xl font-bold text-green-600">
                         {formatCurrency(
                           toNumber(dashboardStats.totalSessions, 0) > 0 
                             ? toNumber(dashboardStats.totalEarnings, 0) / toNumber(dashboardStats.totalSessions, 0) 
@@ -1325,9 +1378,9 @@ export default function TherapistDashboardPage() {
                         )}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between p-4 bg-purple-50 rounded-xl border border-purple-100">
-                      <span className="text-gray-700 font-medium">This Month Sessions</span>
-                      <span className="text-2xl font-bold text-purple-600">{toNumber(dashboardStats.thisMonthSessions, 0)}</span>
+                    <div className="flex items-center justify-between p-3 sm:p-4 bg-purple-50 rounded-xl border border-purple-100">
+                      <span className="text-gray-700 font-medium text-xs sm:text-sm">This Month Sessions</span>
+                      <span className="text-xl sm:text-2xl font-bold text-purple-600">{toNumber(dashboardStats.thisMonthSessions, 0)}</span>
                     </div>
                   </CardContent>
                 </Card>
@@ -1336,20 +1389,20 @@ export default function TherapistDashboardPage() {
           </TabsContent>
 
           <TabsContent value="courses">
-            <div className="space-y-6">
-              <h3 className="text-2xl font-bold text-gray-800">Courses & Certifications</h3>
+            <div className="space-y-4 sm:space-y-6">
+              <h3 className="text-xl sm:text-2xl font-bold text-gray-800">Courses & Certifications</h3>
               <Card className="shadow-lg border-blue-100">
-                <CardContent className="p-12 text-center">
-                  <GraduationCap className="w-20 h-20 text-gray-300 mx-auto mb-6" />
-                  <h4 className="text-xl font-semibold text-gray-800 mb-2">No Courses Yet</h4>
-                  <p className="text-gray-600 mb-6">
+                <CardContent className="p-6 sm:p-12 text-center">
+                  <GraduationCap className="w-16 h-16 sm:w-20 sm:h-20 text-gray-300 mx-auto mb-4 sm:mb-6" />
+                  <h4 className="text-lg sm:text-xl font-semibold text-gray-800 mb-2">No Courses Yet</h4>
+                  <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">
                     Course tracking and certificates will appear here once you enroll via TheraLearn.
                   </p>
                   <Button 
                     onClick={() => router.push('/theralearn')}
-                    className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md"
+                    className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md text-sm sm:text-base"
                   >
-                    <GraduationCap className="w-4 h-4 mr-2" />
+                    <GraduationCap className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                     Browse Courses
                   </Button>
                 </CardContent>
@@ -1358,40 +1411,40 @@ export default function TherapistDashboardPage() {
           </TabsContent>
 
           <TabsContent value="support">
-            <div className="space-y-6">
-              <h3 className="text-2xl font-bold text-gray-800">Help & Support</h3>
-              <div className="grid md:grid-cols-2 gap-6">
+            <div className="space-y-4 sm:space-y-6">
+              <h3 className="text-xl sm:text-2xl font-bold text-gray-800">Help & Support</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                 <Card className="shadow-lg border-blue-100 hover:shadow-xl transition-shadow">
-                  <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100">
-                    <CardTitle className="flex items-center text-blue-800">
-                      <HelpCircle className="w-5 h-5 mr-2" />
+                  <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100 p-4 sm:p-6">
+                    <CardTitle className="flex items-center text-blue-800 text-base sm:text-lg">
+                      <HelpCircle className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
                       Support Tickets
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="p-6">
-                    <p className="text-gray-600 mb-6">
+                  <CardContent className="p-4 sm:p-6">
+                    <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">
                       Need help? Submit a support ticket and our team will assist you.
                     </p>
-                    <Button className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md">
-                      <PlusCircle className="w-4 h-4 mr-2" />
+                    <Button className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md text-sm sm:text-base">
+                      <PlusCircle className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                       Raise New Ticket
                     </Button>
                   </CardContent>
                 </Card>
                 
                 <Card className="shadow-lg border-blue-100 hover:shadow-xl transition-shadow">
-                  <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100">
-                    <CardTitle className="flex items-center text-blue-800">
-                      <Mail className="w-5 h-5 mr-2" />
+                  <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100 p-4 sm:p-6">
+                    <CardTitle className="flex items-center text-blue-800 text-base sm:text-lg">
+                      <Mail className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
                       Grievance Box
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="p-6">
-                    <p className="text-gray-600 mb-6">
+                  <CardContent className="p-4 sm:p-6">
+                    <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">
                       Have a concern or complaint? We're here to listen and help resolve it.
                     </p>
-                    <Button className="w-full border-2 border-blue-600 text-blue-600 hover:bg-blue-50" variant="outline">
-                      <Mail className="w-4 h-4 mr-2" />
+                    <Button className="w-full border-2 border-blue-600 text-blue-600 hover:bg-blue-50 text-sm sm:text-base" variant="outline">
+                      <Mail className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                       Submit Grievance
                     </Button>
                   </CardContent>
@@ -1399,25 +1452,25 @@ export default function TherapistDashboardPage() {
               </div>
               
               <Card className="shadow-lg border-blue-100">
-                <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100">
-                  <CardTitle className="text-blue-800">Quick Help Resources</CardTitle>
+                <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100 p-4 sm:p-6">
+                  <CardTitle className="text-blue-800 text-base sm:text-lg">Quick Help Resources</CardTitle>
                 </CardHeader>
-                <CardContent className="p-6">
-                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <div className="p-4 border-2 border-blue-100 rounded-xl hover:border-blue-300 hover:shadow-md transition-all cursor-pointer">
-                      <FileText className="w-8 h-8 text-blue-600 mb-3" />
-                      <h5 className="font-semibold text-gray-800 mb-1">Documentation</h5>
-                      <p className="text-sm text-gray-600">Browse our help guides</p>
+                <CardContent className="p-4 sm:p-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+                    <div className="p-3 sm:p-4 border-2 border-blue-100 rounded-xl hover:border-blue-300 hover:shadow-md transition-all cursor-pointer">
+                      <FileText className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600 mb-2 sm:mb-3" />
+                      <h5 className="font-semibold text-gray-800 mb-1 text-sm sm:text-base">Documentation</h5>
+                      <p className="text-xs sm:text-sm text-gray-600">Browse our help guides</p>
                     </div>
-                    <div className="p-4 border-2 border-blue-100 rounded-xl hover:border-blue-300 hover:shadow-md transition-all cursor-pointer">
-                      <Video className="w-8 h-8 text-blue-600 mb-3" />
-                      <h5 className="font-semibold text-gray-800 mb-1">Video Tutorials</h5>
-                      <p className="text-sm text-gray-600">Learn with videos</p>
+                    <div className="p-3 sm:p-4 border-2 border-blue-100 rounded-xl hover:border-blue-300 hover:shadow-md transition-all cursor-pointer">
+                      <Video className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600 mb-2 sm:mb-3" />
+                      <h5 className="font-semibold text-gray-800 mb-1 text-sm sm:text-base">Video Tutorials</h5>
+                      <p className="text-xs sm:text-sm text-gray-600">Learn with videos</p>
                     </div>
-                    <div className="p-4 border-2 border-blue-100 rounded-xl hover:border-blue-300 hover:shadow-md transition-all cursor-pointer">
-                      <MessageCircle className="w-8 h-8 text-blue-600 mb-3" />
-                      <h5 className="font-semibold text-gray-800 mb-1">Live Chat</h5>
-                      <p className="text-sm text-gray-600">Chat with support</p>
+                    <div className="p-3 sm:p-4 border-2 border-blue-100 rounded-xl hover:border-blue-300 hover:shadow-md transition-all cursor-pointer">
+                      <MessageCircle className="w-6 h-6 sm:w-8 sm:h-8 text-blue-600 mb-2 sm:mb-3" />
+                      <h5 className="font-semibold text-gray-800 mb-1 text-sm sm:text-base">Live Chat</h5>
+                      <p className="text-xs sm:text-sm text-gray-600">Chat with support</p>
                     </div>
                   </div>
                 </CardContent>
@@ -1426,21 +1479,21 @@ export default function TherapistDashboardPage() {
           </TabsContent>
 
           <TabsContent value="articles">
-            <div className="space-y-6">
-              <h3 className="text-2xl font-bold text-gray-800">Write & Publish Articles</h3>
+            <div className="space-y-4 sm:space-y-6">
+              <h3 className="text-xl sm:text-2xl font-bold text-gray-800">Write & Publish Articles</h3>
               <Card className="shadow-lg border-blue-100">
-                <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100">
-                  <CardTitle className="text-blue-800">Blog Submissions</CardTitle>
+                <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-100 p-4 sm:p-6">
+                  <CardTitle className="text-blue-800 text-base sm:text-lg">Blog Submissions</CardTitle>
                 </CardHeader>
-                <CardContent className="p-6 space-y-5">
+                <CardContent className="p-4 sm:p-6 space-y-4 sm:space-y-5">
                   <div className="space-y-2">
-                    <Label className="text-sm font-semibold text-gray-700">Article Title</Label>
-                    <Input placeholder="Enter article title" className="border-blue-200 focus:border-blue-500" />
+                    <Label className="text-xs sm:text-sm font-semibold text-gray-700">Article Title</Label>
+                    <Input placeholder="Enter article title" className="border-blue-200 focus:border-blue-500 text-sm" />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-sm font-semibold text-gray-700">Category</Label>
+                    <Label className="text-xs sm:text-sm font-semibold text-gray-700">Category</Label>
                     <Select>
-                      <SelectTrigger className="border-blue-200">
+                      <SelectTrigger className="border-blue-200 text-sm">
                         <SelectValue placeholder="Select category" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1452,16 +1505,16 @@ export default function TherapistDashboardPage() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-sm font-semibold text-gray-700">Content</Label>
-                    <Textarea placeholder="Write your article content..." rows={12} className="border-blue-200 focus:border-blue-500" />
+                    <Label className="text-xs sm:text-sm font-semibold text-gray-700">Content</Label>
+                    <Textarea placeholder="Write your article content..." rows={8} className="border-blue-200 focus:border-blue-500 text-sm" />
                   </div>
-                  <div className="flex gap-3">
-                    <Button className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md">
-                      <Upload className="w-4 h-4 mr-2" />
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <Button className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md text-sm sm:text-base">
+                      <Upload className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                       Publish Article
                     </Button>
-                    <Button variant="outline" className="border-blue-200 hover:bg-blue-50">
-                      <Eye className="w-4 h-4 mr-2" />
+                    <Button variant="outline" className="border-blue-200 hover:bg-blue-50 text-sm sm:text-base">
+                      <Eye className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
                       Preview
                     </Button>
                   </div>
