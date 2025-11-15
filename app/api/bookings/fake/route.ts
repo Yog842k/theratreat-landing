@@ -69,7 +69,9 @@ export async function POST(request: NextRequest) {
     // Meeting scheduling (video/audio only)
     if (['video','audio'].includes(sessionType)) {
       try {
-        const sched = await scheduleMeeting({ bookingId: bookingDoc._id.toString() });
+        // Use unique booking ID with timestamp and random to ensure uniqueness
+        const uniqueBookingId = `${bookingDoc._id.toString()}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+        const sched = await scheduleMeeting({ bookingId: uniqueBookingId, sessionType: sessionType as 'video' | 'audio' });
         await database.updateOne('bookings', { _id: bookingDoc._id }, { $set: { roomCode: sched.roomCode, meetingUrl: sched.meetingUrl, updatedAt: new Date() } });
         bookingDoc.roomCode = sched.roomCode; bookingDoc.meetingUrl = sched.meetingUrl;
       } catch (e) { console.error('scheduleMeeting(fake) failed', e); }

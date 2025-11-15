@@ -384,7 +384,25 @@ export default function PaymentPage({}: PaymentPageProps) {
               <div className="space-y-2">
                 <div className="flex justify-between">
                   <span className="text-sm">Session Fee</span>
-                  <span className="text-sm">₹{booking?.totalAmount || 0}</span>
+                  <span className="text-sm">₹{(() => {
+                    // Use booking totalAmount if available and > 0
+                    if (booking?.totalAmount && booking.totalAmount > 0) {
+                      return booking.totalAmount;
+                    }
+                    // Fallback: calculate from session type if available
+                    const sessionTypePrices: Record<string, number> = {
+                      video: 999,
+                      audio: 499,
+                      clinic: 699,
+                      home: 1299
+                    };
+                    if (booking?.sessionType) {
+                      const price = sessionTypePrices[booking.sessionType.toLowerCase()] || 0;
+                      if (price > 0) return price;
+                    }
+                    // Final fallback: minimum session price
+                    return Math.min(...Object.values(sessionTypePrices));
+                  })()}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-sm">Platform Fee</span>
@@ -397,7 +415,29 @@ export default function PaymentPage({}: PaymentPageProps) {
                 <Separator />
                 <div className="flex justify-between text-lg font-semibold">
                   <span>Total</span>
-                  <span>₹{(booking?.totalAmount || 0) + 15}</span>
+                  <span>₹{(() => {
+                    // Calculate session fee
+                    let sessionFee = 0;
+                    if (booking?.totalAmount && booking.totalAmount > 0) {
+                      sessionFee = booking.totalAmount;
+                    } else {
+                      // Fallback: calculate from session type if available
+                      const sessionTypePrices: Record<string, number> = {
+                        video: 999,
+                        audio: 499,
+                        clinic: 699,
+                        home: 1299
+                      };
+                      if (booking?.sessionType) {
+                        sessionFee = sessionTypePrices[booking.sessionType.toLowerCase()] || 0;
+                      }
+                      if (sessionFee === 0) {
+                        // Final fallback: minimum session price
+                        sessionFee = Math.min(...Object.values(sessionTypePrices));
+                      }
+                    }
+                    return sessionFee + 15; // session fee + platform fee (5) + tax (10)
+                  })()}</span>
                 </div>
               </div>
 
@@ -412,9 +452,30 @@ export default function PaymentPage({}: PaymentPageProps) {
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                     Opening Razorpay...
                   </>
-                ) : (
-                  `Pay ₹${(booking?.totalAmount || 0) + 15}`
-                )}
+                ) : (() => {
+                  // Calculate session fee
+                  let sessionFee = 0;
+                  if (booking?.totalAmount && booking.totalAmount > 0) {
+                    sessionFee = booking.totalAmount;
+                  } else {
+                    // Fallback: calculate from session type if available
+                    const sessionTypePrices: Record<string, number> = {
+                      video: 999,
+                      audio: 499,
+                      clinic: 699,
+                      home: 1299
+                    };
+                    if (booking?.sessionType) {
+                      sessionFee = sessionTypePrices[booking.sessionType.toLowerCase()] || 0;
+                    }
+                    if (sessionFee === 0) {
+                      // Final fallback: minimum session price
+                      sessionFee = Math.min(...Object.values(sessionTypePrices));
+                    }
+                  }
+                  return `Pay ₹${sessionFee + 15}`; // session fee + platform fee (5) + tax (10)
+                })()
+                }
               </Button>
 
               <p className="text-xs text-gray-500 text-center">

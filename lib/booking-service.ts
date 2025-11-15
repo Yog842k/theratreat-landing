@@ -17,6 +17,9 @@ export interface Booking extends BookingData {
   paymentStatus?: string;
   createdAt: string;
   updatedAt: string;
+  meetingUrl?: string | null;
+  roomCode?: string | null;
+  meetingLink?: string | null; // Alternative field name
 }
 
 export interface AvailabilitySlot {
@@ -27,7 +30,7 @@ export interface AvailabilitySlot {
 
 interface AvailabilityResponse {
   availability: AvailabilitySlot[];
-  source: 'api' | 'mock';
+  source: 'api' | 'mock' | 'fallback';
 }
 
 function authHeaders(token?: string) {
@@ -94,26 +97,39 @@ export const bookingService = {
     return handleJson(res);
   },
 
-  // Mock availability until there's a real endpoint (could be /api/therapists/[id]/availability)
+  // Get therapist availability from API endpoint
   async getTherapistAvailability(therapistId: string, { date }: { date: string }): Promise<AvailabilityResponse> {
-    // Attempt future real endpoint first (ignored if 404)
     try {
       const res = await fetch(`/api/therapists/${therapistId}/availability?date=${date}`);
       if (res.ok) {
         const json = await res.json();
-        if (json?.data?.availability) {
+        if (json?.success && json?.data?.availability) {
+          console.log('[booking-service] ✅ Got availability from API:', {
+            therapistId,
+            date,
+            slots: json.data.availability.length,
+            available: json.data.availability.filter((a: any) => a.available).length
+          });
           return { availability: json.data.availability, source: 'api' };
         }
+      } else {
+        const errorData = await res.json().catch(() => ({}));
+        console.warn('[booking-service] Availability API returned error:', res.status, errorData);
       }
-    } catch {}
+    } catch (error: any) {
+      console.error('[booking-service] Error fetching availability:', error);
+    }
 
-    // Fallback mock pattern: every hour 09-17 with some taken
-    const hours = [9,10,11,13,14,15,16,17];
-    const availability: AvailabilitySlot[] = hours.map(h => ({
+    // Fallback: Show all default slots as available (no random blocking!)
+    // This ensures users can book even if API fails
+    const defaultHours = [9,10,11,12,13,14,15,16,17,18];
+    const availability: AvailabilitySlot[] = defaultHours.map(h => ({
       time: `${String(h).padStart(2,'0')}:00`,
-      available: Math.random() > 0.3
+      available: true // All slots available by default - only block if actually booked
     }));
-    return { availability, source: 'mock' };
+    
+    console.warn('[booking-service] ⚠️ Using fallback availability (all slots available)');
+    return { availability, source: 'fallback' };
   }
 };
 

@@ -2,7 +2,6 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Navigation } from "@/components/Navigation";
 import { NavigationTabs } from "@/components/NavigationTabs";
 import { HomePage } from "@/components/HomePage";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -70,7 +69,6 @@ export default function HomeRootClient() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Navigation />
       <NavigationTabs currentView={currentView} setCurrentView={handleViewChange} />
       {showSuccessMessage && (
         <div className="max-w-7xl mx-auto px-6 pt-4">

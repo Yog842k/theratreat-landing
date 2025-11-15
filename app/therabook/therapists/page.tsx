@@ -278,6 +278,33 @@ export default function TherapistsListingPage() {
               const sessionFormats = rawSessions.map(normalizeSessionType);
               const isOnline = sessionFormats.includes('video');
               if (!city && !area && isOnline) city = 'Online';
+              // Calculate price: use consultation fee if available, otherwise use minimum session type price
+              const getDisplayPrice = () => {
+                if (t.consultationFee && t.consultationFee > 0) {
+                  return t.consultationFee;
+                }
+                // Fallback: minimum session type price (starting price)
+                const sessionTypePrices: Record<string, number> = {
+                  video: 999,
+                  audio: 499,
+                  'in-clinic': 699,
+                  'at-home': 1299,
+                  clinic: 699,
+                  home: 1299
+                };
+                // If therapist has session formats, use the minimum price from available formats
+                if (sessionFormats.length > 0) {
+                  const availablePrices = sessionFormats
+                    .map(format => sessionTypePrices[format] || 0)
+                    .filter(price => price > 0);
+                  if (availablePrices.length > 0) {
+                    return Math.min(...availablePrices);
+                  }
+                }
+                // Final fallback: absolute minimum session price
+                return Math.min(...Object.values(sessionTypePrices));
+              };
+
               return {
                 id: t._id,
                 name: t.displayName || 'Therapist',
@@ -287,7 +314,7 @@ export default function TherapistsListingPage() {
                 experience: t.experience || 0,
                 rating: t.rating || 0,
                 reviews: t.reviewCount || 0,
-                price: t.consultationFee || 0,
+                price: getDisplayPrice(),
                 sessionFormats,
                 ageGroups: [],
                 location: { city, area },

@@ -105,7 +105,17 @@ export default function BookingPage({ params }: BookingPageProps) {
 
   const getSelectedPrice = () => {
     const sessionType = getSelectedSessionType();
-    return sessionType ? sessionType.price : mockTherapist.price;
+    if (sessionType) {
+      return sessionType.price;
+    }
+    // If no session type selected, show therapist's price if available
+    // Otherwise, show the minimum price from available session types (starting price)
+    if (mockTherapist.price && mockTherapist.price > 0) {
+      return mockTherapist.price;
+    }
+    // Return minimum session type price as starting price
+    const minPrice = Math.min(...sessionTypes.map(type => type.price));
+    return minPrice;
   };
 
   const canProceed = selectedDate && selectedTime && selectedSessionType;

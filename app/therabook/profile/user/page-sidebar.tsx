@@ -36,7 +36,8 @@ import {
   CreditCard,
   ShoppingCart,
   BookOpen,
-  HelpCircle
+  HelpCircle,
+  Video
 } from "lucide-react";
 import { useAuth } from "@/components/auth/NewAuthContext";
 
@@ -136,6 +137,11 @@ export default function UserProfilePage() {
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState("profile");
 
+  // Appointments state
+  const [bookings, setBookings] = useState<any[]>([]);
+  const [bookingsLoading, setBookingsLoading] = useState(false);
+  const [bookingsError, setBookingsError] = useState<string | null>(null);
+
   // Form state
   const [formData, setFormData] = useState<Partial<UserProfile>>({});
 
@@ -160,6 +166,41 @@ export default function UserProfilePage() {
       .toUpperCase()
       .substring(0, 2);
   };
+
+  // Fetch bookings for appointments tab
+  const fetchBookings = async () => {
+    if (!token) return;
+    setBookingsLoading(true);
+    setBookingsError(null);
+    try {
+      const res = await fetch('/api/bookings?limit=100', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Failed to load bookings');
+      }
+      const json = await res.json();
+      const bookingsList = json?.data?.bookings || [];
+      setBookings(bookingsList);
+      console.log('✅ Loaded bookings:', bookingsList.length);
+    } catch (e: any) {
+      console.error('❌ Error fetching bookings:', e);
+      setBookingsError(e.message || 'Failed to load appointments');
+    } finally {
+      setBookingsLoading(false);
+    }
+  };
+
+  // Fetch bookings when appointments tab is active
+  useEffect(() => {
+    if (activeTab === 'appointments' && token) {
+      fetchBookings();
+    }
+  }, [activeTab, token]);
 
   // Fetch user profile
   const fetchUserProfile = async () => {
@@ -297,11 +338,14 @@ export default function UserProfilePage() {
     return parts.length > 0 || rest.length > 0 ? `${parts.join(', ')}${rest.length ? (parts.length ? ', ' : '') + rest.join(', ') : ''}` : 'Not provided';
   };
 
-  // Profile Content Component (updated to match desired UI)
+  // Enhanced Profile Content Component
   const ProfileContent = () => (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h2 className="text-therabook-primary">Profile Information</h2>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="text-3xl font-bold text-gray-800 mb-1">Profile Information</h2>
+          <p className="text-gray-500">Manage your personal details and preferences</p>
+        </div>
         {editing ? (
           <div className="flex gap-2">
             <Button 
@@ -312,14 +356,15 @@ export default function UserProfilePage() {
                 setError("");
                 setSuccess("");
               }}
-              className="border-therabook-border text-therabook-primary hover:bg-therabook-secondary"
+              className="border-gray-300 text-gray-700 hover:bg-gray-50 shadow-sm"
             >
+              <X className="w-4 h-4 mr-2" />
               Cancel
             </Button>
             <Button 
               onClick={handleSave}
               disabled={saving}
-              className="bg-therabook-primary hover:bg-therabook-primary/90 text-therabook-primary-foreground"
+              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg"
             >
               {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
               Save Changes
@@ -327,9 +372,8 @@ export default function UserProfilePage() {
           </div>
         ) : (
           <Button 
-            variant="outline" 
             onClick={() => setEditing(true)}
-            className="border-therabook-border text-therabook-primary hover:bg-therabook-secondary"
+            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg"
           >
             <Edit3 className="w-4 h-4 mr-2" />
             Edit Profile
@@ -339,10 +383,12 @@ export default function UserProfilePage() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Personal Information */}
-        <Card className="border-therabook-border">
-          <CardHeader className="bg-therabook-muted">
-            <CardTitle className="flex items-center gap-2 text-therabook-primary">
-              <User className="w-5 h-5" />
+        <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm rounded-2xl overflow-hidden">
+          <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b">
+            <CardTitle className="flex items-center gap-3 text-gray-800">
+              <div className="p-2 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg">
+                <User className="w-5 h-5 text-white" />
+              </div>
               Personal Information
             </CardTitle>
           </CardHeader>
@@ -439,10 +485,12 @@ export default function UserProfilePage() {
         </Card>
 
         {/* Health Information */}
-        <Card className="border-therabook-border">
-          <CardHeader className="bg-therabook-muted">
-            <CardTitle className="flex items-center gap-2 text-therabook-primary">
-              <Heart className="w-5 h-5" />
+        <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm rounded-2xl overflow-hidden">
+          <CardHeader className="bg-gradient-to-r from-pink-50 to-rose-50 border-b">
+            <CardTitle className="flex items-center gap-3 text-gray-800">
+              <div className="p-2 bg-gradient-to-br from-pink-500 to-rose-600 rounded-lg">
+                <Heart className="w-5 h-5 text-white" />
+              </div>
               Health Information
             </CardTitle>
           </CardHeader>
@@ -530,116 +578,570 @@ export default function UserProfilePage() {
     </div>
   );
 
-  // Placeholder components for other sections
-  const AppointmentsContent = () => (
-    <Card className="border-blue-100 shadow-sm">
-      <CardHeader>
-        <CardTitle className="flex items-center text-blue-900">
-          <Calendar className="w-5 h-5 mr-2" />
+  // Appointments section with actual data
+  const AppointmentsContent = () => {
+    const upcoming = bookings.filter(b => ['pending', 'confirmed'].includes(b.status || ''));
+    const past = bookings.filter(b => ['completed', 'cancelled'].includes(b.status || ''));
+    
+    const formatDate = (dateStr: string) => {
+      try {
+        const date = new Date(dateStr);
+        return date.toLocaleDateString('en-US', { 
+          weekday: 'short',
+          year: 'numeric', 
+          month: 'short', 
+          day: 'numeric' 
+        });
+      } catch {
+        return dateStr;
+      }
+    };
+    
+    const formatTime = (timeStr: string) => {
+      if (!timeStr) return '';
+      // Handle both "HH:MM" and "HH:MM AM/PM" formats
+      if (timeStr.includes('AM') || timeStr.includes('PM')) return timeStr;
+      try {
+        const [hours, minutes] = timeStr.split(':');
+        const hour = parseInt(hours);
+        const ampm = hour >= 12 ? 'PM' : 'AM';
+        const displayHour = hour % 12 || 12;
+        return `${displayHour}:${minutes} ${ampm}`;
+      } catch {
+        return timeStr;
+      }
+    };
+
+    return (
+      <div className="space-y-6">
+        <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm rounded-2xl overflow-hidden">
+          <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b">
+            <CardTitle className="flex items-center text-gray-800 text-2xl">
+              <div className="p-2 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg mr-3">
+                <Calendar className="w-6 h-6 text-white" />
+              </div>
           My Appointments
         </CardTitle>
       </CardHeader>
-      <CardContent>
-        <p className="text-gray-600">No appointments scheduled.</p>
+          <CardContent className="p-6">
+            {bookingsLoading && (
+              <div className="text-center py-12">
+                <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                <p className="text-gray-600 font-medium">Loading appointments...</p>
+              </div>
+            )}
+            
+            {bookingsError && !bookingsLoading && (
+              <div className="text-center py-12">
+                <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <AlertCircle className="w-8 h-8 text-red-600" />
+                </div>
+                <p className="text-red-600 mb-4 font-medium">{bookingsError}</p>
+                <Button onClick={fetchBookings} variant="outline" size="sm" className="border-blue-600 text-blue-600 hover:bg-blue-50">
+                  Retry
+                </Button>
+              </div>
+            )}
+            
+            {!bookingsLoading && !bookingsError && bookings.length === 0 && (
+              <div className="text-center py-12">
+                <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Calendar className="w-10 h-10 text-blue-500" />
+                </div>
+                <p className="text-gray-600 font-medium text-lg">No appointments scheduled.</p>
+                <p className="text-gray-500 text-sm mt-2">Book your first session to get started!</p>
+              </div>
+            )}
+
+            {!bookingsLoading && !bookingsError && bookings.length > 0 && (
+              <div className="space-y-6">
+                {upcoming.length > 0 && (
+                  <div>
+                    <div className="flex items-center mb-4">
+                      <div className="h-1 w-12 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full mr-3"></div>
+                      <h3 className="text-xl font-bold text-gray-800">Upcoming Appointments</h3>
+                      <Badge className="ml-3 bg-blue-100 text-blue-700">{upcoming.length}</Badge>
+                    </div>
+                    <div className="space-y-4">
+                      {upcoming.map((booking: any) => (
+                        <motion.div
+                          key={booking._id}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="border-2 border-blue-200 rounded-2xl p-5 bg-gradient-to-br from-blue-50/50 to-indigo-50/50 hover:shadow-lg transition-all duration-300 hover:border-blue-300"
+                        >
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-3">
+                                <Badge className={`${booking.status === 'confirmed' ? 'bg-green-500 text-white' : 'bg-yellow-500 text-white'} shadow-sm`}>
+                                  {booking.status || 'pending'}
+                                </Badge>
+                                {booking.paymentStatus && (
+                                  <Badge variant="outline" className={`${booking.paymentStatus === 'paid' ? 'bg-green-50 text-green-700 border-green-300' : 'bg-yellow-50 text-yellow-700 border-yellow-300'} shadow-sm`}>
+                                    {booking.paymentStatus}
+                                  </Badge>
+                                )}
+                              </div>
+                              <h4 className="font-bold text-lg text-gray-900 mb-2">
+                                {booking.therapist?.name || booking.therapist?.[0]?.name || 'Therapist'}
+                              </h4>
+                              <div className="space-y-1.5 text-sm text-gray-600">
+                                {booking.sessionType && (
+                                  <div className="flex items-center">
+                                    <Activity className="w-4 h-4 mr-2 text-blue-500" />
+                                    <span className="capitalize font-medium">{booking.sessionType} Session</span>
+                                  </div>
+                                )}
+                                {booking.appointmentDate && (
+                                  <div className="flex items-center">
+                                    <Calendar className="w-4 h-4 mr-2 text-blue-500" />
+                                    <span>{formatDate(booking.appointmentDate)}</span>
+                                  </div>
+                                )}
+                                {booking.appointmentTime && (
+                                  <div className="flex items-center">
+                                    <Clock className="w-4 h-4 mr-2 text-blue-500" />
+                                    <span>{formatTime(booking.appointmentTime)}</span>
+                                  </div>
+                                )}
+                              </div>
+                              {booking.totalAmount && (
+                                <div className="mt-3 pt-3 border-t border-blue-200">
+                                  <p className="text-base font-bold text-blue-700">
+                                    ₹{booking.totalAmount}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                            {booking.meetingUrl && (
+                              <Button 
+                                size="sm" 
+                                onClick={() => window.open(booking.meetingUrl, '_blank')}
+                                className="ml-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg"
+                              >
+                                <Video className="w-4 h-4 mr-2" />
+                                Join
+                              </Button>
+                            )}
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {past.length > 0 && (
+                  <div className="mt-8">
+                    <div className="flex items-center mb-4">
+                      <div className="h-1 w-12 bg-gradient-to-r from-gray-400 to-gray-500 rounded-full mr-3"></div>
+                      <h3 className="text-xl font-bold text-gray-700">Past Appointments</h3>
+                      <Badge className="ml-3 bg-gray-100 text-gray-700">{past.length}</Badge>
+                    </div>
+                    <div className="space-y-4">
+                      {past.map((booking: any) => (
+                        <motion.div
+                          key={booking._id}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="border border-gray-200 rounded-2xl p-5 bg-gray-50/50 hover:shadow-md transition-all duration-300"
+                        >
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-3">
+                                <Badge className={`${booking.status === 'completed' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'} shadow-sm`}>
+                                  {booking.status || 'unknown'}
+                                </Badge>
+                              </div>
+                              <h4 className="font-bold text-lg text-gray-900 mb-2">
+                                {booking.therapist?.name || booking.therapist?.[0]?.name || 'Therapist'}
+                              </h4>
+                              <div className="space-y-1.5 text-sm text-gray-600">
+                                {booking.sessionType && (
+                                  <div className="flex items-center">
+                                    <Activity className="w-4 h-4 mr-2 text-gray-500" />
+                                    <span className="capitalize font-medium">{booking.sessionType} Session</span>
+                                  </div>
+                                )}
+                                {booking.appointmentDate && (
+                                  <div className="flex items-center">
+                                    <Calendar className="w-4 h-4 mr-2 text-gray-500" />
+                                    <span>{formatDate(booking.appointmentDate)}</span>
+                                  </div>
+                                )}
+                                {booking.appointmentTime && (
+                                  <div className="flex items-center">
+                                    <Clock className="w-4 h-4 mr-2 text-gray-500" />
+                                    <span>{formatTime(booking.appointmentTime)}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
       </CardContent>
     </Card>
+      </div>
   );
+  };
 
   const SelfTestsContent = () => (
-    <Card className="border-blue-100 shadow-sm">
-      <CardHeader>
-        <CardTitle className="flex items-center text-blue-900">
-          <Activity className="w-5 h-5 mr-2" />
+    <div className="space-y-6">
+      <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm rounded-2xl overflow-hidden">
+        <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50 border-b">
+          <CardTitle className="flex items-center text-gray-800 text-2xl">
+            <div className="p-2 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg mr-3">
+              <Activity className="w-6 h-6 text-white" />
+            </div>
           My Self Tests
         </CardTitle>
       </CardHeader>
-      <CardContent>
-        <p className="text-gray-600">No self tests completed yet.</p>
+        <CardContent className="p-8">
+          <div className="text-center py-12">
+            <div className="w-24 h-24 bg-gradient-to-br from-purple-100 to-pink-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Activity className="w-12 h-12 text-purple-500" />
+            </div>
+            <h3 className="text-xl font-bold text-gray-800 mb-2">No Self Tests Yet</h3>
+            <p className="text-gray-600 mb-6 max-w-md mx-auto">
+              Take self-assessment tests to better understand your mental health and track your progress over time.
+            </p>
+            <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-lg">
+              <Activity className="w-4 h-4 mr-2" />
+              Explore Self Tests
+            </Button>
+          </div>
       </CardContent>
     </Card>
+    </div>
   );
 
   const PaymentsContent = () => (
-    <Card className="border-blue-100 shadow-sm">
-      <CardHeader>
-        <CardTitle className="flex items-center text-blue-900">
-          <CreditCard className="w-5 h-5 mr-2" />
+    <div className="space-y-6">
+      <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm rounded-2xl overflow-hidden">
+        <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 border-b">
+          <CardTitle className="flex items-center text-gray-800 text-2xl">
+            <div className="p-2 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg mr-3">
+              <CreditCard className="w-6 h-6 text-white" />
+            </div>
           Payment History
         </CardTitle>
       </CardHeader>
-      <CardContent>
-        <p className="text-gray-600">No payment history available.</p>
+        <CardContent className="p-8">
+          <div className="text-center py-12">
+            <div className="w-24 h-24 bg-gradient-to-br from-green-100 to-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <CreditCard className="w-12 h-12 text-green-500" />
+            </div>
+            <h3 className="text-xl font-bold text-gray-800 mb-2">No Payment History</h3>
+            <p className="text-gray-600 mb-6 max-w-md mx-auto">
+              Your payment transactions will appear here once you complete a booking and payment.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
+              <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
+                <div className="text-2xl font-bold text-blue-600 mb-1">₹0</div>
+                <div className="text-sm text-gray-600">Total Spent</div>
+              </div>
+              <div className="p-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl border border-green-200">
+                <div className="text-2xl font-bold text-green-600 mb-1">0</div>
+                <div className="text-sm text-gray-600">Transactions</div>
+              </div>
+              <div className="p-4 bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl border border-purple-200">
+                <div className="text-2xl font-bold text-purple-600 mb-1">0</div>
+                <div className="text-sm text-gray-600">Pending</div>
+              </div>
+            </div>
+          </div>
       </CardContent>
     </Card>
+    </div>
   );
 
   const OrdersContent = () => (
-    <Card className="border-blue-100 shadow-sm">
-      <CardHeader>
-        <CardTitle className="flex items-center text-blue-900">
-          <ShoppingCart className="w-5 h-5 mr-2" />
+    <div className="space-y-6">
+      <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm rounded-2xl overflow-hidden">
+        <CardHeader className="bg-gradient-to-r from-orange-50 to-amber-50 border-b">
+          <CardTitle className="flex items-center text-gray-800 text-2xl">
+            <div className="p-2 bg-gradient-to-br from-orange-500 to-amber-600 rounded-lg mr-3">
+              <ShoppingCart className="w-6 h-6 text-white" />
+            </div>
           My Orders
         </CardTitle>
       </CardHeader>
-      <CardContent>
-        <p className="text-gray-600">No orders found.</p>
+        <CardContent className="p-8">
+          <div className="text-center py-12">
+            <div className="w-24 h-24 bg-gradient-to-br from-orange-100 to-amber-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <ShoppingCart className="w-12 h-12 text-orange-500" />
+            </div>
+            <h3 className="text-xl font-bold text-gray-800 mb-2">No Orders Yet</h3>
+            <p className="text-gray-600 mb-6 max-w-md mx-auto">
+              Your product and service orders will be displayed here once you make a purchase.
+            </p>
+            <Button className="bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white shadow-lg">
+              <ShoppingCart className="w-4 h-4 mr-2" />
+              Browse Products
+            </Button>
+          </div>
       </CardContent>
     </Card>
+    </div>
   );
 
   const LearningContent = () => (
-    <Card className="border-blue-100 shadow-sm">
-      <CardHeader>
-        <CardTitle className="flex items-center text-blue-900">
-          <BookOpen className="w-5 h-5 mr-2" />
+    <div className="space-y-6">
+      <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm rounded-2xl overflow-hidden">
+        <CardHeader className="bg-gradient-to-r from-indigo-50 to-blue-50 border-b">
+          <CardTitle className="flex items-center text-gray-800 text-2xl">
+            <div className="p-2 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-lg mr-3">
+              <BookOpen className="w-6 h-6 text-white" />
+            </div>
           Learning Resources
         </CardTitle>
       </CardHeader>
-      <CardContent>
-        <p className="text-gray-600">No learning content available.</p>
+        <CardContent className="p-8">
+          <div className="text-center py-12">
+            <div className="w-24 h-24 bg-gradient-to-br from-indigo-100 to-blue-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <BookOpen className="w-12 h-12 text-indigo-500" />
+            </div>
+            <h3 className="text-xl font-bold text-gray-800 mb-2">Learning Center</h3>
+            <p className="text-gray-600 mb-8 max-w-md mx-auto">
+              Access articles, guides, and resources to support your mental health journey.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-3xl mx-auto">
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border-2 border-blue-200 hover:border-blue-400 cursor-pointer transition-all"
+              >
+                <BookOpen className="w-8 h-8 text-blue-600 mb-3 mx-auto" />
+                <h4 className="font-bold text-gray-800 mb-2">Articles</h4>
+                <p className="text-sm text-gray-600">Read expert articles</p>
+              </motion.div>
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                className="p-6 bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl border-2 border-purple-200 hover:border-purple-400 cursor-pointer transition-all"
+              >
+                <Activity className="w-8 h-8 text-purple-600 mb-3 mx-auto" />
+                <h4 className="font-bold text-gray-800 mb-2">Guides</h4>
+                <p className="text-sm text-gray-600">Step-by-step guides</p>
+              </motion.div>
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl border-2 border-green-200 hover:border-green-400 cursor-pointer transition-all"
+              >
+                <Video className="w-8 h-8 text-green-600 mb-3 mx-auto" />
+                <h4 className="font-bold text-gray-800 mb-2">Videos</h4>
+                <p className="text-sm text-gray-600">Watch tutorials</p>
+              </motion.div>
+            </div>
+          </div>
       </CardContent>
     </Card>
+    </div>
   );
 
   const HelpContent = () => (
-    <Card className="border-blue-100 shadow-sm">
-      <CardHeader>
-        <CardTitle className="flex items-center text-blue-900">
-          <HelpCircle className="w-5 h-5 mr-2" />
+    <div className="space-y-6">
+      <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm rounded-2xl overflow-hidden">
+        <CardHeader className="bg-gradient-to-r from-cyan-50 to-blue-50 border-b">
+          <CardTitle className="flex items-center text-gray-800 text-2xl">
+            <div className="p-2 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-lg mr-3">
+              <HelpCircle className="w-6 h-6 text-white" />
+            </div>
           Help & Support
         </CardTitle>
       </CardHeader>
-      <CardContent>
-        <p className="text-gray-600">Contact support for assistance.</p>
+        <CardContent className="p-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <motion.div
+              whileHover={{ scale: 1.02 }}
+              className="p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl border-2 border-blue-200 hover:border-blue-400 cursor-pointer transition-all"
+            >
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-blue-500 rounded-lg">
+                  <HelpCircle className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-gray-800 mb-2">FAQs</h4>
+                  <p className="text-sm text-gray-600 mb-4">Find answers to common questions</p>
+                  <Button size="sm" variant="outline" className="border-blue-300 text-blue-600 hover:bg-blue-50">
+                    View FAQs
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+            
+            <motion.div
+              whileHover={{ scale: 1.02 }}
+              className="p-6 bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl border-2 border-green-200 hover:border-green-400 cursor-pointer transition-all"
+            >
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-green-500 rounded-lg">
+                  <Mail className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-gray-800 mb-2">Email Support</h4>
+                  <p className="text-sm text-gray-600 mb-4">Get help via email</p>
+                  <Button size="sm" variant="outline" className="border-green-300 text-green-600 hover:bg-green-50">
+                    Contact Us
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+            
+            <motion.div
+              whileHover={{ scale: 1.02 }}
+              className="p-6 bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl border-2 border-purple-200 hover:border-purple-400 cursor-pointer transition-all"
+            >
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-purple-500 rounded-lg">
+                  <Phone className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-gray-800 mb-2">Phone Support</h4>
+                  <p className="text-sm text-gray-600 mb-4">Call us for immediate help</p>
+                  <p className="text-sm font-semibold text-purple-600">+91 1800-XXX-XXXX</p>
+                </div>
+              </div>
+            </motion.div>
+            
+            <motion.div
+              whileHover={{ scale: 1.02 }}
+              className="p-6 bg-gradient-to-br from-orange-50 to-amber-50 rounded-xl border-2 border-orange-200 hover:border-orange-400 cursor-pointer transition-all"
+            >
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-orange-500 rounded-lg">
+                  <Clock className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-gray-800 mb-2">Live Chat</h4>
+                  <p className="text-sm text-gray-600 mb-4">Chat with our support team</p>
+                  <Button size="sm" variant="outline" className="border-orange-300 text-orange-600 hover:bg-orange-50">
+                    Start Chat
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+          
+          <div className="mt-8 p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
+            <h4 className="font-bold text-gray-800 mb-2">Need Immediate Help?</h4>
+            <p className="text-sm text-gray-600 mb-4">
+              If you're experiencing a mental health emergency, please contact your local emergency services or a crisis helpline immediately.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Badge className="bg-red-100 text-red-700">Emergency: 112</Badge>
+              <Badge className="bg-blue-100 text-blue-700">Crisis Helpline: 1800-XXX-XXXX</Badge>
+            </div>
+          </div>
       </CardContent>
     </Card>
+    </div>
   );
 
   const SettingsContent = () => (
-    <Card className="border-blue-100 shadow-sm">
-      <CardHeader>
-        <CardTitle className="flex items-center text-blue-900">
-          <Settings className="w-5 h-5 mr-2" />
+    <div className="space-y-6">
+      <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm rounded-2xl overflow-hidden">
+        <CardHeader className="bg-gradient-to-r from-gray-50 to-slate-50 border-b">
+          <CardTitle className="flex items-center text-gray-800 text-2xl">
+            <div className="p-2 bg-gradient-to-br from-gray-500 to-slate-600 rounded-lg mr-3">
+              <Settings className="w-6 h-6 text-white" />
+            </div>
           Account Settings
         </CardTitle>
       </CardHeader>
-      <CardContent>
+        <CardContent className="p-6">
         <div className="space-y-4">
-          <Button variant="outline" className="w-full justify-start">
-            <Lock className="w-4 h-4 mr-2" />
-            Change Password
+            <motion.div
+              whileHover={{ scale: 1.01 }}
+              className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border-2 border-blue-200 hover:border-blue-400 cursor-pointer transition-all"
+            >
+              <Button variant="ghost" className="w-full justify-start p-0 h-auto hover:bg-transparent">
+                <div className="flex items-center w-full">
+                  <div className="p-2 bg-blue-500 rounded-lg mr-4">
+                    <Lock className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="flex-1 text-left">
+                    <h4 className="font-bold text-gray-800">Change Password</h4>
+                    <p className="text-sm text-gray-600">Update your account password</p>
+                  </div>
+                  <Settings className="w-5 h-5 text-gray-400" />
+                </div>
           </Button>
-          <Button variant="outline" className="w-full justify-start">
-            <Bell className="w-4 h-4 mr-2" />
-            Notification Settings
+            </motion.div>
+            
+            <motion.div
+              whileHover={{ scale: 1.01 }}
+              className="p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border-2 border-purple-200 hover:border-purple-400 cursor-pointer transition-all"
+            >
+              <Button variant="ghost" className="w-full justify-start p-0 h-auto hover:bg-transparent">
+                <div className="flex items-center w-full">
+                  <div className="p-2 bg-purple-500 rounded-lg mr-4">
+                    <Bell className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="flex-1 text-left">
+                    <h4 className="font-bold text-gray-800">Notification Settings</h4>
+                    <p className="text-sm text-gray-600">Manage your notification preferences</p>
+                  </div>
+                  <Settings className="w-5 h-5 text-gray-400" />
+                </div>
           </Button>
-          <Button variant="outline" className="w-full justify-start">
-            <Shield className="w-4 h-4 mr-2" />
-            Privacy Settings
+            </motion.div>
+            
+            <motion.div
+              whileHover={{ scale: 1.01 }}
+              className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border-2 border-green-200 hover:border-green-400 cursor-pointer transition-all"
+            >
+              <Button variant="ghost" className="w-full justify-start p-0 h-auto hover:bg-transparent">
+                <div className="flex items-center w-full">
+                  <div className="p-2 bg-green-500 rounded-lg mr-4">
+                    <Shield className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="flex-1 text-left">
+                    <h4 className="font-bold text-gray-800">Privacy Settings</h4>
+                    <p className="text-sm text-gray-600">Control your privacy and data</p>
+                  </div>
+                  <Settings className="w-5 h-5 text-gray-400" />
+                </div>
+              </Button>
+            </motion.div>
+            
+            <motion.div
+              whileHover={{ scale: 1.01 }}
+              className="p-4 bg-gradient-to-r from-orange-50 to-amber-50 rounded-xl border-2 border-orange-200 hover:border-orange-400 cursor-pointer transition-all"
+            >
+              <Button variant="ghost" className="w-full justify-start p-0 h-auto hover:bg-transparent">
+                <div className="flex items-center w-full">
+                  <div className="p-2 bg-orange-500 rounded-lg mr-4">
+                    <User className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="flex-1 text-left">
+                    <h4 className="font-bold text-gray-800">Account Preferences</h4>
+                    <p className="text-sm text-gray-600">Customize your account settings</p>
+                  </div>
+                  <Settings className="w-5 h-5 text-gray-400" />
+                </div>
+              </Button>
+            </motion.div>
+          </div>
+          
+          <Separator className="my-6" />
+          
+          <div className="p-4 bg-red-50 rounded-xl border-2 border-red-200">
+            <h4 className="font-bold text-red-800 mb-2 flex items-center">
+              <AlertCircle className="w-5 h-5 mr-2" />
+              Danger Zone
+            </h4>
+            <p className="text-sm text-red-600 mb-4">Irreversible and destructive actions</p>
+            <Button variant="outline" className="border-red-300 text-red-600 hover:bg-red-50">
+              Delete Account
           </Button>
         </div>
       </CardContent>
     </Card>
+    </div>
   );
 
   // Show authentication error if not logged in
@@ -702,49 +1204,63 @@ export default function UserProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
-        {/* Header */}
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/50">
+      {/* Decorative background elements */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
+        <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-blue-200/20 to-indigo-200/20 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-0 left-0 w-96 h-96 bg-gradient-to-tr from-purple-200/20 to-pink-200/20 rounded-full blur-3xl"></div>
+      </div>
+
+      <div className="container mx-auto px-4 py-8 max-w-7xl relative z-10">
+        {/* Enhanced Header */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="mb-8"
         >
-          <div className="bg-white rounded-2xl shadow-sm border border-blue-100 p-6">
-            <div className="flex items-center justify-between">
+          <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-3xl shadow-2xl overflow-hidden">
+            <div className="bg-white/10 backdrop-blur-sm p-8">
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
               <div className="flex items-center space-x-6">
-                <div className="relative">
-                  <Avatar className="w-20 h-20 border-4 border-blue-100">
+                  <div className="relative group">
+                    <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-purple-400 rounded-full blur-lg opacity-50 group-hover:opacity-75 transition-opacity"></div>
+                    <Avatar className="w-24 h-24 border-4 border-white/90 shadow-xl relative z-10">
                     <AvatarImage src={user.profilePicture} />
-                    <AvatarFallback className="bg-blue-100 text-blue-600 text-xl">
+                      <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white text-2xl font-bold">
                       {getInitials(user.name)}
                     </AvatarFallback>
                   </Avatar>
                   {editing && (
                     <Button
                       size="sm"
-                      className="absolute -bottom-2 -right-2 w-8 h-8 rounded-full bg-blue-600 hover:bg-blue-700 p-0"
+                        className="absolute -bottom-2 -right-2 w-10 h-10 rounded-full bg-white hover:bg-gray-100 text-blue-600 shadow-lg border-2 border-blue-200 p-0 z-20"
                     >
-                      <Camera className="w-4 h-4" />
+                        <Camera className="w-5 h-5" />
                     </Button>
                   )}
                 </div>
-                <div>
-                  <h1 className="text-2xl font-bold text-blue-900">{user.name || 'Your Profile'}</h1>
-                  <p className="text-blue-600">{user.email}</p>
-                  <div className="flex items-center mt-2 space-x-4">
+                  <div className="text-white">
+                    <h1 className="text-3xl font-bold mb-1 drop-shadow-sm">{user.name || 'Your Profile'}</h1>
+                    <p className="text-blue-100 mb-3">{user.email}</p>
+                    <div className="flex flex-wrap items-center gap-4 text-sm">
                     {user.phone && (
-                      <div className="flex items-center text-sm text-blue-700">
-                        <Phone className="w-4 h-4 mr-1" />
-                        {user.phone}
+                        <div className="flex items-center bg-white/20 backdrop-blur-sm px-3 py-1.5 rounded-full">
+                          <Phone className="w-4 h-4 mr-2" />
+                          <span className="font-medium">{user.phone}</span>
                       </div>
                     )}
                     {user.address && (
-                      <div className="flex items-center text-sm text-blue-700">
-                        <MapPin className="w-4 h-4 mr-1" />
-                        {user.address}
+                        <div className="flex items-center bg-white/20 backdrop-blur-sm px-3 py-1.5 rounded-full">
+                          <MapPin className="w-4 h-4 mr-2" />
+                          <span className="font-medium truncate max-w-xs">{user.address}</span>
                       </div>
                     )}
+                      {user.isVerified && (
+                        <div className="flex items-center bg-green-500/30 backdrop-blur-sm px-3 py-1.5 rounded-full">
+                          <CheckCircle className="w-4 h-4 mr-2" />
+                          <span className="font-medium">Verified</span>
+                        </div>
+                      )}
                   </div>
                 </div>
               </div>
@@ -759,7 +1275,7 @@ export default function UserProfilePage() {
                         setError("");
                         setSuccess("");
                       }}
-                      className="border-blue-200 text-blue-600 hover:bg-blue-50"
+                        className="bg-white/90 hover:bg-white text-gray-700 border-0 shadow-lg backdrop-blur-sm"
                     >
                       <X className="w-4 h-4 mr-2" />
                       Cancel
@@ -767,7 +1283,7 @@ export default function UserProfilePage() {
                     <Button 
                       onClick={handleSave}
                       disabled={saving}
-                      className="bg-blue-600 hover:bg-blue-700"
+                        className="bg-white hover:bg-gray-50 text-blue-600 shadow-lg backdrop-blur-sm font-semibold"
                     >
                       {saving ? (
                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
@@ -780,12 +1296,13 @@ export default function UserProfilePage() {
                 ) : (
                   <Button 
                     onClick={() => setEditing(true)}
-                    className="bg-blue-600 hover:bg-blue-700"
+                      className="bg-white hover:bg-gray-50 text-blue-600 shadow-lg backdrop-blur-sm font-semibold"
                   >
                     <Edit3 className="w-4 h-4 mr-2" />
                     Edit Profile
                   </Button>
                 )}
+                </div>
               </div>
             </div>
           </div>
@@ -820,36 +1337,49 @@ export default function UserProfilePage() {
 
         {/* Main Content with Sidebar */}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Sidebar Navigation */}
+          {/* Enhanced Sidebar Navigation */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.1 }}
             className="lg:col-span-1"
           >
-            <Card className="border-blue-100 shadow-sm bg-white sticky top-6">
-              <CardHeader className="pb-4">
-                <CardTitle className="text-lg text-blue-900">Menu</CardTitle>
+            <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm sticky top-6 rounded-2xl overflow-hidden">
+              <CardHeader className="pb-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b">
+                <CardTitle className="text-xl font-bold text-gray-800">Navigation</CardTitle>
               </CardHeader>
-              <CardContent className="p-0">
+              <CardContent className="p-2">
                 <div className="space-y-1">
-                  {sidebarItems.map((item) => {
+                  {sidebarItems.map((item, index) => {
                     const Icon = item.icon;
+                    const isActive = activeTab === item.key;
                     return (
-                      <button
+                      <motion.button
                         key={item.key}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.1 + index * 0.05 }}
                         onClick={() => setActiveTab(item.key)}
-                        className={`w-full flex items-center px-6 py-3 text-left transition-all duration-200 ${
-                          activeTab === item.key
-                            ? 'bg-blue-600 text-white border-r-4 border-blue-700'
-                            : 'text-gray-700 hover:bg-blue-50 hover:text-blue-600'
+                        className={`w-full flex items-center px-4 py-3.5 text-left transition-all duration-300 rounded-xl group ${
+                          isActive
+                            ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg scale-[1.02]'
+                            : 'text-gray-700 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 hover:text-blue-600 hover:shadow-md'
                         }`}
                       >
-                        <Icon className={`w-5 h-5 mr-3 ${
-                          activeTab === item.key ? 'text-white' : 'text-blue-500'
+                        <Icon className={`w-5 h-5 mr-3 transition-transform duration-300 ${
+                          isActive ? 'text-white scale-110' : 'text-blue-500 group-hover:scale-110'
                         }`} />
-                        <span className="font-medium">{item.label}</span>
-                      </button>
+                        <span className={`font-medium ${isActive ? 'text-white' : 'text-gray-700 group-hover:text-blue-600'}`}>
+                          {item.label}
+                        </span>
+                        {isActive && (
+                          <motion.div
+                            layoutId="activeTab"
+                            className="absolute right-2 w-2 h-2 bg-white rounded-full"
+                            transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                          />
+                        )}
+                      </motion.button>
                     );
                   })}
                 </div>

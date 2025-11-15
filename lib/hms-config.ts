@@ -35,11 +35,55 @@ export const hmsConfig = {
   
   // Generate room URL for given room code
   getRoomUrl: function(roomCode: string) {
-    if (!this.subdomain) {
-      console.warn('HMS_SUBDOMAIN not configured');
-      return null;
+    if (!roomCode) return null;
+    
+    // Primary: Use subdomain if available
+    if (this.subdomain) {
+      return `https://${this.subdomain}.app.100ms.live/meeting/${roomCode}`;
     }
-    return `https://${this.subdomain}.app.100ms.live/meeting/${roomCode}`;
+    
+    // Fallback: Use region-based cluster URL
+    const region = this.region || 'in';
+    const clusterMap: Record<string, string> = {
+      'in': 'prod-in2',
+      'us': 'prod-us2',
+      'us-west': 'prod-us1',
+      'eu': 'prod-eu1',
+    };
+    const cluster = clusterMap[region] || 'prod-in2';
+    
+    return `https://${cluster}.100ms.live/meeting/${roomCode}`;
+  },
+  
+  // Generate room URL with multiple fallback options
+  getRoomUrlWithFallback: function(roomCode: string) {
+    if (!roomCode) return null;
+    
+    const urls: string[] = [];
+    
+    // Option 1: Subdomain-based (preferred)
+    if (this.subdomain) {
+      urls.push(`https://${this.subdomain}.app.100ms.live/meeting/${roomCode}`);
+    }
+    
+    // Option 2: Region-based cluster
+    const region = this.region || 'in';
+    const clusterMap: Record<string, string> = {
+      'in': 'prod-in2',
+      'us': 'prod-us2',
+      'us-west': 'prod-us1',
+      'eu': 'prod-eu1',
+    };
+    const cluster = clusterMap[region] || 'prod-in2';
+    urls.push(`https://${cluster}.100ms.live/meeting/${roomCode}`);
+    
+    // Option 3: Internal fallback
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
+    if (baseUrl) {
+      urls.push(`${baseUrl}/video-call/room?roomCode=${roomCode}`);
+    }
+    
+    return urls[0] || null;
   }
 };
 

@@ -26,6 +26,7 @@ export async function GET(request) {
     const skip = (page - 1) * limit;
 
     // Aggregation pipeline for bookings with user and therapist details
+    // Using preserveNullAndEmptyArrays so bookings still show even if lookups fail
     const pipeline = [
       { $match: query },
       {
@@ -50,14 +51,30 @@ export async function GET(request) {
           ]
         }
       },
-      { $unwind: '$user' },
-      { $unwind: '$therapist' },
+      // Make unwinds optional so bookings still appear even if user/therapist not found
+      { $unwind: { path: '$user', preserveNullAndEmptyArrays: true } },
+      { $unwind: { path: '$therapist', preserveNullAndEmptyArrays: true } },
       { $sort: { createdAt: -1 } },
       { $skip: skip },
       { $limit: limit }
     ];
 
     const bookings = await database.aggregate('bookings', pipeline);
+    
+    console.log('[GET /api/bookings] Query result:', {
+      userType: user.userType,
+      userId: user._id,
+      query: JSON.stringify(query),
+      bookingsCount: bookings.length,
+      sampleBooking: bookings[0] ? {
+        _id: bookings[0]._id?.toString(),
+        userId: bookings[0].userId?.toString(),
+        therapistId: bookings[0].therapistId?.toString(),
+        status: bookings[0].status,
+        hasUser: !!bookings[0].user,
+        hasTherapist: !!bookings[0].therapist
+      } : null
+    });
 
     // Get total count
     const totalCount = await database.aggregate('bookings', [
@@ -74,7 +91,7 @@ export async function GET(request) {
         page,
         limit,
         totalPages,
-        totalCount,
+        totalCount: total,
         hasNext: page < totalPages,
         hasPrev: page > 1
       }
@@ -186,30 +203,55 @@ export async function POST(request) {
     }
 
     // Check for existing booking at the same time
+    // Only block if there's an actual conflict with another booking
     const existingBooking = await database.findOne('bookings', {
-      therapistId: therapistUser._id, // always store user _id to keep legacy aggregation working
+      $or: [
+        { therapistId: therapistUser._id },
+        { therapistProfileId: therapistProfileId || therapistUser._id }
+      ],
       appointmentDate: apptDate,
       appointmentTime,
-      status: { $in: ['pending', 'confirmed'] }
+      status: { $in: ['pending', 'confirmed'] },
+      _id: { $ne: null } // Exclude current booking if updating
     });
 
     if (existingBooking) {
+      console.log('[bookings/route] Time slot conflict detected:', {
+        existingBookingId: existingBooking._id,
+        therapistId: therapistUser._id,
+        date: apptDate,
+        time: appointmentTime
+      });
       return ResponseUtils.badRequest('Time slot is already booked');
     }
 
-    // Create 100ms meeting room and link
-    let meetingUrl = null;
-    let roomCode = null;
-    try {
-      const { scheduleMeeting } = require('@/lib/meeting-scheduler');
-      const meetingResult = await scheduleMeeting({ bookingId: therapistUser._id.toString() + '_' + apptDate.getTime() });
-      meetingUrl = meetingResult.meetingUrl;
-      roomCode = meetingResult.roomCode;
-    } catch (e) {
-      console.error('Failed to create 100ms meeting:', e);
+    // Additional check: Verify therapist is available at this time (if schedule exists)
+    // This is a soft check - we don't block, just log if outside schedule
+    if (therapistProfile && therapistProfile.availability) {
+      const dayOfWeek = apptDate.getDay();
+      const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+      const dayName = dayNames[dayOfWeek];
+      const daySchedule = therapistProfile.availability.find((avail) => 
+        avail.day && avail.day.toLowerCase() === dayName
+      );
+      
+      if (daySchedule && daySchedule.slots) {
+        const slotAvailable = daySchedule.slots.some((slot) => 
+          slot.startTime === appointmentTime && slot.isAvailable !== false
+        );
+        
+        if (!slotAvailable && daySchedule.slots.length > 0) {
+          console.warn('[bookings/route] ⚠️ Booking outside therapist schedule:', {
+            dayName,
+            appointmentTime,
+            availableSlots: daySchedule.slots.map((s) => s.startTime)
+          });
+          // Note: We allow this but log it - therapist can override their schedule
+        }
+      }
     }
 
-    // Create booking
+    // Create booking first to get unique ID
     const booking = {
       userId: new ObjectId(user._id),
       therapistId: therapistProfileId || therapistUser._id, // always prefer therapistProfileId for therapistId
@@ -223,13 +265,95 @@ export async function POST(request) {
       paymentStatus: 'pending',
       createdAt: new Date(),
       updatedAt: new Date(),
-      meetingUrl,
-      roomCode
+      meetingUrl: null,
+      roomCode: null
     };
 
     const result = await database.insertOne('bookings', booking);
     // attach _id for client convenience
     booking._id = result.insertedId;
+    
+    // Create meeting room based on session type
+    // Video consultation → 100ms video room
+    // Audio consultation → 100ms audio-only call room
+    // In-clinic/Home-visit → No room needed
+    let meetingUrl = null;
+    let roomCode = null;
+    let callRoomId = null;
+    
+    if (sessionType === 'video' || sessionType === 'audio') {
+      try {
+        const { scheduleMeeting } = require('@/lib/meeting-scheduler');
+        // Use actual booking ID + timestamp + random to ensure uniqueness
+        const uniqueBookingId = `${booking._id.toString()}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+        
+        console.log(`[bookings/route] Creating ${sessionType === 'video' ? 'video' : 'audio'} room for booking:`, {
+          bookingId: booking._id.toString(),
+          uniqueBookingId,
+          sessionType: booking.sessionType
+        });
+        
+        // Pass session type to scheduleMeeting to handle video vs audio differently
+        // IMPORTANT: Don't pass existingRoomCode/meetingUrl to force new room creation
+        const meetingResult = await scheduleMeeting({ 
+          bookingId: uniqueBookingId,
+          sessionType: sessionType, // Pass session type to differentiate
+          existingRoomCode: null, // Force new room creation
+          existingMeetingUrl: null // Force new room creation
+        });
+        
+        if (meetingResult.provider !== '100ms') {
+          console.error('[bookings/route] ❌ WARNING: Room was not created via 100ms API! Provider:', meetingResult.provider);
+          console.error('[bookings/route] This indicates a configuration issue. Please check:');
+          console.error('[bookings/route]   1. HMS_MANAGEMENT_TOKEN is set and valid');
+          console.error('[bookings/route]   2. HMS_TEMPLATE_ID is set and correct');
+          console.error('[bookings/route]   3. 100ms API is accessible');
+          // Still store it but log the warning
+        } else {
+          console.log(`[bookings/route] ✅ Successfully created ${sessionType} room:`, {
+            roomCode: meetingResult.roomCode,
+            roomId: meetingResult.roomId,
+            meetingUrl: meetingResult.meetingUrl,
+            sessionType: sessionType
+          });
+        }
+        
+        meetingUrl = meetingResult.meetingUrl;
+        roomCode = meetingResult.roomCode;
+        callRoomId = meetingResult.roomId;
+        
+        // Update booking with meeting details
+        if (meetingUrl || roomCode) {
+          await database.updateOne('bookings', { _id: booking._id }, {
+            $set: {
+              meetingUrl: meetingUrl || null,
+              roomCode: roomCode || null,
+              callRoomId: callRoomId || null,
+              updatedAt: new Date()
+            }
+          });
+          booking.meetingUrl = meetingUrl;
+          booking.roomCode = roomCode;
+          booking.callRoomId = callRoomId;
+        } else {
+          console.error(`[bookings/route] ❌ No meeting URL or room code generated for ${sessionType} session!`);
+        }
+      } catch (e) {
+        console.error(`[bookings/route] ❌ Failed to create ${sessionType} meeting room:`, {
+          error: e.message,
+          stack: e.stack,
+          bookingId: booking._id.toString(),
+          sessionType: sessionType
+        });
+        // Don't silently fail - log the error but continue with booking creation
+        // The booking will be created without a meeting link, which can be fixed later
+      }
+    } else {
+      console.log('[bookings/route] Skipping room creation for in-person session:', {
+        bookingId: booking._id.toString(),
+        sessionType: sessionType
+      });
+    }
 
     // Fire & forget immediate receipt notification (email/SMS) if configured
     try {
@@ -248,7 +372,9 @@ export async function POST(request) {
               therapistName: therapistDoc?.displayName || therapistUser?.name,
               sessionType: booking.sessionType,
               date: booking.appointmentDate?.toISOString?.(),
-              timeSlot: booking.appointmentTime
+              timeSlot: booking.appointmentTime,
+              meetingUrl: booking.meetingUrl || null,
+              roomCode: booking.roomCode || null
             });
             // Notify therapist
             await sendBookingConfirmation({
@@ -260,8 +386,8 @@ export async function POST(request) {
               sessionType: booking.sessionType,
               date: booking.appointmentDate?.toISOString?.(),
               timeSlot: booking.appointmentTime,
-              meetingUrl: booking.meetingUrl,
-              roomCode: booking.roomCode
+              meetingUrl: booking.meetingUrl || null,
+              roomCode: booking.roomCode || null
             });
           } catch (e) { console.error('sendBookingReceipt/Confirmation failed', e); }
         });

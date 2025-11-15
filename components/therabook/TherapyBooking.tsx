@@ -157,17 +157,21 @@ export function TherapyBooking({ therapistId }: TherapyBookingProps) {
       setAvailability(response.availability as AvailabilitySlot[]);
     } catch (error: any) {
       console.error('Failed to load availability:', error);
-      const mockSlots = [
+      // Fallback: Show all default slots as available (no random blocking!)
+      // Only actual bookings should block slots
+      const fallbackSlots = [
         { time: '09:00', available: true },
-        { time: '10:00', available: false },
+        { time: '10:00', available: true },
         { time: '11:00', available: true },
+        { time: '12:00', available: true },
         { time: '13:00', available: true },
         { time: '14:00', available: true },
-        { time: '15:00', available: false },
+        { time: '15:00', available: true },
         { time: '16:00', available: true },
-        { time: '17:00', available: true }
+        { time: '17:00', available: true },
+        { time: '18:00', available: true }
       ];
-      setAvailability(mockSlots);
+      setAvailability(fallbackSlots);
     } finally {
       setIsLoadingAvailability(false);
     }

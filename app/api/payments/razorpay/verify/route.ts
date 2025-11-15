@@ -51,7 +51,12 @@ export async function POST(request: NextRequest) {
       // Schedule meeting if session is real-time (video/audio)
       let scheduled: any = null;
       if (['video','audio'].includes(booking.sessionType)) {
-        scheduled = await scheduleMeeting({ bookingId, existingRoomCode: booking.roomCode, existingMeetingUrl: booking.meetingUrl });
+        scheduled = await scheduleMeeting({ 
+          bookingId, 
+          existingRoomCode: booking.roomCode, 
+          existingMeetingUrl: booking.meetingUrl,
+          sessionType: booking.sessionType as 'video' | 'audio'
+        });
       }
       await database.updateOne('bookings', { _id: new ObjectId(bookingId) }, {
         $set: {
@@ -86,9 +91,10 @@ export async function POST(request: NextRequest) {
               userPhone: userDoc?.phone,
               therapistName: therapistDoc?.displayName,
               sessionType: fresh?.sessionType,
-              date: fresh?.date?.toString?.(),
-              timeSlot: fresh?.timeSlot,
-              roomCode: fresh?.roomCode // if later stored
+              date: fresh?.appointmentDate?.toISOString?.() || fresh?.date?.toString?.(),
+              timeSlot: fresh?.appointmentTime || fresh?.timeSlot,
+              meetingUrl: fresh?.meetingUrl || null,
+              roomCode: fresh?.roomCode || null
             });
             // Optional in-process 10-minute reminder (best-effort; enable with NOTIFICATIONS_IN_PROCESS_SCHEDULER=1)
             try {
@@ -140,7 +146,14 @@ export async function POST(request: NextRequest) {
 
     let scheduled: any = null;
     if (['video','audio'].includes(booking.sessionType)) {
-      scheduled = await scheduleMeeting({ bookingId, existingRoomCode: booking.roomCode, existingMeetingUrl: booking.meetingUrl });
+      // Only reuse room if it already exists and is valid
+      // Otherwise create a new room (pass null to force new creation)
+      scheduled = await scheduleMeeting({ 
+        bookingId: `${bookingId}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`, 
+        existingRoomCode: booking.roomCode || null, 
+        existingMeetingUrl: booking.meetingUrl || null,
+        sessionType: booking.sessionType as 'video' | 'audio'
+      });
     }
     await database.updateOne('bookings', { _id: new ObjectId(bookingId) }, {
       $set: {
@@ -173,9 +186,10 @@ export async function POST(request: NextRequest) {
             userPhone: userDoc?.phone,
             therapistName: therapistDoc?.displayName,
             sessionType: fresh?.sessionType,
-            date: fresh?.date?.toString?.(),
-            timeSlot: fresh?.timeSlot,
-            roomCode: fresh?.roomCode
+            date: fresh?.appointmentDate?.toISOString?.() || fresh?.date?.toString?.(),
+            timeSlot: fresh?.appointmentTime || fresh?.timeSlot,
+            meetingUrl: fresh?.meetingUrl || null,
+            roomCode: fresh?.roomCode || null
           });
           // Optional in-process 10-minute reminder
           try {

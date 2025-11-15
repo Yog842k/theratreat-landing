@@ -51,6 +51,24 @@ export default function ConfirmationPage(_props: any) {
     if (!bookingId) return;
     try {
       const bookingData = await bookingService.getBooking(bookingId, token || undefined);
+      
+      // If meetingUrl is missing but roomCode exists, try to generate it
+      if (!bookingData.meetingUrl && (bookingData as any).roomCode) {
+        try {
+          const { scheduleMeeting } = await import('@/lib/meeting-scheduler');
+          const meetingResult = await scheduleMeeting({
+            bookingId: bookingId,
+            existingRoomCode: (bookingData as any).roomCode,
+            existingMeetingUrl: null
+          });
+          if (meetingResult.meetingUrl) {
+            bookingData.meetingUrl = meetingResult.meetingUrl;
+          }
+        } catch (e) {
+          console.warn('Failed to generate meeting URL from room code:', e);
+        }
+      }
+      
       setBooking(bookingData);
       // Compute unlock time: T-10 minutes from session start
       try {
@@ -185,46 +203,78 @@ export default function ConfirmationPage(_props: any) {
               </div>
             </div>
 
-    {/* Optional meeting link if backend provides it */}
-    {/* Join gating: unlock button 10 minutes before session start */}
-    {((booking as any).meetingUrl || (booking as any).meetingLink) && (
-              <div className="mt-4 p-4 bg-blue-50 rounded-lg">
-                <h4 className="font-medium text-blue-900 mb-2">Join Your Session</h4>
-                {unlockAt && now < unlockAt ? (
-                  <div className="mb-3 text-sm text-blue-700 flex items-center">
-                    <Lock className="w-4 h-4 mr-2" />
-                    Join button unlocks 10 minutes before your session.
-                  </div>
-                ) : (
-                  <p className="text-sm text-blue-700 mb-3">Use this link to join your video/audio session:</p>
-                )}
-                <Button
-                  variant="outline"
-                  className="w-full border-blue-200 text-blue-700 hover:bg-blue-100 disabled:opacity-60"
-                  disabled={Boolean(unlockAt && now < unlockAt)}
-                  onClick={() => {
-                    const url = (booking as any).meetingUrl || (booking as any).meetingLink;
-                    if (url) window.open(url, '_blank');
-                  }}
-                >
-                  Join Session
-                </Button>
+    {/* Meeting link section - always show if available */}
+    {(() => {
+      const meetingUrl = booking.meetingUrl || (booking as any).meetingLink;
+      const roomCode = booking.roomCode || (booking as any).roomCode;
+      
+      if (meetingUrl || roomCode) {
+        return (
+          <div className="mt-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border-2 border-blue-200">
+            <h4 className="font-semibold text-blue-900 mb-2 flex items-center">
+              <Video className="w-5 h-5 mr-2" />
+              Join Your Session
+            </h4>
+            {unlockAt && now < unlockAt ? (
+              <div className="mb-3 text-sm text-blue-700 flex items-center">
+                <Lock className="w-4 h-4 mr-2" />
+                Join button unlocks 10 minutes before your session.
+              </div>
+            ) : (
+              <p className="text-sm text-blue-700 mb-3">Click the button below to join your video/audio session:</p>
+            )}
+            {meetingUrl && (
+              <Button
+                variant="outline"
+                className="w-full border-2 border-blue-300 text-blue-700 hover:bg-blue-100 disabled:opacity-60 font-semibold"
+                disabled={Boolean(unlockAt && now < unlockAt)}
+                onClick={() => {
+                  if (meetingUrl) window.open(meetingUrl, '_blank');
+                }}
+              >
+                <Video className="w-4 h-4 mr-2" />
+                Join Session Now
+              </Button>
+            )}
+            {/* Display the actual meeting URL */}
+            {meetingUrl && (
+              <div className="mt-3 p-2 bg-white/70 rounded border border-blue-200">
+                <p className="text-xs text-blue-600 font-medium mb-1">Meeting Link:</p>
+                <p className="text-[11px] text-blue-700 break-all font-mono">
+                  {meetingUrl}
+                </p>
               </div>
             )}
-            {!((booking as any).meetingUrl || (booking as any).meetingLink) && (
-              <div className="mt-4 p-4 bg-indigo-50 rounded-lg">
-                <h4 className="font-medium text-indigo-900 mb-2">Join Now (Demo Link)</h4>
-                <p className="text-sm text-indigo-700 mb-3">Use this demo RoomKit link to enter the session immediately. Share it with the participant.</p>
-                <Button
-                  variant="outline"
-                  className="w-full border-indigo-200 text-indigo-700 hover:bg-indigo-100"
-                  onClick={() => window.open('https://therabook.app.100ms.live/meeting/ceu-ftar-xyj', '_blank')}
-                >
-                  Open Session (Room Code ceu-ftar-xyj)
-                </Button>
-                <p className="text-[11px] mt-2 text-indigo-500 break-all">https://therabook.app.100ms.live/meeting/ceu-ftar-xyj</p>
+            {roomCode && (
+              <div className="mt-2 p-2 bg-white/70 rounded border border-blue-200">
+                <p className="text-xs text-blue-600 font-medium mb-1">Room Code:</p>
+                <p className="text-sm font-mono font-bold text-blue-800">{roomCode}</p>
               </div>
             )}
+            {!meetingUrl && roomCode && (
+              <p className="text-xs text-blue-600 mt-2 italic">
+                Meeting link will be available soon. You can use the room code above to join.
+              </p>
+            )}
+          </div>
+        );
+      }
+      
+      // Fallback: Show demo link only if no real link exists
+      return (
+        <div className="mt-4 p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+          <h4 className="font-medium text-yellow-900 mb-2">Meeting Link</h4>
+          <p className="text-sm text-yellow-700 mb-2">
+            Your meeting link is being generated. It will be sent to your email and SMS shortly.
+          </p>
+          {roomCode && (
+            <p className="text-xs text-yellow-600 mt-2">
+              Room Code: <span className="font-mono font-semibold">{roomCode}</span>
+            </p>
+          )}
+        </div>
+      );
+    })()}
           </CardContent>
         </Card>
 

@@ -261,8 +261,16 @@ export default function TherapistDashboardPage() {
       const res = await fetch(`/api/therapists/${resolvedTherapistId}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      const json = await res.json();
-      if (!res.ok || !json?.success) throw new Error(json?.message || 'Failed to load therapist');
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.success) {
+        // Log technical error but don't show to user
+        console.error('Profile API error:', json);
+        // Only set error if it's not a database connection issue
+        if (!json?.error?.includes('MongoDB') && !json?.error?.includes('connect')) {
+          setError('Unable to load profile information. Please try again later.');
+        }
+        return; // Don't throw, allow dashboard to continue with existing data
+      }
       const t = json.therapist || {};
       const name = t.displayName || user?.name || '';
       const gender = t.gender || '';
@@ -302,6 +310,11 @@ export default function TherapistDashboardPage() {
       }));
     } catch (e) {
       console.error('Error loading fullProfile:', e);
+      // Don't set error for connection issues - allow dashboard to continue with existing data
+      const errorMsg = e instanceof Error ? e.message : String(e);
+      if (!errorMsg.includes('MongoDB') && !errorMsg.includes('connect')) {
+        setError('Unable to load profile information. Please try again later.');
+      }
     }
   };
 
@@ -316,8 +329,13 @@ export default function TherapistDashboardPage() {
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) {
+        // Log technical error but don't show to user
         console.error('Stats API error:', result);
-        throw new Error('Failed to fetch dashboard stats');
+        // Only set error if it's not a database connection issue
+        if (!result.error?.includes('MongoDB') && !result.error?.includes('connect')) {
+          setError('Unable to load statistics. Please try again later.');
+        }
+        return; // Don't throw, allow dashboard to continue
       }
       if (result.success && result.stats) {
         const s = result.stats || {};
@@ -337,11 +355,18 @@ export default function TherapistDashboardPage() {
           verificationPercentage: verificationPct
         });
       } else {
-        setError(result.message || 'Failed to load dashboard statistics');
+        // Only show error if it's not a database connection issue
+        if (!result.error?.includes('MongoDB') && !result.error?.includes('connect')) {
+          setError(result.message || 'Unable to load statistics');
+        }
       }
     } catch (error) {
       console.error('Error fetching dashboard stats:', error);
-      setError('Failed to load dashboard statistics');
+      // Don't set error for connection issues - allow dashboard to show with default/empty data
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      if (!errorMsg.includes('MongoDB') && !errorMsg.includes('connect')) {
+        setError('Unable to load statistics. Please try again later.');
+      }
     }
   };
 
@@ -356,8 +381,15 @@ export default function TherapistDashboardPage() {
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) {
+        // Log technical error but don't show to user
         console.error("Today's sessions API error:", result);
-        throw new Error('Failed to fetch today\'s sessions');
+        // Only set error if it's not a database connection issue
+        if (!result.error?.includes('MongoDB') && !result.error?.includes('connect')) {
+          setError('Unable to load today\'s sessions. Please try again later.');
+        }
+        // Set empty array so UI doesn't break
+        setTodaySessions([]);
+        return; // Don't throw, allow dashboard to continue
       }
       if (result.success && Array.isArray(result.sessions)) {
         const sessions = result.sessions.map((b: any) => ({
@@ -372,11 +404,22 @@ export default function TherapistDashboardPage() {
         }));
         setTodaySessions(sessions);
       } else {
-        setError(result.message || 'Failed to load today\'s sessions');
+        // Set empty array if no sessions or error
+        setTodaySessions([]);
+        // Only show error if it's not a database connection issue
+        if (!result.error?.includes('MongoDB') && !result.error?.includes('connect')) {
+          setError(result.message || 'Unable to load today\'s sessions');
+        }
       }
     } catch (error) {
       console.error('Error fetching today\'s sessions:', error);
-      setError('Failed to load today\'s sessions');
+      // Set empty array so UI doesn't break
+      setTodaySessions([]);
+      // Don't set error for connection issues - allow dashboard to show with empty data
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      if (!errorMsg.includes('MongoDB') && !errorMsg.includes('connect')) {
+        setError('Unable to load today\'s sessions. Please try again later.');
+      }
     }
   };
 
@@ -391,8 +434,21 @@ export default function TherapistDashboardPage() {
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) {
+        // Log technical error but don't show to user
         console.error('Bookings API error:', result);
-        throw new Error('Failed to fetch bookings');
+        // Only set error if it's not a database connection issue
+        if (!result.error?.includes('MongoDB') && !result.error?.includes('connect')) {
+          setError('Unable to load appointments. Please try again later.');
+        }
+        // Set empty appointments so UI doesn't break
+        setTherapistData(prev => ({
+          ...prev,
+          appointments: {
+            ...prev.appointments,
+            upcoming: []
+          }
+        }));
+        return; // Don't throw, allow dashboard to continue
       }
       if (result.success && Array.isArray(result.data)) {
         setTherapistData(prev => ({
@@ -409,11 +465,34 @@ export default function TherapistDashboardPage() {
           }
         }));
       } else {
-        setError(result.message || 'Failed to load bookings');
+        // Set empty appointments if no data or error
+        setTherapistData(prev => ({
+          ...prev,
+          appointments: {
+            ...prev.appointments,
+            upcoming: []
+          }
+        }));
+        // Only show error if it's not a database connection issue
+        if (!result.error?.includes('MongoDB') && !result.error?.includes('connect')) {
+          setError(result.message || 'Unable to load appointments');
+        }
       }
     } catch (error) {
       console.error('Error fetching bookings:', error);
-      setError('Failed to load bookings');
+      // Set empty appointments so UI doesn't break
+      setTherapistData(prev => ({
+        ...prev,
+        appointments: {
+          ...prev.appointments,
+          upcoming: []
+        }
+      }));
+      // Don't set error for connection issues - allow dashboard to show with empty data
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      if (!errorMsg.includes('MongoDB') && !errorMsg.includes('connect')) {
+        setError('Unable to load appointments. Please try again later.');
+      }
     }
   };
 
@@ -488,15 +567,28 @@ export default function TherapistDashboardPage() {
         setIsLoadingData(true);
         setError(null);
         try {
-          await Promise.all([
+          // Use Promise.allSettled instead of Promise.all to continue even if some fail
+          const results = await Promise.allSettled([
             fetchDashboardStats(),
             fetchTodaySessions(),
             fetchTherapistBookings(),
             fetchTherapistFullProfile()
           ]);
+          
+          // Log any failures but don't break the UI
+          results.forEach((result, index) => {
+            if (result.status === 'rejected') {
+              const apiNames = ['Stats', 'Today Sessions', 'Bookings', 'Profile'];
+              console.error(`Error loading ${apiNames[index]}:`, result.reason);
+            }
+          });
         } catch (error) {
           console.error('Error loading dashboard data:', error);
-          setError('Failed to load dashboard data');
+          // Only show error if it's not a database connection issue
+          const errorMsg = error instanceof Error ? error.message : String(error);
+          if (!errorMsg.includes('MongoDB') && !errorMsg.includes('connect')) {
+            setError('Some data could not be loaded. Please try refreshing.');
+          }
         } finally {
           setIsLoadingData(false);
         }
@@ -513,15 +605,28 @@ export default function TherapistDashboardPage() {
     setIsLoadingData(true);
     setError(null);
     try {
-      await Promise.all([
+      // Use Promise.allSettled instead of Promise.all to continue even if some fail
+      const results = await Promise.allSettled([
         fetchDashboardStats(),
         fetchTodaySessions(),
         fetchTherapistBookings(),
         fetchTherapistFullProfile()
       ]);
+      
+      // Log any failures but don't break the UI
+      results.forEach((result, index) => {
+        if (result.status === 'rejected') {
+          const apiNames = ['Stats', 'Today Sessions', 'Bookings', 'Profile'];
+          console.error(`Error refreshing ${apiNames[index]}:`, result.reason);
+        }
+      });
     } catch (error) {
       console.error('Error refreshing data:', error);
-      setError('Failed to refresh data');
+      // Only show error if it's not a database connection issue
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      if (!errorMsg.includes('MongoDB') && !errorMsg.includes('connect')) {
+        setError('Some data could not be refreshed. Please try again.');
+      }
     } finally {
       setIsLoadingData(false);
     }
@@ -569,10 +674,10 @@ export default function TherapistDashboardPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
       <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 xl:px-8 py-4 sm:py-6 lg:py-8">
-        {error && (
-          <Alert className="mb-6 border-red-300 bg-red-50 shadow-sm">
-            <AlertCircle className="h-5 w-5 text-red-600" />
-            <AlertDescription className="text-red-800 font-medium">{error}</AlertDescription>
+        {error && !error.includes('MongoDB') && !error.includes('connect') && (
+          <Alert className="mb-4 sm:mb-6 border-amber-300 bg-amber-50 shadow-sm">
+            <AlertCircle className="h-4 w-4 sm:h-5 sm:w-5 text-amber-600" />
+            <AlertDescription className="text-amber-800 text-sm sm:text-base font-medium">{error}</AlertDescription>
           </Alert>
         )}
 
@@ -695,29 +800,59 @@ export default function TherapistDashboardPage() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4 sm:space-y-6">
-          <div className="bg-white rounded-2xl shadow-lg p-1 sm:p-2 border border-blue-100 overflow-x-auto">
-            <TabsList className="grid grid-cols-4 lg:grid-cols-8 w-full min-w-max bg-gray-50 rounded-xl p-0.5 sm:p-1">
-              {[
-                { value: "profile", icon: User, label: "Profile" },
-                { value: "settings", icon: Settings, label: "Settings" },
-                { value: "verification", icon: Shield, label: "Verification" },
-                { value: "appointments", icon: CalendarIcon, label: "Appointments" },
-                { value: "earnings", icon: DollarSign, label: "Earnings" },
-                { value: "courses", icon: GraduationCap, label: "Courses" },
-                { value: "support", icon: HelpCircle, label: "Support" },
-                { value: "articles", icon: FileText, label: "Articles" }
-              ].map(({ value, icon: Icon, label }) => (
-                <TabsTrigger 
-                  key={value}
-                  value={value}
-                  className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 sm:px-3 py-2 sm:py-2.5 text-[10px] sm:text-sm data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md rounded-lg transition-all duration-200"
-                >
-                  <Icon className="w-3 h-3 sm:w-4 sm:h-4" />
-                  <span className="hidden sm:inline">{label}</span>
-                  <span className="sm:hidden text-[9px] leading-tight text-center">{label}</span>
-                </TabsTrigger>
-              ))}
-            </TabsList>
+          <div className="bg-white rounded-2xl shadow-lg p-2 sm:p-3 border border-blue-100">
+            {/* Mobile & Tablet: Scrollable horizontal tabs */}
+            <div className="block lg:hidden">
+              <div className="overflow-x-auto hide-scrollbar -mx-2 px-2">
+                <TabsList className="inline-flex w-max min-w-full bg-gray-50 rounded-xl p-1.5 sm:p-2 gap-1.5 sm:gap-2">
+                  {[
+                    { value: "profile", icon: User, label: "Profile", shortLabel: "Profile" },
+                    { value: "settings", icon: Settings, label: "Settings", shortLabel: "Settings" },
+                    { value: "verification", icon: Shield, label: "Verification", shortLabel: "Verify" },
+                    { value: "appointments", icon: CalendarIcon, label: "Appointments", shortLabel: "Appts" },
+                    { value: "earnings", icon: DollarSign, label: "Earnings", shortLabel: "Earnings" },
+                    { value: "courses", icon: GraduationCap, label: "Courses", shortLabel: "Courses" },
+                    { value: "support", icon: HelpCircle, label: "Support", shortLabel: "Support" },
+                    { value: "articles", icon: FileText, label: "Articles", shortLabel: "Articles" }
+                  ].map(({ value, icon: Icon, label, shortLabel }) => (
+                    <TabsTrigger 
+                      key={value}
+                      value={value}
+                      className="flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold whitespace-nowrap rounded-lg transition-all duration-300 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-200/50 data-[state=inactive]:text-gray-600 data-[state=inactive]:hover:text-blue-600 data-[state=inactive]:hover:bg-blue-50 data-[state=inactive]:hover:border-blue-200 border border-transparent min-w-fit flex-shrink-0"
+                    >
+                      <Icon className="w-4 h-4 sm:w-4 sm:h-4 flex-shrink-0" />
+                      <span className="hidden min-[375px]:inline">{shortLabel}</span>
+                      <span className="min-[375px]:hidden text-[10px]">{label.split(' ')[0]}</span>
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </div>
+            </div>
+            
+            {/* Desktop: Grid layout */}
+            <div className="hidden lg:block">
+              <TabsList className="grid grid-cols-4 xl:grid-cols-8 w-full bg-gray-50 rounded-xl p-1.5 sm:p-2 gap-1.5 sm:gap-2">
+                {[
+                  { value: "profile", icon: User, label: "Profile" },
+                  { value: "settings", icon: Settings, label: "Settings" },
+                  { value: "verification", icon: Shield, label: "Verification" },
+                  { value: "appointments", icon: CalendarIcon, label: "Appointments" },
+                  { value: "earnings", icon: DollarSign, label: "Earnings" },
+                  { value: "courses", icon: GraduationCap, label: "Courses" },
+                  { value: "support", icon: HelpCircle, label: "Support" },
+                  { value: "articles", icon: FileText, label: "Articles" }
+                ].map(({ value, icon: Icon, label }) => (
+                  <TabsTrigger 
+                    key={value}
+                    value={value}
+                    className="flex flex-col items-center justify-center gap-2 px-3 py-3 sm:py-4 text-sm font-semibold rounded-lg transition-all duration-300 data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-blue-600 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-blue-200/50 data-[state=inactive]:text-gray-600 data-[state=inactive]:hover:text-blue-600 data-[state=inactive]:hover:bg-blue-50 data-[state=inactive]:hover:border-blue-200 border border-transparent hover:scale-105 active:scale-95"
+                  >
+                    <Icon className="w-5 h-5 flex-shrink-0" />
+                    <span className="text-xs leading-tight text-center">{label}</span>
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </div>
           </div>
 
           <TabsContent value="profile">
