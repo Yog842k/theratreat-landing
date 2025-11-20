@@ -423,10 +423,6 @@ export function VideoRoomContent({ onLeave: onLeaveCallback, therapistName, user
             if (response.ok) {
               const data = await response.json().catch(() => ({}));
               // Booking marked as completed
-                bookingId,
-                response: data,
-                timestamp: new Date().toISOString()
-              });
             } else {
               const errorData = await response.json().catch(() => ({}));
               console.warn('[100ms] ⚠️ Booking status update failed', {

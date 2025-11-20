@@ -73,24 +73,13 @@ export async function createRazorpaySubAccount(params: SubAccountParams): Promis
       };
     }
 
-      type: params.type,
-      entityId: params.entityId,
-      email: params.email,
-      hasBankDetails: !!(params.bankDetails.accountNumber && params.bankDetails.ifscCode)
-    });
-
     // Create the connected account
     const account = await rzp.accounts.create(accountData);
 
     if (!account || !account.id) {
       console.error('[RZP][SUBACCOUNT] Account creation returned invalid response:', account);
-      return null;
-    }
-
-      accountId: account.id,
-      type: params.type,
-      entityId: params.entityId
-    });
+        return null;
+      }
 
     return {
       id: account.id,

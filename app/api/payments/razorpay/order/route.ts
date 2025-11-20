@@ -81,13 +81,6 @@ export async function POST(request: NextRequest) {
       return ResponseUtils.errorCode('AUTH_MIDDLEWARE_MISSING', 'Auth middleware missing', 500);
     }
 
-      modeEnv: process.env.RAZORPAY_MODE,
-      hasTest: !!process.env.RAZORPAY_TEST_KEY_ID,
-      hasLive: !!process.env.RAZORPAY_LIVE_KEY_ID,
-      hasLegacy: !!process.env.RAZORPAY_KEY_ID,
-      simulatedFlag: process.env.RAZORPAY_SIMULATED,
-      ts: Date.now()
-    });
     // Inline key usage is disabled permanently (security hardening).
 
     // Auth guard with configurable roles. By default only end-user roles can create orders.
@@ -297,15 +290,6 @@ export async function POST(request: NextRequest) {
           }
         ];
         
-        console.log('[RZP][ORDER] Creating order with split payment (transfers):', {
-          totalAmount: amount,
-          providerAmount,
-          commissionAmount,
-          providerAccount,
-          platformAccount,
-          commissionPercent: `${(commissionPercent * 100).toFixed(2)}%`,
-          providerType: therapist ? 'therapist' : clinic ? 'clinic' : 'none'
-        });
       } else {
         console.warn('[RZP][ORDER] Split payment not configured - missing provider or platform account:', {
           hasProviderAccount: !!providerAccount,
