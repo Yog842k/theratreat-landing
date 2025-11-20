@@ -83,7 +83,6 @@ export async function POST(request: NextRequest) {
         };
       } else {
         // If update fails, try creating a new one
-        console.log('[RZP][CREATE-SUBACCOUNT] Update failed, creating new sub-account');
         subAccount = await createRazorpaySubAccount({
           name: type === 'therapist' ? entity.displayName : entity.name,
           email: user.email,

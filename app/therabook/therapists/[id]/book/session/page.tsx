@@ -90,7 +90,6 @@ export default function SessionPage() {
 
       // Step 2: Create room if it doesn't exist
       if (!finalRoomId && bookingId) {
-        console.log('[Session] No roomId found, creating room on-demand...');
         
         const roomResponse = await fetch('/api/100ms-room/create', {
           method: 'POST',
@@ -107,7 +106,6 @@ export default function SessionPage() {
         
         if (roomData.success && roomData.room && roomData.room.id) {
           finalRoomId = roomData.room.id;
-          console.log('[Session] ✅ Room created:', finalRoomId);
           
           // Update booking with roomId
           if (bookingId) {
@@ -157,7 +155,6 @@ export default function SessionPage() {
       const userName = user.name || 'user';
       const userId = `${userName.replace(/\s+/g, '_')}_${Date.now()}`;
 
-      console.log('[Session] Generating token for roomId:', finalRoomId);
       
       const tokenResponse = await fetch('/api/100ms-room/token', {
         method: 'POST',
@@ -172,7 +169,6 @@ export default function SessionPage() {
       const tokenData = await tokenResponse.json();
 
       if (tokenData.success && tokenData.token) {
-        console.log('[Session] ✅ Token generated successfully');
         
         // Mark user as joined in booking
         if (bookingId && token) {
@@ -276,6 +272,14 @@ export default function SessionPage() {
     );
   }
 
+  // Handle redirect to feedback when therapist ends session
+  const handleSessionEnded = () => {
+    if (user?.userType !== 'therapist' && bookingId) {
+      // Patient: redirect to feedback page
+      router.push(`/therabook/therapists/${id}/book/session/feedback?bookingId=${bookingId}`);
+    }
+  };
+
   // Session started - show video room
   if (sessionStarted && tokenData) {
     return (
@@ -292,6 +296,8 @@ export default function SessionPage() {
           therapistName={tokenData.role === 'host' ? 'Therapist' : 'Patient'}
           userRole={tokenData.role}
           bookingId={bookingId || undefined}
+          therapistId={id}
+          onSessionEnded={handleSessionEnded}
         />
         <Toaster />
       </HMSRoomProvider>

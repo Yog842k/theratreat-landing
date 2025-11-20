@@ -81,7 +81,6 @@ export async function POST(request: NextRequest) {
       return ResponseUtils.errorCode('AUTH_MIDDLEWARE_MISSING', 'Auth middleware missing', 500);
     }
 
-    console.log('[RZP][ORDER] entry', {
       modeEnv: process.env.RAZORPAY_MODE,
       hasTest: !!process.env.RAZORPAY_TEST_KEY_ID,
       hasLive: !!process.env.RAZORPAY_LIVE_KEY_ID,

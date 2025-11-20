@@ -19,11 +19,6 @@ export async function POST(request) {
     // For demo purposes, if database is not available, allow demo login
     try {
       const emailLower = email.toLowerCase();
-      console.log('[LOGIN] Attempting login:', {
-        email: emailLower,
-        hasPassword: !!password,
-        passwordLength: password ? password.length : 0
-      });
       
       // Find user
       const user = await database.findOne('users', { 
@@ -35,15 +30,6 @@ export async function POST(request) {
         return ResponseUtils.unauthorized('Invalid email or password');
       }
 
-      console.log('[LOGIN] User found:', {
-        userId: user._id.toString(),
-        email: user.email,
-        userType: user.userType,
-        isActive: user.isActive,
-        hasPassword: !!user.password,
-        passwordLength: user.password ? user.password.length : 0,
-        passwordIsHashed: user.password && user.password.length > 50 && user.password.startsWith('$2')
-      });
 
       // Check if user is active
       if (!user.isActive) {
@@ -96,7 +82,6 @@ export async function POST(request) {
       }, 'Login successful');
 
     } catch (dbError) {
-      console.log('Database unavailable, using demo login...', dbError?.message);
       
       // Demo login for development
       if (email === 'admin@therabook.com' && password === 'Admin123!') {

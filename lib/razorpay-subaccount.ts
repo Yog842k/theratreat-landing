@@ -73,7 +73,6 @@ export async function createRazorpaySubAccount(params: SubAccountParams): Promis
       };
     }
 
-    console.log('[RZP][SUBACCOUNT] Creating sub-account for:', {
       type: params.type,
       entityId: params.entityId,
       email: params.email,
@@ -88,7 +87,6 @@ export async function createRazorpaySubAccount(params: SubAccountParams): Promis
       return null;
     }
 
-    console.log('[RZP][SUBACCOUNT] Sub-account created successfully:', {
       accountId: account.id,
       type: params.type,
       entityId: params.entityId
@@ -140,7 +138,6 @@ export async function updateRazorpaySubAccount(
     };
 
     await rzp.accounts.edit(accountId, updateData);
-    console.log('[RZP][SUBACCOUNT] Updated bank details for account:', accountId);
     return true;
   } catch (e: any) {
     console.error('[RZP][SUBACCOUNT] Failed to update sub-account:', {

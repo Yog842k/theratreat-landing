@@ -22,7 +22,7 @@ import {
 } from "@100mslive/react-sdk";
 
 // Video Room Component - Must be inside HMSRoomProvider
-export function VideoRoomContent({ onLeave: onLeaveCallback, therapistName, userRole, bookingId }: { onLeave?: () => void; therapistName?: string; userRole?: string; bookingId?: string }) {
+export function VideoRoomContent({ onLeave: onLeaveCallback, therapistName, userRole, bookingId, therapistId, onSessionEnded }: { onLeave?: () => void; therapistName?: string; userRole?: string; bookingId?: string; therapistId?: string; onSessionEnded?: () => void }) {
   const hmsActions = useHMSActions();
   const peers = useHMSStore(selectPeers);
   const localPeer = useHMSStore(selectLocalPeer);
@@ -34,6 +34,8 @@ export function VideoRoomContent({ onLeave: onLeaveCallback, therapistName, user
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [sessionDuration, setSessionDuration] = useState(0);
   const [showInstructions, setShowInstructions] = useState(true);
+  const [wasConnected, setWasConnected] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
   
   const actualVideoEnabled = isLocalVideoEnabledStore ?? isLocalVideoEnabled;
   const actualAudioEnabled = isLocalAudioEnabledStore ?? isLocalAudioEnabled;
@@ -50,6 +52,69 @@ export function VideoRoomContent({ onLeave: onLeaveCallback, therapistName, user
     peersRef.current = peers;
     videoEnabledRef.current = actualVideoEnabled;
   }, [peers, actualVideoEnabled]);
+
+  // Track connection state and peers to detect when therapist ends session
+  useEffect(() => {
+    if (isConnected) {
+      setWasConnected(true);
+    }
+  }, [isConnected]);
+
+  // Detect when patient is disconnected or therapist leaves
+  useEffect(() => {
+    if (!isHost && wasConnected && !redirecting) {
+      // Check if therapist peer is still in the room
+      const therapistPeer = peers.find((p: any) => {
+        const role = (p as any)?.role?.name;
+        return role === 'host' || role === 'therapist';
+      });
+      
+      // If disconnected or therapist left, redirect to feedback
+      if ((!isConnected || !therapistPeer) && onSessionEnded) {
+        setRedirecting(true);
+        
+        // Check booking status and redirect to feedback if completed
+        if (bookingId) {
+          // Small delay to ensure booking status is updated
+          setTimeout(async () => {
+            try {
+              const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+              const response = await fetch(`/api/bookings/${bookingId}`, {
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...(token ? { Authorization: `Bearer ${token}` } : {})
+                }
+              });
+              
+              if (response.ok) {
+                const data = await response.json();
+                const booking = data.booking || data.data?.booking || data;
+                
+                if (booking.status === 'completed') {
+                  onSessionEnded();
+                } else {
+                  // Even if not marked completed, redirect if therapist left
+                  onSessionEnded();
+                }
+              } else {
+                // Fallback: redirect if API call fails
+                onSessionEnded();
+              }
+            } catch (err) {
+              console.error('[100ms] Error checking booking status:', err);
+              // Still redirect to feedback page as fallback
+              onSessionEnded();
+            }
+          }, 1500);
+        } else {
+          // No booking ID - redirect after short delay
+          setTimeout(() => {
+            onSessionEnded();
+          }, 1500);
+        }
+      }
+    }
+  }, [isConnected, wasConnected, isHost, peers, bookingId, onSessionEnded, redirecting]);
 
   // Session timer
   useEffect(() => {
@@ -88,19 +153,11 @@ export function VideoRoomContent({ onLeave: onLeaveCallback, therapistName, user
       
       // If therapist is ending, remove all other peers first with multiple fallback strategies
       if (isHost && peers.length > 1) {
-        console.log('[100ms] 🎯 Therapist ending session - removing participants', {
-          peerCount: peers.length,
-          otherPeers: peers.filter(p => !p.isLocal).map(p => ({ id: p.id, name: p.name })),
-          roomId: (localPeer as any)?.room?.id,
-          timestamp: new Date().toISOString()
-        });
-        
         try {
           // Strategy 1: Send broadcast message to notify participants
           try {
             if (typeof hmsActions.sendBroadcastMessage === 'function') {
               await hmsActions.sendBroadcastMessage('Therapist has ended the session. You will be disconnected shortly.');
-              console.log('[100ms] ✅ Broadcast message sent to participants');
             }
           } catch (msgError: any) {
             console.warn('[100ms] ⚠️ Could not send broadcast message:', {
@@ -119,11 +176,9 @@ export function VideoRoomContent({ onLeave: onLeaveCallback, therapistName, user
               if (typeof (hmsActions as any).removePeer === 'function') {
                 await (hmsActions as any).removePeer(peer.id, 'Therapist ended the session');
                 removedCount++;
-                console.log('[100ms] ✅ Removed peer:', { id: peer.id, name: peer.name });
               } else if (typeof (hmsActions as any).endRoom === 'function') {
                 // Alternative: end the entire room
                 await (hmsActions as any).endRoom();
-                console.log('[100ms] ✅ Ended room for all participants via endRoom()');
                 break; // No need to continue if room is ended
               }
             } catch (peerError: any) {
@@ -138,7 +193,6 @@ export function VideoRoomContent({ onLeave: onLeaveCallback, therapistName, user
           
           // Strategy 3: Fallback to API endpoint if SDK methods fail
           if (removedCount === 0 && (localPeer as any)?.room?.id) {
-            console.log('[100ms] 🔄 SDK methods unavailable, trying API fallback...');
             try {
               const token = localStorage.getItem('token') || sessionStorage.getItem('token');
               const endResponse = await fetch('/api/100ms-room/end', {
@@ -156,7 +210,7 @@ export function VideoRoomContent({ onLeave: onLeaveCallback, therapistName, user
               const endData = await endResponse.json().catch(() => ({}));
               
               if (endResponse.ok && endData.success) {
-                console.log('[100ms] ✅ Room ended via API fallback');
+                // Room ended via API fallback
               } else {
                 console.warn('[100ms] ⚠️ API fallback failed:', {
                   status: endResponse.status,
@@ -173,10 +227,6 @@ export function VideoRoomContent({ onLeave: onLeaveCallback, therapistName, user
           
           // Wait a bit for peers to be removed/notified
           await new Promise(resolve => setTimeout(resolve, 1000));
-          console.log('[100ms] ✅ Participant removal process completed', {
-            removedCount,
-            totalPeers: otherPeers.length
-          });
         } catch (removeError: any) {
           console.error('[100ms] ❌ Error ending session for participants:', {
             error: removeError?.message || removeError,
@@ -186,14 +236,7 @@ export function VideoRoomContent({ onLeave: onLeaveCallback, therapistName, user
         }
       }
       
-      // Step 1: Stop all media tracks - comprehensive cleanup with detailed logging
-      console.log('[100ms] 🧹 Starting media track cleanup', {
-        hasLocalPeer: !!localPeer,
-        hasAudioTrack: !!localPeer?.audioTrack,
-        hasVideoTrack: !!localPeer?.videoTrack,
-        timestamp: new Date().toISOString()
-      });
-      
+      // Step 1: Stop all media tracks - comprehensive cleanup
       try {
         const allTracks: MediaStreamTrack[] = [];
         let tracksStopped = 0;
@@ -204,11 +247,6 @@ export function VideoRoomContent({ onLeave: onLeaveCallback, therapistName, user
             const audioTrack = localPeer.audioTrack;
             if (typeof audioTrack === 'object' && audioTrack !== null && 'nativeTrack' in audioTrack && (audioTrack as any).nativeTrack) {
               allTracks.push((audioTrack as any).nativeTrack);
-              console.log('[100ms] 📍 Found audio track:', {
-                trackId: (audioTrack as any).nativeTrack.id,
-                kind: (audioTrack as any).nativeTrack.kind,
-                readyState: (audioTrack as any).nativeTrack.readyState
-              });
             }
           } catch (e: any) {
             console.warn('[100ms] ⚠️ Error getting audio track:', {
@@ -223,11 +261,6 @@ export function VideoRoomContent({ onLeave: onLeaveCallback, therapistName, user
             const videoTrack = localPeer.videoTrack;
             if (typeof videoTrack === 'object' && videoTrack !== null && 'nativeTrack' in videoTrack && (videoTrack as any).nativeTrack) {
               allTracks.push((videoTrack as any).nativeTrack);
-              console.log('[100ms] 📹 Found video track:', {
-                trackId: (videoTrack as any).nativeTrack.id,
-                kind: (videoTrack as any).nativeTrack.kind,
-                readyState: (videoTrack as any).nativeTrack.readyState
-              });
             }
           } catch (e: any) {
             console.warn('[100ms] ⚠️ Error getting video track:', {
@@ -243,16 +276,6 @@ export function VideoRoomContent({ onLeave: onLeaveCallback, therapistName, user
             if (track.readyState !== 'ended') {
               track.stop();
               tracksStopped++;
-              console.log('[100ms] ✅ Stopped track:', {
-                kind: track.kind,
-                id: track.id,
-                readyState: track.readyState
-              });
-            } else {
-              console.log('[100ms] ℹ️ Track already ended:', {
-                kind: track.kind,
-                id: track.id
-              });
             }
           } catch (e: any) {
             console.warn('[100ms] ⚠️ Error stopping track:', {
@@ -263,34 +286,22 @@ export function VideoRoomContent({ onLeave: onLeaveCallback, therapistName, user
           }
         });
         
-        console.log('[100ms] ✅ Local peer tracks cleanup completed', {
-          totalTracks: allTracks.length,
-          stoppedTracks: tracksStopped
-        });
-        
-        // Stop all media streams from DOM elements with detailed logging
+        // Stop all media streams from DOM elements
         if (typeof window !== 'undefined') {
           let domTracksStopped = 0;
           
           // Get all video elements and stop their streams
           const videoElements = document.querySelectorAll('video');
-          console.log('[100ms] 📹 Found video elements:', videoElements.length);
           
-          videoElements.forEach((video, index) => {
+          videoElements.forEach((video) => {
             if (video.srcObject instanceof MediaStream) {
               const stream = video.srcObject;
               const streamTracks = stream.getTracks();
-              console.log(`[100ms] 📹 Video element ${index} has ${streamTracks.length} tracks`);
               
               streamTracks.forEach(track => {
                 if (track.readyState !== 'ended') {
                   track.stop();
                   domTracksStopped++;
-                  console.log('[100ms] ✅ Stopped track from video element:', {
-                    kind: track.kind,
-                    id: track.id,
-                    elementIndex: index
-                  });
                 }
               });
               video.srcObject = null;
@@ -299,33 +310,20 @@ export function VideoRoomContent({ onLeave: onLeaveCallback, therapistName, user
           
           // Get all audio elements and stop their streams
           const audioElements = document.querySelectorAll('audio');
-          console.log('[100ms] 🔊 Found audio elements:', audioElements.length);
           
-          audioElements.forEach((audio, index) => {
+          audioElements.forEach((audio) => {
             if (audio.srcObject instanceof MediaStream) {
               const stream = audio.srcObject;
               const streamTracks = stream.getTracks();
-              console.log(`[100ms] 🔊 Audio element ${index} has ${streamTracks.length} tracks`);
               
               streamTracks.forEach(track => {
                 if (track.readyState !== 'ended') {
                   track.stop();
                   domTracksStopped++;
-                  console.log('[100ms] ✅ Stopped track from audio element:', {
-                    kind: track.kind,
-                    id: track.id,
-                    elementIndex: index
-                  });
                 }
               });
               audio.srcObject = null;
             }
-          });
-          
-          console.log('[100ms] ✅ DOM elements cleanup completed', {
-            videoElements: videoElements.length,
-            audioElements: audioElements.length,
-            domTracksStopped
           });
           
           // Additional cleanup: Force stop all media tracks
@@ -353,7 +351,6 @@ export function VideoRoomContent({ onLeave: onLeaveCallback, therapistName, user
               try {
                 if (track.readyState !== 'ended') {
                   track.stop();
-                  console.log('[100ms] Force stopped track:', track.kind, track.id);
                 }
               } catch (e) {
                 console.warn('[100ms] Error force stopping track:', e);
@@ -377,18 +374,9 @@ export function VideoRoomContent({ onLeave: onLeaveCallback, therapistName, user
       }
       
       // Step 2: Leave the room - this is critical with retry logic
-      console.log('[100ms] 🚪 Leaving room', {
-        isConnected,
-        roomId: (localPeer as any)?.room?.id,
-        timestamp: new Date().toISOString()
-      });
-      
       try {
         if (isConnected) {
           await hmsActions.leave();
-          console.log('[100ms] ✅ Successfully left the room');
-        } else {
-          console.log('[100ms] ℹ️ Not connected, skipping leave()');
         }
       } catch (leaveError: any) {
         console.error('[100ms] ❌ Error during leave:', {
@@ -401,9 +389,7 @@ export function VideoRoomContent({ onLeave: onLeaveCallback, therapistName, user
         // Try to force leave even if there's an error
         try {
           if (isConnected) {
-            console.log('[100ms] 🔄 Attempting force leave...');
             await hmsActions.leave();
-            console.log('[100ms] ✅ Force leave succeeded');
           }
         } catch (forceLeaveError: any) {
           console.error('[100ms] ❌ Force leave also failed:', {
@@ -416,7 +402,6 @@ export function VideoRoomContent({ onLeave: onLeaveCallback, therapistName, user
       
       // Step 3: Mark booking as completed if bookingId is provided with retry logic
       if (bookingId) {
-        console.log('[100ms] 📝 Updating booking status to completed', { bookingId });
         
         const updateBookingStatus = async (retryCount = 0): Promise<void> => {
           const maxRetries = 2;
@@ -437,7 +422,7 @@ export function VideoRoomContent({ onLeave: onLeaveCallback, therapistName, user
             
             if (response.ok) {
               const data = await response.json().catch(() => ({}));
-              console.log('[100ms] ✅ Booking marked as completed', {
+              // Booking marked as completed
                 bookingId,
                 response: data,
                 timestamp: new Date().toISOString()
@@ -453,7 +438,6 @@ export function VideoRoomContent({ onLeave: onLeaveCallback, therapistName, user
               
               // Retry on server errors
               if ((response.status === 500 || response.status === 503 || response.status === 502) && retryCount < maxRetries) {
-                console.log(`[100ms] 🔄 Retrying booking status update (${retryCount + 1}/${maxRetries})...`);
                 await new Promise(resolve => setTimeout(resolve, retryDelay * (retryCount + 1)));
                 return updateBookingStatus(retryCount + 1);
               }
@@ -472,7 +456,6 @@ export function VideoRoomContent({ onLeave: onLeaveCallback, therapistName, user
               updateError?.message?.includes('timeout') ||
               updateError?.message?.includes('fetch')
             )) {
-              console.log(`[100ms] 🔄 Retrying booking status update after network error (${retryCount + 1}/${maxRetries})...`);
               await new Promise(resolve => setTimeout(resolve, retryDelay * (retryCount + 1)));
               return updateBookingStatus(retryCount + 1);
             }
@@ -640,7 +623,6 @@ export function VideoRoomContent({ onLeave: onLeaveCallback, therapistName, user
         isConnected
       };
       
-      console.log('[100ms] ✅ Reconnected successfully', reconnectLog);
       setConnectionState('connected');
       setConnectionError(null);
       toast.success("Reconnected to session");
@@ -653,7 +635,6 @@ export function VideoRoomContent({ onLeave: onLeaveCallback, therapistName, user
         previousState: connectionState
       };
       
-      console.log('[100ms] 🔄 Reconnecting...', reconnectingLog);
       setConnectionState('reconnecting');
       setConnectionError('Reconnecting to session...');
       toast.info("Reconnecting to session...", { duration: 5000 });
@@ -692,7 +673,6 @@ export function VideoRoomContent({ onLeave: onLeaveCallback, therapistName, user
             if (video.srcObject instanceof MediaStream) {
               video.srcObject.getTracks().forEach(track => {
                 track.stop();
-                console.log('[100ms] Cleanup: Stopped track from video element:', track.kind);
               });
               video.srcObject = null;
             }
@@ -704,7 +684,6 @@ export function VideoRoomContent({ onLeave: onLeaveCallback, therapistName, user
             if (audio.srcObject instanceof MediaStream) {
               audio.srcObject.getTracks().forEach(track => {
                 track.stop();
-                console.log('[100ms] Cleanup: Stopped track from audio element:', track.kind);
               });
               audio.srcObject = null;
             }
