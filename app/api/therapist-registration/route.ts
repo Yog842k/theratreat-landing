@@ -146,6 +146,7 @@ export async function POST(request: NextRequest) {
       resumeUrl: rest.resumeUrl ? ValidationUtils.sanitizeString(rest.resumeUrl) : '',
       designations: rest.designations || [],
       primaryConditions: rest.primaryConditions || [],
+      primaryFilters: rest.primaryFilters || [],
       experience: ValidationUtils.sanitizeString(rest.experience || ''),
       workplaces: ValidationUtils.sanitizeString(rest.workplaces || ''),
       onlineExperience: !!rest.onlineExperience,

@@ -95,28 +95,28 @@ export function SearchResultsComponent({
 
   if (!therapists || therapists.length === 0) {
     return (
-      <div className="text-center py-12">
-        <div className="w-24 h-24 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-          <MessageCircle className="w-8 h-8 text-gray-400" />
+      <div className="text-center py-8 sm:py-12 px-4">
+        <div className="w-16 h-16 sm:w-24 sm:h-24 mx-auto mb-3 sm:mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+          <MessageCircle className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400" />
         </div>
-        <h3 className="text-xl font-semibold text-gray-900 mb-2">No therapists found</h3>
-        <p className="text-gray-500 mb-4">Try adjusting your search criteria or filters to find more results.</p>
-        <div className="text-sm text-gray-400">{searchQuery && <p>No results for "{searchQuery}"</p>}</div>
+        <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">No therapists found</h3>
+        <p className="text-sm sm:text-base text-gray-500 mb-4">Try adjusting your search criteria or filters to find more results.</p>
+        <div className="text-xs sm:text-sm text-gray-400">{searchQuery && <p>No results for "{searchQuery}"</p>}</div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {searchQuery && (
-        <div className="mb-6">
-          <p className="text-sm text-gray-600">
+        <div className="mb-4 sm:mb-6">
+          <p className="text-xs sm:text-sm text-gray-600">
             Showing {therapists.length} results for <span className="font-medium text-gray-900">"{searchQuery}"</span>
           </p>
         </div>
       )}
 
-      <div className="space-y-4">
+      <div className="space-y-3 sm:space-y-4">
         {therapists.map((therapist, index) => (
           <motion.div
             key={therapist.id}
@@ -125,40 +125,40 @@ export function SearchResultsComponent({
             transition={{ duration: 0.4, delay: index * 0.1 }}
           >
             <Card className="hover:shadow-lg transition-all duration-300 border-0 bg-white/95 backdrop-blur-sm">
-              <CardContent className="p-6">
-                <div className="flex flex-col lg:flex-row gap-6">
-                  <div className="flex-1">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center space-x-4">
-                        <div className="relative">
+              <CardContent className="p-4 sm:p-5 lg:p-6">
+                <div className="flex flex-col lg:flex-row gap-4 sm:gap-5 lg:gap-6">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 mb-4">
+                      <div className="flex items-start space-x-3 sm:space-x-4 flex-1 min-w-0">
+                        <div className="relative flex-shrink-0">
                           <img
                             src={therapist.image}
                             alt={therapist.name}
-                            className="w-16 h-16 rounded-full object-cover ring-2 ring-blue-100"
+                            className="w-14 h-14 sm:w-16 sm:h-16 rounded-full object-cover ring-2 ring-blue-100"
                           />
                           {therapist.isOnline && (
-                            <div className="absolute -top-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-white">
+                            <div className="absolute -top-1 -right-1 w-4 h-4 sm:w-5 sm:h-5 bg-green-500 rounded-full border-2 border-white">
                               <div className="w-full h-full bg-green-500 rounded-full animate-pulse"></div>
                             </div>
                           )}
                         </div>
 
-                        <div>
-                          <div className="flex items-center space-x-2 mb-1">
-                            <h3 className="text-lg font-semibold text-blue-600">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center space-x-2 mb-1 flex-wrap">
+                            <h3 className="text-base sm:text-lg font-semibold text-blue-600 truncate">
                               {highlightSearchTerm(therapist.name, searchQuery)}
                             </h3>
-                            {therapist.verified && <Award className="w-4 h-4 text-green-500" />}
+                            {therapist.verified && <Award className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-500 flex-shrink-0" />}
                           </div>
 
-                          <p className="text-gray-600 mb-1">
+                          <p className="text-sm sm:text-base text-gray-600 mb-1.5 sm:mb-2 truncate">
                             {highlightSearchTerm(therapist.specialty, searchQuery)}
                           </p>
 
-                          <div className="flex items-center space-x-4 text-sm text-gray-500">
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 gap-1 sm:gap-0 text-xs sm:text-sm text-gray-500">
                             <span>{therapist.experience}+ years experience</span>
                             <div className="flex items-center space-x-1">
-                              <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
+                              <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-yellow-400 text-yellow-400" />
                               <span className="font-medium">{therapist.rating}</span>
                               <span>({therapist.reviews} reviews)</span>
                             </div>
@@ -166,24 +166,24 @@ export function SearchResultsComponent({
                         </div>
                       </div>
 
-                      <div className="text-right">
-                        <p className="text-sm text-gray-500">Starting from</p>
-                        <p className="text-xl font-bold text-blue-600">₹{therapist.price}</p>
-                        <p className="text-xs text-gray-500">per session</p>
+                      <div className="text-left sm:text-right flex-shrink-0 sm:ml-4">
+                        <p className="text-xs sm:text-sm text-gray-500">Starting from</p>
+                        <p className="text-lg sm:text-xl lg:text-2xl font-bold text-blue-600">₹{therapist.price}</p>
+                        <p className="text-[10px] sm:text-xs text-gray-500">per session</p>
                       </div>
                     </div>
 
-                    <div className="space-y-3 mb-4">
+                    <div className="space-y-3 sm:space-y-4 mb-4">
                       <div>
-                        <p className="text-sm font-medium text-gray-700 mb-2">Specializes in:</p>
-                        <div className="flex flex-wrap gap-2">
+                        <p className="text-xs sm:text-sm font-medium text-gray-700 mb-1.5 sm:mb-2">Specializes in:</p>
+                        <div className="flex flex-wrap gap-1.5 sm:gap-2">
                           {therapist.therapyTypes.slice(0, 3).map((type, idx) => (
-                            <Badge key={idx} variant="secondary" className="text-xs">
+                            <Badge key={idx} variant="secondary" className="text-[10px] sm:text-xs px-2 py-0.5">
                               {highlightSearchTerm(type, searchQuery)}
                             </Badge>
                           ))}
                           {therapist.therapyTypes.length > 3 && (
-                            <Badge variant="outline" className="text-xs">
+                            <Badge variant="outline" className="text-[10px] sm:text-xs px-2 py-0.5">
                               +{therapist.therapyTypes.length - 3} more
                             </Badge>
                           )}
@@ -191,19 +191,19 @@ export function SearchResultsComponent({
                       </div>
 
                       <div>
-                        <p className="text-sm font-medium text-gray-700 mb-2">Treats conditions:</p>
-                        <div className="flex flex-wrap gap-2">
+                        <p className="text-xs sm:text-sm font-medium text-gray-700 mb-1.5 sm:mb-2">Treats conditions:</p>
+                        <div className="flex flex-wrap gap-1.5 sm:gap-2">
                           {therapist.conditions.slice(0, 4).map((condition, idx) => (
                             <Badge
                               key={idx}
                               variant="outline"
-                              className="text-xs bg-blue-50 text-blue-700 border-blue-200"
+                              className="text-[10px] sm:text-xs bg-blue-50 text-blue-700 border-blue-200 px-2 py-0.5"
                             >
                               {highlightSearchTerm(condition, searchQuery)}
                             </Badge>
                           ))}
                           {therapist.conditions.length > 4 && (
-                            <Badge variant="outline" className="text-xs">
+                            <Badge variant="outline" className="text-[10px] sm:text-xs px-2 py-0.5">
                               +{therapist.conditions.length - 4} more
                             </Badge>
                           )}
@@ -211,24 +211,24 @@ export function SearchResultsComponent({
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-4">
                       <div>
-                        <p className="text-xs font-medium text-gray-600 mb-1">Session Types</p>
+                        <p className="text-[10px] sm:text-xs font-medium text-gray-600 mb-1">Session Types</p>
                         <div className="flex flex-wrap gap-1">
                           {therapist.sessionFormats.map((format, idx) => (
-                            <div key={idx} className="flex items-center space-x-1 bg-gray-50 px-2 py-1 rounded text-xs">
+                            <div key={idx} className="flex items-center space-x-1 bg-gray-50 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-[10px] sm:text-xs">
                               {getSessionFormatIcon(format)}
-                              <span>{formatSessionTypes([format])[0]}</span>
+                              <span className="whitespace-nowrap">{formatSessionTypes([format])[0]}</span>
                             </div>
                           ))}
                         </div>
                       </div>
 
                       <div>
-                        <p className="text-xs font-medium text-gray-600 mb-1">Location</p>
-                        <div className="flex items-center space-x-1 text-sm text-gray-700">
-                          <MapPin className="w-4 h-4" />
-                          <span>
+                        <p className="text-[10px] sm:text-xs font-medium text-gray-600 mb-1">Location</p>
+                        <div className="flex items-center space-x-1 text-xs sm:text-sm text-gray-700">
+                          <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+                          <span className="truncate">
                             {highlightSearchTerm(
                               `${therapist.location.area}, ${therapist.location.city}`,
                               searchQuery
@@ -238,19 +238,19 @@ export function SearchResultsComponent({
                       </div>
 
                       <div>
-                        <p className="text-xs font-medium text-gray-600 mb-1">Next Available</p>
-                        <div className="flex items-center space-x-1 text-sm text-green-600">
-                          <Clock className="w-4 h-4" />
-                          <span>{therapist.availability}</span>
+                        <p className="text-[10px] sm:text-xs font-medium text-gray-600 mb-1">Next Available</p>
+                        <div className="flex items-center space-x-1 text-xs sm:text-sm text-green-600">
+                          <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+                          <span className="truncate">{therapist.availability}</span>
                         </div>
                       </div>
                     </div>
 
                     <div className="mb-4">
-                      <p className="text-xs font-medium text-gray-600 mb-1">Languages</p>
-                      <div className="flex space-x-2">
+                      <p className="text-[10px] sm:text-xs font-medium text-gray-600 mb-1">Languages</p>
+                      <div className="flex flex-wrap gap-1.5 sm:gap-2">
                         {therapist.languages.map((language, idx) => (
-                          <span key={idx} className="text-xs text-gray-600 bg-gray-50 px-2 py-1 rounded">
+                          <span key={idx} className="text-[10px] sm:text-xs text-gray-600 bg-gray-50 px-2 py-0.5 sm:py-1 rounded">
                             {highlightSearchTerm(language, searchQuery)}
                           </span>
                         ))}
@@ -258,26 +258,26 @@ export function SearchResultsComponent({
                     </div>
                   </div>
 
-                  <div className="lg:w-48 flex lg:flex-col space-x-3 lg:space-x-0 lg:space-y-3">
+                  <div className="lg:w-48 flex flex-col sm:flex-row lg:flex-col gap-2 sm:gap-3 lg:gap-3 border-t lg:border-t-0 pt-4 lg:pt-0">
                     <Button
                       onClick={() => onBookSession(therapist.id)}
-                      className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white"
+                      className="w-full sm:flex-1 lg:w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white text-sm sm:text-base py-2 sm:py-2.5"
                     >
-                      <Calendar className="w-4 h-4 mr-2" />
+                      <Calendar className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-2" />
                       Book Session
                     </Button>
 
                     <Button
                       variant="outline"
                       onClick={() => onViewProfile(therapist.id)}
-                      className="flex-1 border-blue-200 text-blue-600 hover:bg-blue-50"
+                      className="w-full sm:flex-1 lg:w-full border-blue-200 text-blue-600 hover:bg-blue-50 text-sm sm:text-base py-2 sm:py-2.5"
                     >
                       View Profile
                     </Button>
 
                     {therapist.isOnline && (
-                      <Button variant="ghost" size="sm" className="flex-1 text-green-600 hover:bg-green-50">
-                        <MessageCircle className="w-4 h-4 mr-2" />
+                      <Button variant="ghost" size="sm" className="w-full sm:flex-1 lg:w-full text-green-600 hover:bg-green-50 text-sm sm:text-base py-2 sm:py-2.5">
+                        <MessageCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-2" />
                         Chat Now
                       </Button>
                     )}

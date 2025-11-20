@@ -33,6 +33,10 @@ interface ApiTherapist {
   displayName?: string;
   title?: string;
   specializations?: string[];
+  therapyTypes?: string[];
+  primaryFilters?: string[];
+  conditions?: string[];
+  primaryConditions?: string[];
   experience?: number;
   consultationFee?: number;
   rating?: number;
@@ -62,6 +66,9 @@ export default function TherapistsListingPage() {
   const [selectedLocation, setSelectedLocation] = useState('');
   const [selectedSpecialty, setSelectedSpecialty] = useState('');
   const [selectedSessionType, setSelectedSessionType] = useState('');
+  const [selectedPrimaryFilter, setSelectedPrimaryFilter] = useState('');
+  const [selectedCondition, setSelectedCondition] = useState('');
+  const [selectedTherapyType, setSelectedTherapyType] = useState('');
   const [sortBy, setSortBy] = useState('rating');
   
   const searchParams = useSearchParams();
@@ -148,8 +155,10 @@ export default function TherapistsListingPage() {
 
     if (search) {
       filtered = filtered.filter(therapist => 
-  (therapist.displayName || '').toLowerCase().includes(search.toLowerCase()) ||
-  (therapist.specializations || []).some(s => s.toLowerCase().includes(search.toLowerCase()))
+        (therapist.displayName || '').toLowerCase().includes(search.toLowerCase()) ||
+        (therapist.specializations || []).some(s => s.toLowerCase().includes(search.toLowerCase())) ||
+        (therapist.conditions || therapist.primaryConditions || []).some(c => c.toLowerCase().includes(search.toLowerCase())) ||
+        (therapist.therapyTypes || []).some(t => t.toLowerCase().includes(search.toLowerCase()))
       );
     }
 
@@ -163,6 +172,31 @@ export default function TherapistsListingPage() {
 
     if (sess) {
       filtered = filtered.filter((therapist) => extractSessionTypes(therapist.sessionTypes).some((type: string) => type.toLowerCase().includes(sess.toLowerCase())));
+    }
+
+    // Filter by primary filter
+    if (selectedPrimaryFilter) {
+      filtered = filtered.filter(therapist => 
+        (therapist.primaryFilters || []).includes(selectedPrimaryFilter)
+      );
+    }
+
+    // Filter by condition
+    if (selectedCondition) {
+      filtered = filtered.filter(therapist => 
+        (therapist.conditions || therapist.primaryConditions || []).some(c => 
+          c.toLowerCase().includes(selectedCondition.toLowerCase())
+        )
+      );
+    }
+
+    // Filter by therapy type
+    if (selectedTherapyType) {
+      filtered = filtered.filter(therapist => 
+        (therapist.therapyTypes || therapist.specializations || []).some(t => 
+          t.toLowerCase().includes(selectedTherapyType.toLowerCase())
+        )
+      );
     }
 
     // Sort results

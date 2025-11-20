@@ -19,8 +19,9 @@ import {
   Award, CreditCard, CheckCircle, AlertTriangle, Download, Eye, Lock,
   UserCheck, Users, TrendingUp, Globe, Heart, Bot, Star, BarChart3,
   Network, ArrowRight, ArrowLeft, Stethoscope, Activity, Baby, Hand,
-  MessageCircle, Loader2, Sparkles, CheckCircle2
+  MessageCircle, Loader2, Sparkles, CheckCircle2, Search
 } from "lucide-react";
+import { PRIMARY_FILTERS, CATEGORY_FILTERS, THERAPY_TYPES, getAllConditions } from "@/constants/therabook-filters";
 
 interface TherapistRegistrationProps {
   setCurrentView: (view: any) => void;
@@ -44,6 +45,7 @@ interface FormData {
   licenseNumber: string;
   designations: string[];
   primaryConditions: string[];
+  primaryFilters: string[];
   experience: string;
   workplaces: string;
   onlineExperience: boolean;
@@ -133,9 +135,6 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
     resume: 0,
     profile: 0
   });
-  const [bankVerifying, setBankVerifying] = useState(false);
-  const [bankVerifyMsg, setBankVerifyMsg] = useState<string>("");
-  const [bankVerifyErr, setBankVerifyErr] = useState<string>("");
 
   const [formData, setFormData] = useState<FormData>({
     fullName: "",
@@ -155,6 +154,7 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
     licenseNumber: "",
     designations: [],
     primaryConditions: [],
+    primaryFilters: [],
     experience: "",
     workplaces: "",
     onlineExperience: false,
@@ -221,33 +221,31 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
     "Agreements & Consent"
   ];
 
-  const designations = [
-    "Behavioural Therapist", "Cognitive Behavioural Therapist", "Neuro-Developmental Therapist",
-    "Occupational Therapist", "Physiotherapist", "Special Educator",
-    "Speech and Language Pathologist", "Sports Therapist", "ABA Therapist",
-    "Clinical Psychologist", "Psychotherapist", "Counseling Psychologist"
-  ];
+  const designations = THERAPY_TYPES;
 
-  const conditionCategories = [
-    {
-      id: "neurological",
-      title: "Neurological & Neurodevelopmental",
-      icon: Brain,
-      conditions: ["Autism Spectrum Disorder (ASD)", "ADHD", "Cerebral Palsy", "Down Syndrome", "Developmental Delays"]
-    },
-    {
-      id: "psychological",
-      title: "Psychological & Mental Health",
-      icon: Heart,
-      conditions: ["Depression", "Anxiety Disorders", "OCD", "PTSD", "Bipolar Disorder"]
-    },
-    {
-      id: "pediatric",
-      title: "Pediatric Conditions",
-      icon: Baby,
-      conditions: ["Learning Disabilities", "Speech Delays", "Behavioral Challenges", "Motor Coordination Disorders"]
-    }
-  ];
+  // Convert CATEGORY_FILTERS to the format expected by the UI
+  const conditionCategories = Object.entries(CATEGORY_FILTERS).map(([key, value]) => {
+    const iconMap: Record<string, any> = {
+      neurological: Brain,
+      orthopedic: Stethoscope,
+      cardiovascular: Heart,
+      psychological: Heart,
+      pediatric: Baby,
+      geriatric: Users,
+      womensHealth: Heart,
+      surgical: Stethoscope,
+      speech: MessageCircle,
+      sensory: Search,
+      occupational: Hand,
+      lifestyle: Globe
+    };
+    return {
+      id: key,
+      title: value.label,
+      icon: iconMap[key] || Brain,
+      conditions: value.conditions
+    };
+  });
 
   const languages = ["English", "Hindi", "Marathi", "Tamil", "Telugu", "Bengali", "Gujarati", "Kannada"];
   const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
@@ -495,6 +493,7 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
         licenseNumber: formData.licenseNumber,
         designations: formData.designations,
         primaryConditions: formData.primaryConditions,
+        primaryFilters: formData.primaryFilters,
         experience: formData.experience,
         workplaces: formData.workplaces,
         onlineExperience: formData.onlineExperience,
@@ -715,6 +714,20 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
 
               <div className="space-y-2">
                 <Label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                  <Mail className="w-4 h-4 text-blue-600" />
+                  Email Address *
+                </Label>
+                <Input
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) => handleInputChange("email", e.target.value)}
+                  placeholder="Enter your email address"
+                  className="h-12 border-2 border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all rounded-xl"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                   <Lock className="w-4 h-4 text-blue-600" />
                   Password *
                 </Label>
@@ -798,9 +811,11 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
                       setPanVerified(true);
                       setPanVerifyMsg('PAN verified successfully');
                       setPanVerifyDetails(verifyJson?.data || null);
+                      setPanVerifyErr(''); // Clear any previous errors
                     } catch (e: any) {
                       setPanVerified(false);
                       setPanVerifyErr(e?.message || 'PAN verification failed');
+                      setPanVerifyMsg(''); // Clear success message on error
                     } finally {
                       setPanVerifyLoading(false);
                     }
@@ -810,7 +825,7 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
                 >
                   {panVerifyLoading ? 'Verifying...' : 'Verify PAN'}
                 </Button>
-                {panVerified && panVerifyDetails && (
+                {panVerified && panVerifyDetails && !panVerifyErr && (
                   <div className="mt-3 p-4 bg-green-50 border-2 border-green-300 rounded-xl">
                     <p className="text-green-700 font-semibold flex items-center gap-2">
                       <CheckCircle2 className="w-5 h-5" />
@@ -818,8 +833,13 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
                     </p>
                   </div>
                 )}
-                {panVerifyErr && (
-                  <p className="text-sm text-red-600 mt-2">{panVerifyErr}</p>
+                {panVerifyErr && !panVerified && (
+                  <div className="mt-2 p-3 bg-red-50 border-2 border-red-200 rounded-lg">
+                    <p className="text-sm text-red-700 font-medium flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4" />
+                      {panVerifyErr}
+                    </p>
+                  </div>
                 )}
               </div>
 
@@ -1113,7 +1133,45 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
             </div>
 
             <div className="space-y-4">
-              <Label className="text-sm font-semibold text-slate-700">Primary Conditions *</Label>
+              <Label className="text-sm font-semibold text-slate-700">Primary Filters (Quick Access Categories) *</Label>
+              <p className="text-xs text-slate-500 mb-4">Select the primary categories you work with. This helps patients find you quickly.</p>
+              <div className="grid md:grid-cols-2 gap-3">
+                {PRIMARY_FILTERS.map((filter) => (
+                  <div 
+                    key={filter.id}
+                    onClick={() => handleArrayToggle("primaryFilters", filter.id)}
+                    className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                      formData.primaryFilters.includes(filter.id)
+                        ? 'border-blue-500 bg-blue-50 shadow-md'
+                        : 'border-slate-200 hover:border-blue-300 hover:bg-blue-50/30'
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                        formData.primaryFilters.includes(filter.id)
+                          ? 'border-blue-500 bg-blue-500'
+                          : 'border-slate-300'
+                      }`}>
+                        {formData.primaryFilters.includes(filter.id) && (
+                          <CheckCircle2 className="w-4 h-4 text-white" />
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-lg">{filter.icon}</span>
+                          <span className="text-sm font-semibold text-slate-700">{filter.label}</span>
+                        </div>
+                        <p className="text-xs text-slate-500">{filter.description}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <Label className="text-sm font-semibold text-slate-700">Primary Conditions (Detailed) *</Label>
+              <p className="text-xs text-slate-500 mb-4">Select specific conditions you treat. You can select multiple conditions from different categories.</p>
               {conditionCategories.map((category) => (
                 <div key={category.id} className="space-y-3">
                   <div className="flex items-center gap-2 text-blue-600">
@@ -1486,41 +1544,6 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
                   />
                 </div>
               </div>
-
-              <Button
-                type="button"
-                onClick={async () => {
-                  setBankVerifying(true);
-                  setBankVerifyErr("");
-                  setBankVerifyMsg("");
-                  try {
-                    const res = await fetch('/api/idfy/verify-bank', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({
-                        accountNumber: formData.bankDetails.accountNumber,
-                        ifsc: formData.bankDetails.ifscCode,
-                        name: formData.bankDetails.accountHolder
-                      })
-                    });
-                    const json = await res.json();
-                    if (!res.ok || !json.ok) {
-                      throw new Error(json?.message || 'Verification failed');
-                    }
-                    setBankVerifyMsg('Bank account verified');
-                  } catch (e: any) {
-                    setBankVerifyErr(e?.message || 'Verification failed');
-                  } finally {
-                    setBankVerifying(false);
-                  }
-                }}
-                disabled={bankVerifying}
-                className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg h-11"
-              >
-                {bankVerifying ? 'Verifying...' : 'Verify Bank Account'}
-              </Button>
-              {bankVerifyMsg && <p className="text-sm text-green-600 flex items-center gap-2"><CheckCircle2 className="w-4 h-4" />{bankVerifyMsg}</p>}
-              {bankVerifyErr && <p className="text-sm text-red-600">{bankVerifyErr}</p>}
             </div>
           </motion.div>
         );

@@ -37,6 +37,10 @@ export async function POST(request: NextRequest) {
       phone: body.phone ? ValidationUtils.sanitizeString(body.phone) : '',
       title: ValidationUtils.sanitizeString(body.title || 'Therapist'),
       specializations: body.specializations || [],
+      therapyTypes: body.therapyTypes || [],
+      primaryFilters: body.primaryFilters || [],
+      conditions: body.conditions || [],
+      primaryConditions: body.conditions || [], // Alias for backward compatibility
       experience: Number(body.experience || 0),
       education: body.education || [],
       certifications: body.certifications || [],

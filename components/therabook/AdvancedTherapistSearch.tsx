@@ -13,7 +13,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { EnhancedSearch } from "@/components/EnhancedSearch";
 import { SearchResultsComponent, TherapistData } from "@/components/therabook/SearchResultsComponent";
 import {
-  
+  Filter,
   X,
   ChevronDown,
   ChevronUp,
@@ -62,14 +62,23 @@ export function AdvancedTherapistSearch({ setCurrentView, initialFilters, therap
   const [selectedCity, setSelectedCity] = useState(initialFilters?.city || "");
   const [selectedArea, setSelectedArea] = useState(initialFilters?.area || "");
   const [sortBy, setSortBy] = useState("rating");
-  const [showFilters, setShowFilters] = useState(true);
+  const [showFilters, setShowFilters] = useState(false); // Hidden by default on mobile
   const [isLarge, setIsLarge] = useState(false);
   const [openCategories, setOpenCategories] = useState<string[]>(
     initialFilters?.conditions?.length ? ["conditions"] : initialFilters?.therapyTypes?.length ? ["therapy-types"] : ["conditions"]
   );
 
   useEffect(() => {
-    const update = () => setIsLarge(window.matchMedia("(min-width: 1024px)").matches);
+    const update = () => {
+      const isLargeScreen = window.matchMedia("(min-width: 1024px)").matches;
+      setIsLarge(isLargeScreen);
+      // Auto-show filters on large screens, hide on mobile
+      if (isLargeScreen) {
+        setShowFilters(true);
+      } else {
+        setShowFilters(false);
+      }
+    };
     update();
     window.addEventListener("resize", update);
     return () => window.removeEventListener("resize", update);
@@ -551,60 +560,98 @@ export function AdvancedTherapistSearch({ setCurrentView, initialFilters, therap
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.6 }} className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
-      <section className="py-8 px-6 bg-white border-b">
+      <section className="py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6 bg-white border-b">
         <div className="max-w-7xl mx-auto">
-          <div className="flex flex-col gap-6">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-              <div>
-                <h1 className="text-3xl font-bold text-blue-600 mb-2">Find Your Perfect Therapist</h1>
-                <p className="text-muted-foreground">{filteredTherapists.length} verified professionals available</p>
+          <div className="flex flex-col gap-4 sm:gap-6">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 sm:gap-4">
+              <div className="flex-1">
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-blue-600 mb-1 sm:mb-2">Find Your Perfect Therapist</h1>
+                <p className="text-xs sm:text-sm text-muted-foreground">{filteredTherapists.length} verified professionals available</p>
               </div>
+              <Button
+                variant="outline"
+                onClick={() => setShowFilters(!showFilters)}
+                className="w-full sm:w-auto lg:hidden border-blue-200 text-blue-600 hover:bg-blue-50 font-medium"
+              >
+                <Filter className="w-4 h-4 mr-2" />
+                {showFilters ? 'Hide' : 'Show'} Filters 
+                {getActiveFilterCount() > 0 && (
+                  <Badge variant="secondary" className="ml-2 bg-blue-100 text-blue-700">
+                    {getActiveFilterCount()}
+                  </Badge>
+                )}
+              </Button>
             </div>
 
-            <div className="max-w-4xl">
+            <div className="max-w-4xl w-full">
               <EnhancedSearch onSearch={handleEnhancedSearch} variant="compact" placeholder="Search by name, specialty, condition, or location..." showFilters={false} />
             </div>
           </div>
         </div>
       </section>
 
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
           <AnimatePresence>
             {(showFilters || isLarge) && (
-              <motion.div initial={{ opacity: 0, x: -50 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -50 }} transition={{ duration: 0.3 }} className="lg:col-span-1">
-                <Card className="sticky top-6 p-6 border-0 shadow-lg bg-white/90 backdrop-blur-sm">
-                  <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-xl font-semibold text-blue-600">Filters</h2>
-                    {getActiveFilterCount() > 0 && (
-                      <Button variant="ghost" size="sm" onClick={clearAllFilters} className="text-red-500 hover:text-red-600">
-                        <X className="w-4 h-4 mr-1" />
-                        Clear All
+              <motion.div 
+                initial={{ opacity: 0, x: -50, height: 0 }} 
+                animate={{ opacity: 1, x: 0, height: "auto" }} 
+                exit={{ opacity: 0, x: -50, height: 0 }} 
+                transition={{ duration: 0.3 }}
+                className="lg:col-span-1 w-full"
+              >
+                <Card className="lg:sticky lg:top-6 p-4 sm:p-5 lg:p-6 border-0 shadow-lg bg-white/90 backdrop-blur-sm">
+                  <div className="flex items-center justify-between mb-4 sm:mb-6">
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-lg sm:text-xl font-semibold text-blue-600">Filters</h2>
+                      {getActiveFilterCount() > 0 && (
+                        <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700">
+                          {getActiveFilterCount()}
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {getActiveFilterCount() > 0 && (
+                        <Button variant="ghost" size="sm" onClick={clearAllFilters} className="text-red-500 hover:text-red-600 h-8 px-2 text-xs sm:text-sm">
+                          <X className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                          <span className="hidden sm:inline">Clear All</span>
+                          <span className="sm:hidden">Clear</span>
+                        </Button>
+                      )}
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => setShowFilters(false)} 
+                        className="lg:hidden h-8 px-2"
+                        aria-label="Close filters"
+                      >
+                        <X className="w-4 h-4" />
                       </Button>
-                    )}
+                    </div>
                   </div>
 
-                  <div className="space-y-6">
+                  <div className="space-y-4 sm:space-y-6 max-h-[calc(100vh-200px)] lg:max-h-none overflow-y-auto lg:overflow-visible">
                     <Collapsible open={openCategories.includes("conditions")} onOpenChange={() => toggleCategory("conditions")}>
-                      <CollapsibleTrigger className="flex items-center justify-between w-full p-2 hover:bg-blue-50 rounded-lg">
-                        <span className="font-medium text-blue-600">🏥 Health Conditions</span>
-                        {openCategories.includes("conditions") ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                      <CollapsibleTrigger className="flex items-center justify-between w-full p-2 sm:p-3 hover:bg-blue-50 rounded-lg transition-colors">
+                        <span className="font-medium text-blue-600 text-sm sm:text-base">🏥 Health Conditions</span>
+                        {openCategories.includes("conditions") ? <ChevronUp className="w-4 h-4 flex-shrink-0" /> : <ChevronDown className="w-4 h-4 flex-shrink-0" />}
                       </CollapsibleTrigger>
-                      <CollapsibleContent className="space-y-4 pt-4">
+                      <CollapsibleContent className="space-y-3 sm:space-y-4 pt-3 sm:pt-4">
                         {conditionCategories.map((category) => (
                           <Collapsible key={category.id} open={openCategories.includes(category.id)} onOpenChange={() => toggleCategory(category.id)}>
-                            <CollapsibleTrigger className={`flex items-center justify-between w-full p-3 ${category.bgColor} rounded-lg hover:opacity-80 transition-opacity`}>
-                              <div className="flex items-center space-x-2">
-                                <category.icon className={`w-4 h-4 ${category.color}`} />
-                                <span className="text-sm font-medium">{category.title}</span>
+                            <CollapsibleTrigger className={`flex items-center justify-between w-full p-2.5 sm:p-3 ${category.bgColor} rounded-lg hover:opacity-80 transition-opacity`}>
+                              <div className="flex items-center space-x-2 min-w-0 flex-1">
+                                <category.icon className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${category.color} flex-shrink-0`} />
+                                <span className="text-xs sm:text-sm font-medium truncate">{category.title}</span>
                               </div>
-                              {openCategories.includes(category.id) ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                              {openCategories.includes(category.id) ? <ChevronUp className="w-3 h-3 flex-shrink-0 ml-2" /> : <ChevronDown className="w-3 h-3 flex-shrink-0 ml-2" />}
                             </CollapsibleTrigger>
-                            <CollapsibleContent className="pl-4 pt-2 space-y-2">
+                            <CollapsibleContent className="pl-3 sm:pl-4 pt-2 space-y-1.5 sm:space-y-2 max-h-48 sm:max-h-60 overflow-y-auto">
                               {category.conditions.map((condition) => (
-                                <div key={condition} className="flex items-center space-x-2">
-                                  <Checkbox id={condition} checked={selectedConditions.includes(condition)} onCheckedChange={() => toggleCondition(condition)} />
-                                  <label htmlFor={condition} className="text-sm text-muted-foreground cursor-pointer hover:text-foreground">
+                                <div key={condition} className="flex items-start space-x-2">
+                                  <Checkbox id={condition} checked={selectedConditions.includes(condition)} onCheckedChange={() => toggleCondition(condition)} className="mt-0.5" />
+                                  <label htmlFor={condition} className="text-xs sm:text-sm text-muted-foreground cursor-pointer hover:text-foreground leading-relaxed">
                                     {condition}
                                   </label>
                                 </div>
@@ -618,15 +665,15 @@ export function AdvancedTherapistSearch({ setCurrentView, initialFilters, therap
                     <Separator />
 
                     <Collapsible open={openCategories.includes("therapy-types")} onOpenChange={() => toggleCategory("therapy-types")}>
-                      <CollapsibleTrigger className="flex items-center justify-between w-full p-2 hover:bg-blue-50 rounded-lg">
-                        <span className="font-medium text-blue-600">🧑‍⚕️ Therapy Type</span>
-                        {openCategories.includes("therapy-types") ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                      <CollapsibleTrigger className="flex items-center justify-between w-full p-2 sm:p-3 hover:bg-blue-50 rounded-lg transition-colors">
+                        <span className="font-medium text-blue-600 text-sm sm:text-base">🧑‍⚕️ Therapy Type</span>
+                        {openCategories.includes("therapy-types") ? <ChevronUp className="w-4 h-4 flex-shrink-0" /> : <ChevronDown className="w-4 h-4 flex-shrink-0" />}
                       </CollapsibleTrigger>
-                      <CollapsibleContent className="pt-4 space-y-2 max-h-60 overflow-y-auto">
+                      <CollapsibleContent className="pt-3 sm:pt-4 space-y-1.5 sm:space-y-2 max-h-48 sm:max-h-60 overflow-y-auto">
                         {therapyTypes.map((type) => (
-                          <div key={type} className="flex items-center space-x-2">
-                            <Checkbox id={type} checked={selectedTherapyTypes.includes(type)} onCheckedChange={() => toggleTherapyType(type)} />
-                            <label htmlFor={type} className="text-sm text-muted-foreground cursor-pointer hover:text-foreground">
+                          <div key={type} className="flex items-start space-x-2">
+                            <Checkbox id={type} checked={selectedTherapyTypes.includes(type)} onCheckedChange={() => toggleTherapyType(type)} className="mt-0.5" />
+                            <label htmlFor={type} className="text-xs sm:text-sm text-muted-foreground cursor-pointer hover:text-foreground leading-relaxed">
                               {type}
                             </label>
                           </div>
@@ -637,13 +684,13 @@ export function AdvancedTherapistSearch({ setCurrentView, initialFilters, therap
                     <Separator />
 
                     <div>
-                      <h4 className="font-medium text-blue-600 mb-3">📆 Session Format</h4>
-                      <div className="space-y-2">
+                      <h4 className="font-medium text-blue-600 mb-2 sm:mb-3 text-sm sm:text-base">📆 Session Format</h4>
+                      <div className="space-y-1.5 sm:space-y-2">
                         {sessionFormats.map((format) => (
                           <div key={format.id} className="flex items-center space-x-2">
                             <Checkbox id={format.id} checked={selectedFormats.includes(format.id)} onCheckedChange={() => toggleFormat(format.id)} />
-                            <format.icon className="w-4 h-4 text-muted-foreground" />
-                            <label htmlFor={format.id} className="text-sm text-muted-foreground cursor-pointer hover:text-foreground">
+                            <format.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground flex-shrink-0" />
+                            <label htmlFor={format.id} className="text-xs sm:text-sm text-muted-foreground cursor-pointer hover:text-foreground">
                               {format.label}
                             </label>
                           </div>
@@ -654,11 +701,11 @@ export function AdvancedTherapistSearch({ setCurrentView, initialFilters, therap
                     <Separator />
 
                     <div>
-                      <h4 className="font-medium text-blue-600 mb-3">📍 Location</h4>
-                      <div className="space-y-3">
+                      <h4 className="font-medium text-blue-600 mb-2 sm:mb-3 text-sm sm:text-base">📍 Location</h4>
+                      <div className="space-y-2 sm:space-y-3">
                         <Select value={selectedCity} onValueChange={setSelectedCity}>
-                          <SelectTrigger>
-                            <MapPin className="w-4 h-4 mr-2" />
+                          <SelectTrigger className="h-9 sm:h-10 text-sm">
+                            <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-2" />
                             <SelectValue placeholder="Select City" />
                           </SelectTrigger>
                           <SelectContent>
@@ -670,19 +717,24 @@ export function AdvancedTherapistSearch({ setCurrentView, initialFilters, therap
                             ))}
                           </SelectContent>
                         </Select>
-                        <Input placeholder="Enter locality or area" value={selectedArea} onChange={(e) => setSelectedArea(e.target.value)} />
+                        <Input 
+                          placeholder="Enter locality or area" 
+                          value={selectedArea} 
+                          onChange={(e) => setSelectedArea(e.target.value)}
+                          className="h-9 sm:h-10 text-sm"
+                        />
                       </div>
                     </div>
 
                     <Separator />
 
                     <div>
-                      <h4 className="font-medium text-blue-600 mb-3">👥 Age Group</h4>
-                      <div className="space-y-2">
+                      <h4 className="font-medium text-blue-600 mb-2 sm:mb-3 text-sm sm:text-base">👥 Age Group</h4>
+                      <div className="space-y-1.5 sm:space-y-2">
                         {ageGroups.map((ageGroup) => (
                           <div key={ageGroup} className="flex items-center space-x-2">
                             <Checkbox id={ageGroup} checked={selectedAgeGroups.includes(ageGroup)} onCheckedChange={() => toggleAgeGroup(ageGroup)} />
-                            <label htmlFor={ageGroup} className="text-sm text-muted-foreground cursor-pointer hover:text-foreground">
+                            <label htmlFor={ageGroup} className="text-xs sm:text-sm text-muted-foreground cursor-pointer hover:text-foreground">
                               {ageGroup}
                             </label>
                           </div>
@@ -695,7 +747,7 @@ export function AdvancedTherapistSearch({ setCurrentView, initialFilters, therap
             )}
           </AnimatePresence>
 
-          <div className={`${showFilters && !isLarge ? "lg:col-span-4" : "lg:col-span-3"}`}>
+          <div className={`${showFilters && !isLarge ? "lg:col-span-4" : "lg:col-span-3"} w-full`}>
             <SearchResultsComponent
               therapists={filteredTherapists}
               searchQuery={searchQuery}

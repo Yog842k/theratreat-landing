@@ -175,6 +175,8 @@ export async function POST(request: NextRequest) {
         assessmentReports: !!body.assessmentReports,
         homeVisits: !!body.homeVisits
       },
+      primaryFilters: body.primaryFilters || [],
+      conditions: body.conditions || [],
       bank: {
         accountHolderName: ValidationUtils.sanitizeString(body.accountHolderName || ''),
         bankName: ValidationUtils.sanitizeString(body.bankName || ''),

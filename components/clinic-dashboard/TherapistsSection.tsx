@@ -5,6 +5,7 @@ import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Plus, X, User, Mail, Phone, Briefcase, Loader2, CheckCircle2, Shield, Upload, FileText, GraduationCap, Image as ImageIcon } from "lucide-react";
 import { useAuth } from "@/components/auth/NewAuthContext";
+import { PRIMARY_FILTERS, CATEGORY_FILTERS, THERAPY_TYPES } from "@/constants/therabook-filters";
 import {
   Dialog,
   DialogContent,
@@ -51,7 +52,9 @@ export default function TherapistsSection({ clinicData, onRefresh }: TherapistsS
     experience: '',
     consultationFee: '',
     bio: '',
-
+    therapyTypes: [] as string[],
+    primaryFilters: [] as string[],
+    conditions: [] as string[],
   });
 
   const [files, setFiles] = useState({
@@ -198,6 +201,9 @@ export default function TherapistsSection({ clinicData, onRefresh }: TherapistsS
           clinicId: clinicData.clinic._id,
           title: formData.title,
           specializations: formData.specializations ? formData.specializations.split(',').map(s => s.trim()) : [],
+          therapyTypes: formData.therapyTypes || [],
+          primaryFilters: formData.primaryFilters || [],
+          conditions: formData.conditions || [],
           experience: Number(formData.experience) || 0,
           consultationFee: Number(formData.consultationFee) || 0,
           bio: formData.bio,
@@ -220,6 +226,9 @@ export default function TherapistsSection({ clinicData, onRefresh }: TherapistsS
           experience: '',
           consultationFee: '',
           bio: '',
+          therapyTypes: [],
+          primaryFilters: [],
+          conditions: [],
         });
         setFiles({ photo: null, license: null, degree: null });
         if (filePreviews.photo) {
@@ -431,7 +440,116 @@ export default function TherapistsSection({ clinicData, onRefresh }: TherapistsS
                   />
                   <p className="text-xs text-slate-500 mt-1">Separate multiple with commas</p>
                 </div>
+              </div>
 
+              {/* Therapy Types Section */}
+              <div className="mt-4">
+                <Label className="text-slate-700 font-semibold mb-2 block">
+                  Therapy Types *
+                </Label>
+                <p className="text-xs text-slate-500 mb-3">Select all therapy types this therapist offers</p>
+                <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto p-2 border-2 border-purple-200 rounded-lg bg-white">
+                  {THERAPY_TYPES.map(therapyType => (
+                    <button
+                      key={therapyType}
+                      type="button"
+                      onClick={() => {
+                        const newTypes = formData.therapyTypes.includes(therapyType)
+                          ? formData.therapyTypes.filter(t => t !== therapyType)
+                          : [...formData.therapyTypes, therapyType];
+                        setFormData(prev => ({ ...prev, therapyTypes: newTypes }));
+                      }}
+                      className={`px-3 py-1.5 rounded-lg text-sm border-2 transition-all ${
+                        formData.therapyTypes.includes(therapyType)
+                          ? 'bg-purple-500 text-white border-purple-600'
+                          : 'bg-white text-slate-700 border-purple-200 hover:border-purple-400'
+                      }`}
+                    >
+                      {therapyType}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Primary Filters Section */}
+              <div className="mt-4">
+                <Label className="text-slate-700 font-semibold mb-2 block">
+                  Primary Filters (Quick Access Categories) *
+                </Label>
+                <p className="text-xs text-slate-500 mb-3">Select primary categories this therapist specializes in</p>
+                <div className="grid md:grid-cols-2 gap-2 max-h-60 overflow-y-auto p-2 border-2 border-purple-200 rounded-lg bg-white">
+                  {PRIMARY_FILTERS.map(filter => (
+                    <button
+                      key={filter.id}
+                      type="button"
+                      onClick={() => {
+                        const newFilters = formData.primaryFilters.includes(filter.id)
+                          ? formData.primaryFilters.filter(f => f !== filter.id)
+                          : [...formData.primaryFilters, filter.id];
+                        setFormData(prev => ({ ...prev, primaryFilters: newFilters }));
+                      }}
+                      className={`p-3 rounded-lg border-2 text-left transition-all ${
+                        formData.primaryFilters.includes(filter.id)
+                          ? 'bg-purple-50 border-purple-500'
+                          : 'bg-white border-purple-200 hover:border-purple-400'
+                      }`}
+                    >
+                      <div className="flex items-start gap-2">
+                        <span className="text-lg">{filter.icon}</span>
+                        <div className="flex-1">
+                          <div className="font-semibold text-xs text-slate-700">{filter.label}</div>
+                        </div>
+                        {formData.primaryFilters.includes(filter.id) && (
+                          <CheckCircle2 className="w-4 h-4 text-purple-600 flex-shrink-0" />
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Conditions Section */}
+              <div className="mt-4">
+                <Label className="text-slate-700 font-semibold mb-2 block">
+                  Conditions Treated *
+                </Label>
+                <p className="text-xs text-slate-500 mb-3">Select specific conditions this therapist treats</p>
+                <div className="max-h-64 overflow-y-auto p-2 border-2 border-purple-200 rounded-lg bg-white space-y-3">
+                  {Object.entries(CATEGORY_FILTERS).map(([key, category]) => (
+                    <div key={key} className="space-y-2">
+                      <h4 className="font-semibold text-xs text-purple-700">{category.label}</h4>
+                      <div className="grid md:grid-cols-2 gap-1.5 pl-2">
+                        {category.conditions.map(condition => (
+                          <button
+                            key={condition}
+                            type="button"
+                            onClick={() => {
+                              const newConditions = formData.conditions.includes(condition)
+                                ? formData.conditions.filter(c => c !== condition)
+                                : [...formData.conditions, condition];
+                              setFormData(prev => ({ ...prev, conditions: newConditions }));
+                            }}
+                            className={`px-2 py-1.5 rounded text-xs border-2 text-left transition-all ${
+                              formData.conditions.includes(condition)
+                                ? 'bg-purple-50 border-purple-500 text-purple-700'
+                                : 'bg-white border-purple-200 hover:border-purple-400 text-slate-700'
+                            }`}
+                          >
+                            <div className="flex items-center gap-1.5">
+                              {formData.conditions.includes(condition) && (
+                                <CheckCircle2 className="w-3 h-3 text-purple-600 flex-shrink-0" />
+                              )}
+                              <span>{condition}</span>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                 <div>
                   <Label htmlFor="experience" className="text-slate-700 font-semibold mb-2 block">
                     Experience (years)
@@ -630,6 +748,9 @@ export default function TherapistsSection({ clinicData, onRefresh }: TherapistsS
                     experience: '',
                     consultationFee: '',
                     bio: '',
+                    therapyTypes: [],
+                    primaryFilters: [],
+                    conditions: [],
                   });
                   if (filePreviews.photo) {
                     URL.revokeObjectURL(filePreviews.photo);

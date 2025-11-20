@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from 'sonner';
 import { Upload, CheckCircle2, Building2, MapPin, Phone, Mail, Calendar, Clock, Briefcase, Globe, Instagram, FileText, Shield, Sparkles, ArrowRight, Check, AlertCircle, Heart, Award, Users, Zap, TrendingUp, Bot, Star, Network } from "lucide-react";
+import { PRIMARY_FILTERS, CATEGORY_FILTERS, THERAPY_TYPES, getAllConditions } from "@/constants/therabook-filters";
 
 
 interface ClinicFormData {
@@ -33,6 +34,8 @@ interface ClinicFormData {
   operatingDays: string[];
   operatingHours: string;
   services: string[];
+  primaryFilters: string[];
+  conditions: string[];
   numTherapists: string;
   website: string;
   yearsInOperation?: string;
@@ -69,9 +72,7 @@ interface ClinicFormData {
 }
 
 const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-const servicesList = [
-  "Speech Therapy", "Occupational Therapy", "Physiotherapy", "Psychology", "Special Education", "Counseling", "Other"
-];
+const servicesList = THERAPY_TYPES;
 
 const indianStates = [
   "Maharashtra", "Karnataka", "Delhi", "Tamil Nadu", "Telangana", "Gujarat", 
@@ -102,6 +103,8 @@ export default function ClinicRegistration() {
     operatingDays: [],
     operatingHours: "",
     services: [],
+    primaryFilters: [],
+    conditions: [],
     numTherapists: "",
     website: "",
     yearsInOperation: "",
@@ -368,6 +371,8 @@ export default function ClinicRegistration() {
         termsAccepted: formData.agreements.terms,
         clinicType: Array.isArray(formData.clinicType) ? formData.clinicType : [formData.clinicType].filter(Boolean),
         therapiesOffered: Array.isArray(formData.services) ? formData.services : [formData.services].filter(Boolean),
+        primaryFilters: Array.isArray(formData.primaryFilters) ? formData.primaryFilters : [],
+        conditions: Array.isArray(formData.conditions) ? formData.conditions : [],
         operatingDays: Array.isArray(formData.operatingDays) ? formData.operatingDays : [formData.operatingDays].filter(Boolean),
         registrationTypes: Array.isArray(formData.registrationTypes) ? formData.registrationTypes : [formData.registrationTypes].filter(Boolean),
         // Bank details mapped to backend expected names
@@ -803,8 +808,9 @@ export default function ClinicRegistration() {
                     </div>
                   </div>
                   <div>
-                    <Label className="text-slate-700 font-semibold mb-3 block">Services Offered</Label>
-                    <div className="flex flex-wrap gap-3">
+                    <Label className="text-slate-700 font-semibold mb-3 block">Therapy Types Offered *</Label>
+                    <p className="text-xs text-slate-500 mb-3">Select all therapy types your clinic offers</p>
+                    <div className="flex flex-wrap gap-3 max-h-60 overflow-y-auto p-2 border-2 border-blue-100 rounded-xl">
                       {servicesList.map(service => (
                         <button
                           key={service}
@@ -818,6 +824,67 @@ export default function ClinicRegistration() {
                         >
                           {service}
                         </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-slate-700 font-semibold mb-3 block">Primary Filters (Quick Access Categories) *</Label>
+                    <p className="text-xs text-slate-500 mb-3">Select the primary categories your clinic specializes in</p>
+                    <div className="grid md:grid-cols-2 gap-3 max-h-80 overflow-y-auto p-2 border-2 border-blue-100 rounded-xl">
+                      {PRIMARY_FILTERS.map(filter => (
+                        <button
+                          key={filter.id}
+                          type="button"
+                          onClick={() => handleArrayToggle("primaryFilters", filter.id)}
+                          className={`p-4 rounded-xl border-2 text-left transition-all ${
+                            formData.primaryFilters.includes(filter.id)
+                              ? 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-500 shadow-md'
+                              : 'bg-white border-blue-200 hover:border-blue-400'
+                          }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <span className="text-2xl">{filter.icon}</span>
+                            <div className="flex-1">
+                              <div className="font-semibold text-sm text-slate-700 mb-1">{filter.label}</div>
+                              <div className="text-xs text-slate-500">{filter.description}</div>
+                            </div>
+                            {formData.primaryFilters.includes(filter.id) && (
+                              <CheckCircle2 className="w-5 h-5 text-blue-600 flex-shrink-0" />
+                            )}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-slate-700 font-semibold mb-3 block">Conditions Treated *</Label>
+                    <p className="text-xs text-slate-500 mb-3">Select specific conditions your clinic treats</p>
+                    <div className="max-h-96 overflow-y-auto p-2 border-2 border-blue-100 rounded-xl space-y-4">
+                      {Object.entries(CATEGORY_FILTERS).map(([key, category]) => (
+                        <div key={key} className="space-y-2">
+                          <h4 className="font-semibold text-sm text-blue-700">{category.label}</h4>
+                          <div className="grid md:grid-cols-2 gap-2 pl-4">
+                            {category.conditions.map(condition => (
+                              <button
+                                key={condition}
+                                type="button"
+                                onClick={() => handleArrayToggle("conditions", condition)}
+                                className={`px-3 py-2 rounded-lg border-2 text-left text-sm transition-all ${
+                                  formData.conditions.includes(condition)
+                                    ? 'bg-blue-50 border-blue-500 text-blue-700'
+                                    : 'bg-white border-slate-200 hover:border-blue-300 text-slate-700'
+                                }`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  {formData.conditions.includes(condition) && (
+                                    <CheckCircle2 className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                                  )}
+                                  <span>{condition}</span>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                       ))}
                     </div>
                   </div>

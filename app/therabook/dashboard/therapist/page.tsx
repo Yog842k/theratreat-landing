@@ -26,8 +26,9 @@ import {
   HelpCircle, FileText, Video, Phone, MapPin, Home, Star, CheckCircle, XCircle,
   AlertTriangle, Upload, Download, Edit, Save, Bell, Shield, BarChart3, TrendingUp,
   Users, MessageCircle, Bookmark, Award, Globe, LogOut, UserCog, PlusCircle,
-  Trash2, Eye, RefreshCw, Mail, Loader2, AlertCircle
+  Trash2, Eye, RefreshCw, Mail, Loader2, AlertCircle, Filter, X
 } from 'lucide-react';
+import { PRIMARY_FILTERS, CATEGORY_FILTERS, THERAPY_TYPES } from '@/constants/therabook-filters';
 
 interface TherapistData {
   profile: {
@@ -137,6 +138,12 @@ export default function TherapistDashboardPage() {
     // Example: Save privacy/notification settings
   };
   const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [isEditingFilters, setIsEditingFilters] = useState(false);
+  const [filterFields, setFilterFields] = useState({
+    therapyTypes: [] as string[],
+    primaryFilters: [] as string[],
+    conditions: [] as string[]
+  });
   const [editProfileFields, setEditProfileFields] = useState({
     name: '',
     gender: '',
@@ -1045,6 +1052,140 @@ export default function TherapistDashboardPage() {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Filter & Search System Section */}
+              <Card className="shadow-lg border-indigo-100">
+                <CardHeader className="bg-gradient-to-r from-indigo-50 to-purple-50 border-b border-indigo-100 p-4 sm:p-6">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center text-indigo-800 text-base sm:text-lg">
+                      <Filter className="w-4 h-4 sm:w-5 sm:h-5 mr-2" />
+                      Filter & Search Settings
+                    </CardTitle>
+                    {!isEditingFilters ? (
+                      <Button variant="outline" size="sm" onClick={() => setIsEditingFilters(true)} className="text-xs sm:text-sm">
+                        <Edit className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                        Edit Filters
+                      </Button>
+                    ) : (
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm" onClick={() => setIsEditingFilters(false)} className="text-xs sm:text-sm">
+                          <X className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                          Cancel
+                        </Button>
+                        <Button size="sm" onClick={async () => {
+                          // TODO: Save filters to API
+                          setIsEditingFilters(false);
+                        }} className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs sm:text-sm">
+                          <Save className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                          Save
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent className="p-4 sm:p-6 space-y-6">
+                  {/* Therapy Types */}
+                  <div>
+                    <Label className="text-xs sm:text-sm font-semibold text-gray-700 mb-3 block">Therapy Types *</Label>
+                    <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto p-2 border-2 border-indigo-100 rounded-lg bg-white">
+                      {THERAPY_TYPES.map(therapyType => (
+                        <button
+                          key={therapyType}
+                          type="button"
+                          disabled={!isEditingFilters}
+                          onClick={() => {
+                            const newTypes = filterFields.therapyTypes.includes(therapyType)
+                              ? filterFields.therapyTypes.filter(t => t !== therapyType)
+                              : [...filterFields.therapyTypes, therapyType];
+                            setFilterFields(prev => ({ ...prev, therapyTypes: newTypes }));
+                          }}
+                          className={`px-3 py-1.5 rounded-lg text-xs sm:text-sm border-2 transition-all ${
+                            filterFields.therapyTypes.includes(therapyType)
+                              ? 'bg-indigo-500 text-white border-indigo-600'
+                              : 'bg-white text-slate-700 border-indigo-200 hover:border-indigo-400'
+                          } ${!isEditingFilters ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
+                        >
+                          {therapyType}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Primary Filters */}
+                  <div>
+                    <Label className="text-xs sm:text-sm font-semibold text-gray-700 mb-3 block">Primary Filters (Quick Access Categories) *</Label>
+                    <div className="grid md:grid-cols-2 gap-2 max-h-60 overflow-y-auto p-2 border-2 border-indigo-100 rounded-lg bg-white">
+                      {PRIMARY_FILTERS.map(filter => (
+                        <button
+                          key={filter.id}
+                          type="button"
+                          disabled={!isEditingFilters}
+                          onClick={() => {
+                            const newFilters = filterFields.primaryFilters.includes(filter.id)
+                              ? filterFields.primaryFilters.filter(f => f !== filter.id)
+                              : [...filterFields.primaryFilters, filter.id];
+                            setFilterFields(prev => ({ ...prev, primaryFilters: newFilters }));
+                          }}
+                          className={`p-3 rounded-lg border-2 text-left transition-all ${
+                            filterFields.primaryFilters.includes(filter.id)
+                              ? 'bg-indigo-50 border-indigo-500'
+                              : 'bg-white border-indigo-200 hover:border-indigo-400'
+                          } ${!isEditingFilters ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
+                        >
+                          <div className="flex items-start gap-2">
+                            <span className="text-lg">{filter.icon}</span>
+                            <div className="flex-1">
+                              <div className="font-semibold text-xs text-slate-700">{filter.label}</div>
+                            </div>
+                            {filterFields.primaryFilters.includes(filter.id) && (
+                              <CheckCircle className="w-4 h-4 text-indigo-600 flex-shrink-0" />
+                            )}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Conditions */}
+                  <div>
+                    <Label className="text-xs sm:text-sm font-semibold text-gray-700 mb-3 block">Conditions Treated *</Label>
+                    <div className="max-h-64 overflow-y-auto p-2 border-2 border-indigo-100 rounded-lg bg-white space-y-3">
+                      {Object.entries(CATEGORY_FILTERS).map(([key, category]) => (
+                        <div key={key} className="space-y-2">
+                          <h4 className="font-semibold text-xs text-indigo-700">{category.label}</h4>
+                          <div className="grid md:grid-cols-2 gap-1.5 pl-2">
+                            {category.conditions.map(condition => (
+                              <button
+                                key={condition}
+                                type="button"
+                                disabled={!isEditingFilters}
+                                onClick={() => {
+                                  const newConditions = filterFields.conditions.includes(condition)
+                                    ? filterFields.conditions.filter(c => c !== condition)
+                                    : [...filterFields.conditions, condition];
+                                  setFilterFields(prev => ({ ...prev, conditions: newConditions }));
+                                }}
+                                className={`px-2 py-1.5 rounded text-xs border-2 text-left transition-all ${
+                                  filterFields.conditions.includes(condition)
+                                    ? 'bg-indigo-50 border-indigo-500 text-indigo-700'
+                                    : 'bg-white border-indigo-200 hover:border-indigo-400 text-slate-700'
+                                } ${!isEditingFilters ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}
+                              >
+                                <div className="flex items-center gap-1.5">
+                                  {filterFields.conditions.includes(condition) && (
+                                    <CheckCircle className="w-3 h-3 text-indigo-600 flex-shrink-0" />
+                                  )}
+                                  <span>{condition}</span>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           </TabsContent>
 
@@ -1331,12 +1472,6 @@ export default function TherapistDashboardPage() {
                                   Join
                                 </Button>
                               )}
-                              <Button size="sm" variant="outline" className="border-blue-200 hover:bg-blue-50 p-2">
-                                <MessageCircle className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600" />
-                              </Button>
-                              <Button size="sm" variant="outline" className="border-blue-200 hover:bg-blue-50 p-2">
-                                <FileText className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600" />
-                              </Button>
                             </div>
                           </div>
                         </div>
@@ -1393,14 +1528,6 @@ export default function TherapistDashboardPage() {
                                   Join
                                 </Button>
                               )}
-                              <Button size="sm" variant="outline" className="border-blue-200 hover:bg-blue-50 flex-1 text-xs">
-                                <MessageCircle className="w-3 h-3 mr-1" />
-                                Message
-                              </Button>
-                              <Button size="sm" variant="outline" className="border-blue-200 hover:bg-blue-50 flex-1 text-xs">
-                                <FileText className="w-3 h-3 mr-1" />
-                                Details
-                              </Button>
                             </div>
                           </div>
                         ))}
@@ -1449,12 +1576,6 @@ export default function TherapistDashboardPage() {
                                         Join
                                       </Button>
                                     )}
-                                    <Button size="sm" variant="outline" className="border-blue-200 hover:bg-blue-50">
-                                      <MessageCircle className="w-4 h-4 text-blue-600" />
-                                    </Button>
-                                    <Button size="sm" variant="outline" className="border-blue-200 hover:bg-blue-50">
-                                      <FileText className="w-4 h-4 text-blue-600" />
-                                    </Button>
                                   </div>
                                 </TableCell>
                               </TableRow>
