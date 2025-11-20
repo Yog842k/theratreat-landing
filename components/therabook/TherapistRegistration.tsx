@@ -467,6 +467,22 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
   const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
+      // Validate all agreements are accepted
+      const allAgreementsAccepted = Object.values(formData.agreements).every(value => value === true);
+      if (!allAgreementsAccepted) {
+        const missingAgreements = Object.entries(formData.agreements)
+          .filter(([_, value]) => !value)
+          .map(([key]) => key);
+        console.error('Missing agreements:', missingAgreements);
+        console.error('Current agreements state:', formData.agreements);
+        alert(`Please accept all agreements to continue. Missing: ${missingAgreements.join(', ')}`);
+        setIsSubmitting(false);
+        return;
+      }
+      
+      // Log agreements before sending (for debugging)
+      console.log('All agreements accepted:', formData.agreements);
+      
       const bd = formData.bankDetails;
       if (!formData.qualificationCertUrls.length || !formData.licenseDocumentUrl || !formData.resumeUrl || !formData.profilePhotoUrl || !bd.accountHolder || !bd.bankName || !bd.accountNumber || !bd.accountNumberConfirm || bd.accountNumber !== bd.accountNumberConfirm || !bd.ifscCode) {
         alert('Please complete all mandatory uploads and bank details');
@@ -540,7 +556,11 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
       }
 
       if (!response.ok) {
-        throw new Error(result.message || 'Registration failed');
+        // Check if it's an agreements error
+        if (result.unacceptedAgreements && Array.isArray(result.unacceptedAgreements)) {
+          throw new Error(`Please accept all agreements. Missing: ${result.unacceptedAgreements.join(', ')}`);
+        }
+        throw new Error(result.message || result.error || 'Registration failed');
       }
       
       if (result.token) {
@@ -784,53 +804,101 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
                 <Button
                   type="button"
                   onClick={async () => {
-                    if (!formData.panCard || !formData.fullName || !formData.dateOfBirth) {
-                      setPanVerifyErr('Please enter PAN, Name, and DOB');
+                    if (!formData.panCard || !formData.fullName) {
+                      setPanVerifyErr('Please enter PAN and Name');
                       return;
                     }
+                    
+                    // Validate PAN format
+                    const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
+                    const cleanPan = formData.panCard.replace(/\s|-/g, '').toUpperCase();
+                    if (!panRegex.test(cleanPan)) {
+                      setPanVerifyErr('Invalid PAN format. Please enter a valid PAN (e.g., ABCDE1234F)');
+                      return;
+                    }
+                    
                     setPanVerifyLoading(true);
+                    setPanVerifyErr('');
+                    setPanVerifyMsg('');
+                    
                     try {
-                      const initiateRes = await fetch('/api/pan/initiate', {
+                      // Use the direct verification endpoint
+                      const verifyRes = await fetch('/api/kyc/verify-pan', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ pan: formData.panCard, name: formData.fullName, dob: formData.dateOfBirth })
+                        body: JSON.stringify({ 
+                          pan: cleanPan, 
+                          name: formData.fullName.trim(),
+                          dob: formData.dateOfBirth || undefined,
+                          forceMock: false // Set to true in development if needed
+                        })
                       });
-                      const initiateJson = await initiateRes.json();
-                      if (!initiateRes.ok || !initiateJson?.success || !initiateJson.request_id) {
-                        throw new Error(initiateJson?.message || 'PAN verification failed');
-                      }
-                      const verifyRes = await fetch('/api/pan/verify', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ request_id: initiateJson.request_id })
-                      });
+                      
                       const verifyJson = await verifyRes.json();
+                      
                       if (!verifyRes.ok || !verifyJson?.success) {
-                        throw new Error(verifyJson?.message || 'PAN verification failed');
+                        const errorMsg = verifyJson?.message || verifyJson?.error || 'PAN verification failed';
+                        throw new Error(errorMsg);
                       }
-                      setPanVerified(true);
-                      setPanVerifyMsg('PAN verified successfully');
-                      setPanVerifyDetails(verifyJson?.data || null);
-                      setPanVerifyErr(''); // Clear any previous errors
+                      
+                      // Check if verification was successful
+                      const data = verifyJson?.data || {};
+                      const isMatch = data.match === true || data.match === 'true';
+                      
+                      if (isMatch) {
+                        setPanVerified(true);
+                        setPanVerifyMsg('PAN verified successfully');
+                        setPanVerifyDetails(data);
+                        setPanVerifyErr('');
+                      } else {
+                        setPanVerified(false);
+                        setPanVerifyErr('PAN verification failed: Name or details do not match');
+                        setPanVerifyMsg('');
+                        setPanVerifyDetails(null);
+                      }
                     } catch (e: any) {
                       setPanVerified(false);
-                      setPanVerifyErr(e?.message || 'PAN verification failed');
-                      setPanVerifyMsg(''); // Clear success message on error
+                      const errorMessage = e?.message || 'PAN verification failed. Please check your details and try again.';
+                      setPanVerifyErr(errorMessage);
+                      setPanVerifyMsg('');
+                      setPanVerifyDetails(null);
+                      console.error('PAN verification error:', e);
                     } finally {
                       setPanVerifyLoading(false);
                     }
                   }}
-                  disabled={panVerifyLoading}
-                  className="mt-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg h-10"
+                  disabled={panVerifyLoading || !formData.panCard || !formData.fullName}
+                  className="mt-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg h-10 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {panVerifyLoading ? 'Verifying...' : 'Verify PAN'}
+                  {panVerifyLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin inline" />
+                      Verifying...
+                    </>
+                  ) : (
+                    'Verify PAN'
+                  )}
                 </Button>
+                {panVerifyErr && (
+                  <div className="mt-3 p-4 bg-red-50 border-2 border-red-300 rounded-xl">
+                    <p className="text-red-700 font-semibold flex items-center gap-2">
+                      <AlertTriangle className="w-5 h-5" />
+                      {panVerifyErr}
+                    </p>
+                  </div>
+                )}
                 {panVerified && panVerifyDetails && !panVerifyErr && (
                   <div className="mt-3 p-4 bg-green-50 border-2 border-green-300 rounded-xl">
-                    <p className="text-green-700 font-semibold flex items-center gap-2">
+                    <p className="text-green-700 font-semibold flex items-center gap-2 mb-2">
                       <CheckCircle2 className="w-5 h-5" />
                       PAN Verified Successfully
                     </p>
+                    {panVerifyDetails.nameOnCard && (
+                      <p className="text-sm text-green-600">Name on PAN: {panVerifyDetails.nameOnCard}</p>
+                    )}
+                    {panVerifyDetails.fallbackUsed && (
+                      <p className="text-xs text-green-600 mt-1 italic">(Verified using fallback mode)</p>
+                    )}
                   </div>
                 )}
                 {panVerifyErr && !panVerified && (
@@ -1721,25 +1789,36 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
                 { id: 'secureDelivery', text: 'I agree to secure service delivery' },
                 { id: 'declaration', text: 'I declare fitness to provide therapy services' },
                 { id: 'serviceAgreement', text: 'I agree to the Service Agreement' }
-              ].map((agreement) => (
-                <div 
-                  key={agreement.id}
-                  onClick={() => handleNestedInputChange("agreements", agreement.id, !formData.agreements[agreement.id as keyof typeof formData.agreements])}
-                  className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                    formData.agreements[agreement.id as keyof typeof formData.agreements]
-                      ? 'border-blue-500 bg-blue-50'
-                      : 'border-slate-200 hover:border-blue-300'
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    <Checkbox 
-                      checked={formData.agreements[agreement.id as keyof typeof formData.agreements]}
-                      className="mt-0.5"
-                    />
-                    <span className="text-sm font-medium text-slate-700 leading-relaxed">{agreement.text} *</span>
+              ].map((agreement) => {
+                const agreementKey = agreement.id as keyof typeof formData.agreements;
+                const isChecked = formData.agreements[agreementKey];
+                return (
+                  <div 
+                    key={agreement.id}
+                    className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                      isChecked
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-slate-200 hover:border-blue-300'
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <Checkbox 
+                        checked={isChecked}
+                        onCheckedChange={(checked) => {
+                          handleNestedInputChange("agreements", agreement.id, checked === true);
+                        }}
+                        className="mt-0.5"
+                      />
+                      <span 
+                        className="text-sm font-medium text-slate-700 leading-relaxed flex-1"
+                        onClick={() => handleNestedInputChange("agreements", agreement.id, !isChecked)}
+                      >
+                        {agreement.text} *
+                      </span>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {!isFormValid() && (
