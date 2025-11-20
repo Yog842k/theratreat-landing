@@ -151,17 +151,20 @@ export default function ClinicRegistration() {
         setOtpSending(false);
         return;
       }
-      const res = await fetch('/api/debug/otp/request', {
+      // Normalize phone to E.164 format (+91XXXXXXXXXX)
+      const digits = phone.replace(/\D/g, '');
+      const normalizedPhone = digits.length === 10 ? `+91${digits}` : digits.length > 10 && digits.startsWith('91') ? `+${digits}` : digits.length > 10 ? `+${digits}` : `+91${digits}`;
+      const res = await fetch('/api/otp/request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, purpose: 'signup:clinic' })
+        body: JSON.stringify({ phone: normalizedPhone, purpose: 'signup:clinic' })
       });
       const json = await res.json();
-      if (res.ok && json?.otpSent) {
+      if (res.ok && json?.success && json?.data?.otpSent) {
   setOtpSent(true);
-  setOtpInfo(`OTP sent to ${phone}`);
+  setOtpInfo(`OTP sent to ${json?.data?.phone || phone}`);
   setOtpError("");
-  setResendSeconds(json?.ttlMinutes ? json.ttlMinutes * 60 : 60);
+  setResendSeconds(json?.data?.nextSendSeconds || json?.data?.ttlMinutes ? (json.data.ttlMinutes * 60) : 60);
   toast.success('OTP sent', {
     description: `OTP has been sent to ${phone}`,
   });
@@ -198,13 +201,16 @@ export default function ClinicRegistration() {
         setOtpVerifying(false);
         return;
       }
-      const res = await fetch('/api/debug/otp/verify', {
+      // Normalize phone to E.164 format (+91XXXXXXXXXX)
+      const digits = phone.replace(/\D/g, '');
+      const normalizedPhone = digits.length === 10 ? `+91${digits}` : digits.length > 10 && digits.startsWith('91') ? `+${digits}` : digits.length > 10 ? `+${digits}` : `+91${digits}`;
+      const res = await fetch('/api/otp/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, code: otpCode, purpose: 'signup:clinic' })
+        body: JSON.stringify({ phone: normalizedPhone, code: otpCode, purpose: 'signup:clinic' })
       });
       const json = await res.json();
-      if (res.ok && json?.success && json?.verified) {
+      if (res.ok && json?.success && json?.data?.verified) {
   setOtpVerified(true);
   setOtpInfo('Phone verified successfully');
   setOtpError("");
@@ -421,7 +427,7 @@ export default function ClinicRegistration() {
         });
         // Redirect to clinic dashboard after successful registration
         setTimeout(() => {
-          window.location.href = "/clinics/dashboard";
+        window.location.href = "/clinics/dashboard";
         }, 2000);
       } else {
         setIsSubmitting(false);

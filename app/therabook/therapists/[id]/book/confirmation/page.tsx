@@ -183,7 +183,7 @@ export default function ConfirmationPage(_props: any) {
               Completed
             </span>
           ) : (
-            <span className="inline-flex items-center text-sm px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200">Step 6 of 6</span>
+          <span className="inline-flex items-center text-sm px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200">Step 6 of 6</span>
           )}
         </div>
         <p className="text-xl text-gray-600">
@@ -274,29 +274,29 @@ export default function ConfirmationPage(_props: any) {
             </div>
           ) : (
             <>
-              {!canAccessImmediately && unlockAt && now < unlockAt ? (
-                <div className="mb-3 text-sm text-blue-700 flex items-center">
-                  <Lock className="w-4 h-4 mr-2" />
-                  Join button unlocks 10 minutes before your session.
-                </div>
-              ) : (
-                <p className="text-sm text-blue-700 mb-3">Click the button below to join your {sessionType} session:</p>
-              )}
-              <Button
-                variant="outline"
-                className="w-full border-2 border-blue-300 text-blue-700 hover:bg-blue-100 disabled:opacity-60 font-semibold"
-                disabled={!canAccessImmediately && Boolean(unlockAt && now < unlockAt)}
-                onClick={() => {
-                  // Navigate to session page with bookingId
-                  // The session page will create the room on-demand if it doesn't exist
+          {!canAccessImmediately && unlockAt && now < unlockAt ? (
+            <div className="mb-3 text-sm text-blue-700 flex items-center">
+              <Lock className="w-4 h-4 mr-2" />
+              Join button unlocks 10 minutes before your session.
+            </div>
+          ) : (
+            <p className="text-sm text-blue-700 mb-3">Click the button below to join your {sessionType} session:</p>
+          )}
+          <Button
+            variant="outline"
+            className="w-full border-2 border-blue-300 text-blue-700 hover:bg-blue-100 disabled:opacity-60 font-semibold"
+            disabled={!canAccessImmediately && Boolean(unlockAt && now < unlockAt)}
+            onClick={() => {
+              // Navigate to session page with bookingId
+              // The session page will create the room on-demand if it doesn't exist
                   const therapistId = booking.therapistId || (booking as any).therapistProfileId || (window.location.pathname.match(/\/therapists\/([^\/]+)/)?.[1]);
-                  const sessionUrl = `/therabook/therapists/${therapistId}/book/session?bookingId=${bookingId}${callRoomId ? `&roomId=${callRoomId}` : ''}${roomCode ? `&roomCode=${roomCode}` : ''}`;
-                  window.location.href = sessionUrl;
-                }}
-              >
-                <Video className="w-4 h-4 mr-2" />
-                Join Session Now
-              </Button>
+              const sessionUrl = `/therabook/therapists/${therapistId}/book/session?bookingId=${bookingId}${callRoomId ? `&roomId=${callRoomId}` : ''}${roomCode ? `&roomCode=${roomCode}` : ''}`;
+              window.location.href = sessionUrl;
+            }}
+          >
+            <Video className="w-4 h-4 mr-2" />
+            Join Session Now
+          </Button>
             </>
           )}
           {!callRoomId && !roomCode && (

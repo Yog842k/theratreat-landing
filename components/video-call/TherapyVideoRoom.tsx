@@ -511,7 +511,7 @@ export function VideoRoomContent({ onLeave: onLeaveCallback, therapistName, user
       console.error('[100ms] Toggle audio error:', error);
       try {
         if (toggleAudio) {
-          await toggleAudio();
+        await toggleAudio();
         }
       } catch (fallbackError: any) {
         toast.error("Failed to toggle audio", { description: error.message || fallbackError.message });
@@ -530,7 +530,7 @@ export function VideoRoomContent({ onLeave: onLeaveCallback, therapistName, user
         await hmsActions.setLocalVideoEnabled(newState);
       } else {
         if (toggleVideo) {
-          await toggleVideo();
+        await toggleVideo();
         }
       }
       toast.success(newState ? "Video shown" : "Video hidden");

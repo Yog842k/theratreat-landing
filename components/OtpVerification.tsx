@@ -22,16 +22,19 @@ export default function OtpVerification({ phone, onVerified }: OtpVerificationPr
   setError("");
   setInfo("");
     try {
-      const res = await fetch('/api/debug/otp/request', {
+      // Normalize phone to E.164 format (+91XXXXXXXXXX)
+      const digits = phone.replace(/\D/g, '');
+      const normalizedPhone = digits.length === 10 ? `+91${digits}` : digits.length > 10 && digits.startsWith('91') ? `+${digits}` : digits.length > 10 ? `+${digits}` : `+91${digits}`;
+      const res = await fetch('/api/otp/request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, purpose: 'signup:clinic' })
+        body: JSON.stringify({ phone: normalizedPhone, purpose: 'signup:clinic' })
       });
       const json = await res.json();
-      if (res.ok && json?.otpSent) {
+      if (res.ok && json?.success && json?.data?.otpSent) {
         setStep("enter");
-        setInfo(`OTP sent to ${phone}`);
-        setResendSeconds(json?.ttlMinutes ? json.ttlMinutes * 60 : 60);
+        setInfo(`OTP sent to ${json?.data?.phone || phone}`);
+        setResendSeconds(json?.data?.nextSendSeconds || (json?.data?.ttlMinutes ? json.data.ttlMinutes * 60 : 60));
       } else {
         // Only set error if message is not 'OTP sent'
         if (json?.message && json.message.toLowerCase().includes('otp sent')) {
@@ -55,13 +58,16 @@ export default function OtpVerification({ phone, onVerified }: OtpVerificationPr
     setError("");
     setInfo("");
     try {
-      const res = await fetch('/api/debug/otp/verify', {
+      // Normalize phone to E.164 format (+91XXXXXXXXXX)
+      const digits = phone.replace(/\D/g, '');
+      const normalizedPhone = digits.length === 10 ? `+91${digits}` : digits.length > 10 && digits.startsWith('91') ? `+${digits}` : digits.length > 10 ? `+${digits}` : `+91${digits}`;
+      const res = await fetch('/api/otp/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, code: otp, purpose: 'signup:clinic' })
+        body: JSON.stringify({ phone: normalizedPhone, code: otp, purpose: 'signup:clinic' })
       });
       const json = await res.json();
-      if (res.ok && json?.success && json?.verified) {
+      if (res.ok && json?.success && json?.data?.verified) {
         setError(""); // Clear any previous errors
         setStep("success");
         setInfo("OTP verified");
