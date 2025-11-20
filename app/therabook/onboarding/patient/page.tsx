@@ -296,6 +296,8 @@ export default function PatientOnboarding() {
         return;
       }
 
+      // Uses Twilio Verify Service for OTP sending
+      // Custom message: "Welcome to theratreat, your OTP is {code}"
       const res = await fetch('/api/otp/request', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -348,6 +350,7 @@ export default function PatientOnboarding() {
         return;
       }
 
+      // Uses Twilio Verify Service for OTP verification
       const res = await fetch('/api/otp/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

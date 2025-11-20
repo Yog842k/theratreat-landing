@@ -37,9 +37,11 @@ import {
   ShoppingCart,
   BookOpen,
   HelpCircle,
-  Video
+  Video,
+  Eye
 } from "lucide-react";
 import { useAuth } from "@/components/auth/NewAuthContext";
+import Link from "next/link";
 
 interface UserProfile {
   _id?: string;
@@ -713,16 +715,28 @@ export default function UserProfilePage() {
                                 </div>
                               )}
                             </div>
-                            {booking.meetingUrl && (
-                              <Button 
-                                size="sm" 
-                                onClick={() => window.open(booking.meetingUrl, '_blank')}
-                                className="ml-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg"
-                              >
-                                <Video className="w-4 h-4 mr-2" />
-                                Join
-                              </Button>
-                            )}
+                            <div className="ml-4 flex flex-col gap-2">
+                              {booking.meetingUrl && (
+                                <Button 
+                                  size="sm" 
+                                  onClick={() => window.open(booking.meetingUrl, '_blank')}
+                                  className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-lg"
+                                >
+                                  <Video className="w-4 h-4 mr-2" />
+                                  Join
+                                </Button>
+                              )}
+                              <Link href={`/therabook/therapists/${booking.therapistId || booking.therapistProfileId || 'unknown'}/book/confirmation?bookingId=${booking._id}`}>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  className="border-blue-300 text-blue-700 hover:bg-blue-50 shadow-sm"
+                                >
+                                  <Eye className="w-4 h-4 mr-2" />
+                                  View Details
+                                </Button>
+                              </Link>
+                            </div>
                           </div>
                         </motion.div>
                       ))}
@@ -749,7 +763,14 @@ export default function UserProfilePage() {
                             <div className="flex-1">
                               <div className="flex items-center gap-2 mb-3">
                                 <Badge className={`${booking.status === 'completed' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'} shadow-sm`}>
-                                  {booking.status || 'unknown'}
+                                  {booking.status === 'completed' ? (
+                                    <>
+                                      <CheckCircle className="w-3 h-3 mr-1" />
+                                      Completed
+                                    </>
+                                  ) : (
+                                    booking.status || 'unknown'
+                                  )}
                                 </Badge>
                               </div>
                               <h4 className="font-bold text-lg text-gray-900 mb-2">
@@ -775,6 +796,18 @@ export default function UserProfilePage() {
                                   </div>
                                 )}
                               </div>
+                            </div>
+                            <div className="ml-4">
+                              <Link href={`/therabook/therapists/${booking.therapistId || booking.therapistProfileId || 'unknown'}/book/confirmation?bookingId=${booking._id}`}>
+                                <Button 
+                                  size="sm" 
+                                  variant="outline"
+                                  className="border-gray-300 text-gray-700 hover:bg-gray-50 shadow-sm"
+                                >
+                                  <Eye className="w-4 h-4 mr-2" />
+                                  View Details
+                                </Button>
+                              </Link>
                             </div>
                           </div>
                         </motion.div>

@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { toast } from 'sonner';
 import { Eye, EyeOff, Mail, Lock, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -54,6 +55,10 @@ export default function LoginPage() {
           login(data.data.token, data.data.user);
         }
         
+        toast.success('Login successful!', {
+          description: `Welcome back, ${data.data?.user?.name || 'User'}!`,
+        });
+        
         // Redirect based on user type
         if (data.data.user.userType === 'therapist') {
           router.push('/therabook/dashboard/therapist');
@@ -65,10 +70,18 @@ export default function LoginPage() {
           router.push('/therabook');
         }
       } else {
-        setError(data.message || 'Login failed');
+        const errorMessage = data.message || 'Login failed';
+        setError(errorMessage);
+        toast.error('Login failed', {
+          description: errorMessage,
+        });
       }
     } catch (error) {
-      setError('An error occurred. Please try again.');
+      const errorMessage = 'An error occurred. Please try again.';
+      setError(errorMessage);
+      toast.error('Login error', {
+        description: errorMessage,
+      });
       console.error('Login error:', error);
     } finally {
       setLoading(false);

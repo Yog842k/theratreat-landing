@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { toast } from 'sonner';
 import { Upload, CheckCircle2, Building2, MapPin, Phone, Mail, Calendar, Clock, Briefcase, Globe, Instagram, FileText, Shield, Sparkles, ArrowRight, Check, AlertCircle, Heart, Award, Users, Zap, TrendingUp, Bot, Star, Network } from "lucide-react";
 
 
@@ -161,8 +162,15 @@ export default function ClinicRegistration() {
   setOtpInfo(`OTP sent to ${phone}`);
   setOtpError("");
   setResendSeconds(json?.ttlMinutes ? json.ttlMinutes * 60 : 60);
+  toast.success('OTP sent', {
+    description: `OTP has been sent to ${phone}`,
+  });
       } else {
-  setOtpError(json?.message || 'Failed to send OTP');
+  const errorMsg = json?.message || 'Failed to send OTP';
+  setOtpError(errorMsg);
+  toast.error('OTP failed', {
+    description: errorMsg,
+  });
       }
     } catch (e) {
       let msg = 'Failed to send OTP';
@@ -170,6 +178,9 @@ export default function ClinicRegistration() {
         msg = (e as any).message;
       }
       setOtpError(msg);
+      toast.error('OTP error', {
+        description: msg,
+      });
     } finally {
       setOtpSending(false);
     }
@@ -197,8 +208,15 @@ export default function ClinicRegistration() {
   setOtpVerified(true);
   setOtpInfo('Phone verified successfully');
   setOtpError("");
+  toast.success('Phone verified', {
+    description: 'Your phone number has been verified successfully',
+  });
       } else {
-  setOtpError(json?.message || 'OTP verification failed');
+  const errorMsg = json?.message || 'OTP verification failed';
+  setOtpError(errorMsg);
+  toast.error('Verification failed', {
+    description: errorMsg,
+  });
       }
     } catch (e) {
       let msg = 'OTP verification failed';
@@ -206,6 +224,9 @@ export default function ClinicRegistration() {
         msg = (e as any).message;
       }
       setOtpError(msg);
+      toast.error('Verification error', {
+        description: msg,
+      });
     } finally {
       setOtpVerifying(false);
     }
@@ -266,26 +287,34 @@ export default function ClinicRegistration() {
     try {
       // Validate password before submission
       if (!formData.password || formData.password.trim() === '') {
-        alert('Password is required. Please enter a password.');
+        toast.error('Password required', {
+          description: 'Please enter a password.',
+        });
         setIsSubmitting(false);
         return;
       }
 
       if (formData.password.length < 8) {
-        alert('Password must be at least 8 characters long.');
+        toast.error('Invalid password', {
+          description: 'Password must be at least 8 characters long.',
+        });
         setIsSubmitting(false);
         return;
       }
 
       if (formData.password !== formData.confirmPassword) {
-        alert('Passwords do not match. Please ensure both password fields match.');
+        toast.error('Password mismatch', {
+          description: 'Passwords do not match. Please ensure both password fields match.',
+        });
         setIsSubmitting(false);
         return;
       }
 
       // Validate ownerEmail is provided
       if (!formData.ownerEmail || formData.ownerEmail.trim() === '') {
-        alert('Owner email is required for login. Please enter the owner email.');
+        toast.error('Owner email required', {
+          description: 'Owner email is required for login. Please enter the owner email.',
+        });
         setIsSubmitting(false);
         return;
       }
@@ -386,19 +415,28 @@ export default function ClinicRegistration() {
       
       if (res.ok && responseData.success) {
         setIsSubmitting(false);
-        // Show success message with login instructions
-        alert('Registration successful! You can now login using:\nEmail: ' + formData.ownerEmail + '\nPassword: (the password you just created)');
+        toast.success('Registration successful!', {
+          description: `You can now login using: ${formData.ownerEmail}`,
+          duration: 5000,
+        });
         // Redirect to clinic dashboard after successful registration
-        window.location.href = "/clinics/dashboard";
+        setTimeout(() => {
+          window.location.href = "/clinics/dashboard";
+        }, 2000);
       } else {
         setIsSubmitting(false);
         const errorMessage = responseData.message || responseData.error || 'Registration failed. Please check all fields and try again.';
         console.error('Registration error:', { status: res.status, error: errorMessage, responseData });
-        alert('Registration failed: ' + errorMessage);
+        toast.error('Registration failed', {
+          description: errorMessage,
+          duration: 5000,
+        });
       }
     } catch (err) {
       setIsSubmitting(false);
-      alert('Registration error: ' + String(err));
+      toast.error('Registration error', {
+        description: String(err),
+      });
     }
   };
 

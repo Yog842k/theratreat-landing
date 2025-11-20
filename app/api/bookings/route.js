@@ -204,6 +204,7 @@ export async function POST(request) {
 
     // Check for existing booking at the same time
     // Only block if there's an actual conflict with another booking
+    // IMPORTANT: Also check userId to prevent same user from booking same slot twice
     const existingBooking = await database.findOne('bookings', {
       $or: [
         { therapistId: therapistUser._id },
@@ -211,16 +212,39 @@ export async function POST(request) {
       ],
       appointmentDate: apptDate,
       appointmentTime,
-      status: { $in: ['pending', 'confirmed'] },
+      status: { $in: ['pending', 'confirmed', 'active'] }, // Include 'active' status
       _id: { $ne: null } // Exclude current booking if updating
     });
 
     if (existingBooking) {
+      // Check if it's the same user trying to book the same slot again
+      const existingUserId = existingBooking.userId ? String(existingBooking.userId) : null;
+      const currentUserId = String(user._id);
+      
+      if (existingUserId === currentUserId) {
+        // Same user, same slot - this might be a duplicate request
+        // Check if booking was just created (within last 5 seconds)
+        const bookingAge = existingBooking.createdAt 
+          ? (Date.now() - new Date(existingBooking.createdAt).getTime()) 
+          : Infinity;
+        
+        if (bookingAge < 5000) {
+          // Very recent booking - likely a duplicate request, return the existing booking
+          console.log('[bookings/route] Duplicate booking request detected, returning existing booking:', {
+            existingBookingId: existingBooking._id,
+            bookingAge: bookingAge + 'ms'
+          });
+          return ResponseUtils.success({ booking: existingBooking, isDuplicate: true }, 'Booking already exists');
+        }
+      }
+      
       console.log('[bookings/route] Time slot conflict detected:', {
         existingBookingId: existingBooking._id,
         therapistId: therapistUser._id,
         date: apptDate,
-        time: appointmentTime
+        time: appointmentTime,
+        existingUserId,
+        currentUserId
       });
       return ResponseUtils.badRequest('Time slot is already booked');
     }
@@ -283,60 +307,141 @@ export async function POST(request) {
     
     if (sessionType === 'video' || sessionType === 'audio') {
       try {
-        const { scheduleMeeting } = require('@/lib/meeting-scheduler');
-        // Use actual booking ID + timestamp + random to ensure uniqueness
-        const uniqueBookingId = `${booking._id.toString()}_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+        // Use the same logic as /100ms-room-test - create room directly using SDK
+        const { createRoom } = require('@/lib/hms');
+        const templateId = process.env.HMS_TEMPLATE_ID;
         
-        console.log(`[bookings/route] Creating ${sessionType === 'video' ? 'video' : 'audio'} room for booking:`, {
-          bookingId: booking._id.toString(),
-          uniqueBookingId,
-          sessionType: booking.sessionType
-        });
+        // Check if HMS credentials are configured
+        const hasAccessKey = !!process.env.HMS_ACCESS_KEY;
+        const hasSecret = !!process.env.HMS_SECRET;
+        const hasManagementToken = !!process.env.HMS_MANAGEMENT_TOKEN;
         
-        // Pass session type to scheduleMeeting to handle video vs audio differently
-        // IMPORTANT: Don't pass existingRoomCode/meetingUrl to force new room creation
-        const meetingResult = await scheduleMeeting({ 
-          bookingId: uniqueBookingId,
-          sessionType: sessionType, // Pass session type to differentiate
-          existingRoomCode: null, // Force new room creation
-          existingMeetingUrl: null // Force new room creation
-        });
-        
-        if (meetingResult.provider !== '100ms') {
-          console.error('[bookings/route] ❌ WARNING: Room was not created via 100ms API! Provider:', meetingResult.provider);
-          console.error('[bookings/route] This indicates a configuration issue. Please check:');
-          console.error('[bookings/route]   1. HMS_MANAGEMENT_TOKEN is set and valid');
-          console.error('[bookings/route]   2. HMS_TEMPLATE_ID is set and correct');
-          console.error('[bookings/route]   3. 100ms API is accessible');
-          // Still store it but log the warning
+        if (!templateId) {
+          console.warn('[bookings/route] HMS_TEMPLATE_ID not set, room will be created on-demand when user joins');
+        } else if (!hasAccessKey || !hasSecret) {
+          console.warn('[bookings/route] HMS_ACCESS_KEY or HMS_SECRET not configured, room will be created on-demand when user joins');
         } else {
-          console.log(`[bookings/route] ✅ Successfully created ${sessionType} room:`, {
-            roomCode: meetingResult.roomCode,
-            roomId: meetingResult.roomId,
-            meetingUrl: meetingResult.meetingUrl,
-            sessionType: sessionType
+          const therapistIdStr = String(booking.therapistId || booking.therapistProfileId || 'therapist').slice(-6);
+          const patientIdStr = String(booking.userId || booking.clientId || 'patient').slice(-6);
+          
+          console.log(`[bookings/route] Creating ${sessionType} room for booking:`, {
+            bookingId: booking._id.toString(),
+            therapistId: therapistIdStr,
+            patientId: patientIdStr,
+            sessionType: booking.sessionType,
+            hasAccessKey,
+            hasSecret,
+            hasManagementToken
           });
-        }
-        
-        meetingUrl = meetingResult.meetingUrl;
-        roomCode = meetingResult.roomCode;
-        callRoomId = meetingResult.roomId;
-        
-        // Update booking with meeting details
-        if (meetingUrl || roomCode) {
-          await database.updateOne('bookings', { _id: booking._id }, {
-            $set: {
-              meetingUrl: meetingUrl || null,
-              roomCode: roomCode || null,
-              callRoomId: callRoomId || null,
-              updatedAt: new Date()
+          
+          try {
+            // Try using SDK first
+            const room = await createRoom({
+              therapistId: therapistIdStr,
+              patientId: patientIdStr,
+              templateId: templateId
+            });
+            
+            if (room && room.id) {
+              callRoomId = room.id;
+              
+              console.log(`[bookings/route] ✅ Successfully created ${sessionType} room via SDK:`, {
+                roomId: callRoomId,
+                roomName: room.name,
+                sessionType: sessionType
+              });
+              
+              // Update booking with room ID
+              await database.updateOne('bookings', { _id: booking._id }, {
+                $set: {
+                  callRoomId: callRoomId,
+                  updatedAt: new Date()
+                }
+              });
+              booking.callRoomId = callRoomId;
+            } else {
+              console.warn(`[bookings/route] ⚠️ Room creation via SDK returned invalid response:`, room);
+              // Fallback to API route if SDK fails
+              throw new Error('SDK returned invalid response');
             }
-          });
-          booking.meetingUrl = meetingUrl;
-          booking.roomCode = roomCode;
-          booking.callRoomId = callRoomId;
-        } else {
-          console.error(`[bookings/route] ❌ No meeting URL or room code generated for ${sessionType} session!`);
+          } catch (sdkError) {
+            const sdkErrorMsg = sdkError?.message || String(sdkError);
+            const sdkErrorStack = sdkError?.stack;
+            const sdkErrorDetails = {
+              message: sdkErrorMsg,
+              name: sdkError?.name,
+              code: sdkError?.code,
+              ...(sdkErrorStack && { stack: sdkErrorStack })
+            };
+            
+            console.warn(`[bookings/route] ⚠️ SDK room creation failed, trying API route:`, sdkErrorDetails);
+            
+            // Fallback to API route if SDK fails and management token is available
+            if (hasManagementToken) {
+              try {
+                const apiUrl = `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/100ms-room/create`;
+                const apiPayload = {
+                  name: `therabook-${booking._id.toString()}-${Date.now()}`,
+                  description: `Therapy session for booking ${booking._id.toString()}`,
+                  template_id: templateId,
+                  region: 'auto'
+                };
+                
+                console.log(`[bookings/route] 🔄 Calling API fallback:`, { apiUrl, payload: apiPayload });
+                
+                const apiResponse = await fetch(apiUrl, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(apiPayload)
+                });
+                
+                const apiData = await apiResponse.json();
+                
+                console.log(`[bookings/route] 📥 API fallback response:`, {
+                  status: apiResponse.status,
+                  ok: apiResponse.ok,
+                  success: apiData.success,
+                  hasRoom: !!(apiData.room && apiData.room.id),
+                  error: apiData.error,
+                  message: apiData.message
+                });
+                
+                if (apiData.success && apiData.room && apiData.room.id) {
+                  callRoomId = apiData.room.id;
+                  
+                  console.log(`[bookings/route] ✅ Successfully created ${sessionType} room via API:`, {
+                    roomId: callRoomId,
+                    sessionType: sessionType
+                  });
+                  
+                  // Update booking with room ID
+                  await database.updateOne('bookings', { _id: booking._id }, {
+                    $set: {
+                      callRoomId: callRoomId,
+                      updatedAt: new Date()
+                    }
+                  });
+                  booking.callRoomId = callRoomId;
+                } else {
+                  console.warn(`[bookings/route] ⚠️ API route returned unsuccessful response:`, {
+                    status: apiResponse.status,
+                    data: apiData
+                  });
+                  // Don't throw - room will be created on-demand
+                }
+              } catch (apiError) {
+                console.error(`[bookings/route] ❌ API route fallback failed with exception:`, {
+                  error: apiError?.message || String(apiError),
+                  stack: apiError?.stack,
+                  name: apiError?.name
+                });
+                // Don't throw - room will be created on-demand
+              }
+            } else {
+              console.warn(`[bookings/route] ⚠️ HMS_MANAGEMENT_TOKEN not configured, cannot use API fallback`);
+              // Don't throw - room will be created on-demand
+            }
+          }
         }
       } catch (e) {
         console.error(`[bookings/route] ❌ Failed to create ${sessionType} meeting room:`, {
@@ -345,8 +450,8 @@ export async function POST(request) {
           bookingId: booking._id.toString(),
           sessionType: sessionType
         });
-        // Don't silently fail - log the error but continue with booking creation
-        // The booking will be created without a meeting link, which can be fixed later
+        // Don't fail the booking - room can be created on-demand when joining
+        // The booking will be created without a room, which will be created when user joins
       }
     } else {
       console.log('[bookings/route] Skipping room creation for in-person session:', {

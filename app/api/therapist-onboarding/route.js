@@ -132,6 +132,46 @@ export async function POST(request) {
 
     const saved = await therapistsColl.findOne({ userId: new ObjectId(user._id) });
 
+    // Create Razorpay sub-account for split payments when bank details are provided (non-blocking)
+    if (isFinalStep && body.bankDetails?.accountNumber && body.bankDetails?.ifscCode && body.bankDetails?.accountHolder) {
+      (async () => {
+        try {
+          const { createRazorpaySubAccount } = await import('@/lib/razorpay-subaccount');
+          const subAccount = await createRazorpaySubAccount({
+            name: saved?.displayName || user.name,
+            email: user.email,
+            contact: user.phone,
+            bankDetails: {
+              accountHolderName: body.bankDetails.accountHolder,
+              accountNumber: body.bankDetails.accountNumber,
+              ifscCode: body.bankDetails.ifscCode,
+              bankName: body.bankDetails.bankName,
+              upiId: body.bankDetails.upiId
+            },
+            type: 'therapist',
+            entityId: saved?._id?.toString() || ''
+          });
+          
+          if (subAccount) {
+            await therapistsColl.updateOne(
+              { userId: new ObjectId(user._id) },
+              {
+                $set: {
+                  razorpayAccountId: subAccount.id,
+                  razorpayAccountMode: subAccount.mode,
+                  razorpayAccountLinkedAt: new Date()
+                }
+              }
+            );
+            console.log('[THERAPIST ONBOARDING] Razorpay sub-account created:', subAccount.id);
+          }
+        } catch (e) {
+          console.warn('[THERAPIST ONBOARDING] Razorpay sub-account creation failed (non-blocking):', e?.message);
+          // Don't block registration - sub-account can be created later
+        }
+      })();
+    }
+
     // Mark user onboarding completed only if final step
     if (isFinalStep) {
       await database.updateOne('users', { _id: new ObjectId(user._id) }, { 

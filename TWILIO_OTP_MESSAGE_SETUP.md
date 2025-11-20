@@ -7,6 +7,14 @@ The desired OTP message format is:
 Welcome to theratreat, your OTP is {code}
 ```
 
+**Note:** This custom message will apply to ALL OTPs sent through your Verify Service, including:
+- Patient registration OTPs
+- Therapist registration OTPs
+- Clinic registration OTPs
+- Any other OTP purposes
+
+All OTPs use the same Twilio Verify Service and template, so once configured, the custom message will work for everyone.
+
 ## How to Set Up Custom OTP Message
 
 Twilio Verify requires custom message templates to be approved by Twilio Support. Follow these steps:

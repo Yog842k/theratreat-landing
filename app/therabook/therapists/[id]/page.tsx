@@ -215,7 +215,7 @@ export default function TherapistProfilePage({}: TherapistProfileProps) {
                   transition={{ delay: 0.8 }}
                   className="pt-4"
                 >
-                  <Link href={`/therabook/therapists/${id}/book`}>
+                  <Link href={`/therabook/therapists/${id}/book/confirm-therapist`}>
                     <Button 
                       size="lg" 
                       className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-4 rounded-2xl text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
@@ -356,7 +356,7 @@ export default function TherapistProfilePage({}: TherapistProfileProps) {
                 <p className="text-gray-600 mb-6">
                   {display.weeklySlots} slots available this week
                 </p>
-                <Link href={`/therabook/therapists/${id}/book`}>
+                <Link href={`/therabook/therapists/${id}/book/confirm-therapist`}>
                   <Button size="lg">
                     View Available Times
                   </Button>

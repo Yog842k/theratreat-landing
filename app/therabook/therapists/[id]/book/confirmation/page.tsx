@@ -29,7 +29,12 @@ export default function ConfirmationPage(_props: any) {
   const [unlockAt, setUnlockAt] = useState<number | null>(null);
   const searchParams = useSearchParams();
   const bookingId = searchParams?.get('bookingId');
-  const { token, isAuthenticated, isLoading: authLoading } = useAuth();
+  const { token, isAuthenticated, isLoading: authLoading, user } = useAuth();
+  
+  // Allow immediate access for specific users (bypass 10-minute unlock)
+  const allowedEmails = ['sachinparihar10@gmail.com'];
+  const userEmail = user?.email || '';
+  const canAccessImmediately = allowedEmails.includes(userEmail.toLowerCase());
 
   useEffect(() => {
     if (!bookingId) {
@@ -53,21 +58,34 @@ export default function ConfirmationPage(_props: any) {
     try {
       const bookingData = await bookingService.getBooking(bookingId, token || undefined);
       
-      // If meetingUrl is missing but roomCode exists, try to generate it
-      if (!bookingData.meetingUrl && (bookingData as any).roomCode) {
-        try {
-          const { scheduleMeeting } = await import('@/lib/meeting-scheduler');
-          const meetingResult = await scheduleMeeting({
-            bookingId: bookingId,
-            existingRoomCode: (bookingData as any).roomCode,
-            existingMeetingUrl: null
-          });
-          if (meetingResult.meetingUrl) {
-            bookingData.meetingUrl = meetingResult.meetingUrl;
+      // For video/audio consultations, ensure meeting link is available
+      const sessionType = bookingData.sessionType?.toLowerCase();
+      const isVideoOrAudio = sessionType === 'video' || sessionType === 'audio';
+      
+      if (isVideoOrAudio) {
+        // If meetingUrl is missing but roomCode exists, try to generate it
+        if (!bookingData.meetingUrl && (bookingData as any).roomCode) {
+          try {
+            const { scheduleMeeting } = await import('@/lib/meeting-scheduler');
+            const meetingResult = await scheduleMeeting({
+              bookingId: bookingId,
+              existingRoomCode: (bookingData as any).roomCode,
+              existingMeetingUrl: null,
+              sessionType: sessionType as 'video' | 'audio'
+            });
+            if (meetingResult.meetingUrl) {
+              bookingData.meetingUrl = meetingResult.meetingUrl;
+            }
+          } catch (e) {
+            console.warn('Failed to generate meeting URL from room code:', e);
           }
-        } catch (e) {
-          console.warn('Failed to generate meeting URL from room code:', e);
         }
+        
+        // Note: Meeting rooms should be created during booking.
+        // If meetingUrl/roomCode is missing here, it means either:
+        // 1. The room creation failed during booking (check server logs)
+        // 2. HMS_MANAGEMENT_TOKEN or HMS_TEMPLATE_ID is not configured
+        // The UI will show a message that the link is being generated
       }
       
       setBooking(bookingData);
@@ -156,10 +174,23 @@ export default function ConfirmationPage(_props: any) {
           <CheckCircle className="w-12 h-12 text-green-600" />
         </div>
         <div className="flex items-center justify-center gap-3">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Booking Confirmed!</h1>
-          <span className="inline-flex items-center text-sm px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200">Step 6 of 6</span>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            {booking.status === 'completed' ? 'Session Completed!' : 'Booking Confirmed!'}
+          </h1>
+          {booking.status === 'completed' ? (
+            <span className="inline-flex items-center text-sm px-3 py-1 rounded-full bg-green-50 text-green-700 border border-green-200">
+              <CheckCircle className="w-4 h-4 mr-1" />
+              Completed
+            </span>
+          ) : (
+            <span className="inline-flex items-center text-sm px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200">Step 6 of 6</span>
+          )}
         </div>
-        <p className="text-xl text-gray-600">Your session has been successfully scheduled</p>
+        <p className="text-xl text-gray-600">
+          {booking.status === 'completed' 
+            ? 'This session has been completed successfully' 
+            : 'Your session has been successfully scheduled'}
+        </p>
         <p className="text-sm text-gray-500 mt-2">
           Booking ID: <span className="font-mono font-medium">{booking._id}</span>
         </p>
@@ -204,10 +235,19 @@ export default function ConfirmationPage(_props: any) {
               </div>
             </div>
 
-    {/* Meeting link section - always show if available */}
+    {/* Meeting link section - show for video/audio consultations */}
     {(() => {
+      const sessionType = booking.sessionType?.toLowerCase();
+      const isVideoOrAudio = sessionType === 'video' || sessionType === 'audio';
+      
+      // Only show meeting link section for video/audio consultations
+      if (!isVideoOrAudio) {
+        return null;
+      }
+      
       let meetingUrl = booking.meetingUrl || (booking as any).meetingLink;
       const roomCode = booking.roomCode || (booking as any).roomCode;
+      const callRoomId = (booking as any).callRoomId || (booking as any).roomId;
       
       // Generate meeting URL from room code if not available
       if (!meetingUrl && roomCode) {
@@ -217,55 +257,69 @@ export default function ConfirmationPage(_props: any) {
             : null);
       }
       
-      if (meetingUrl || roomCode) {
-        return (
-          <div className="mt-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border-2 border-blue-200">
-            <h4 className="font-semibold text-blue-900 mb-2 flex items-center">
-              <Video className="w-5 h-5 mr-2" />
-              Join Your Session
-            </h4>
-            {unlockAt && now < unlockAt ? (
-              <div className="mb-3 text-sm text-blue-700 flex items-center">
-                <Lock className="w-4 h-4 mr-2" />
-                Join button unlocks 10 minutes before your session.
-              </div>
-            ) : (
-              <p className="text-sm text-blue-700 mb-3">Click the button below to join your video/audio session:</p>
-            )}
-            {meetingUrl && (
-              <>
-                <Button
-                  variant="outline"
-                  className="w-full border-2 border-blue-300 text-blue-700 hover:bg-blue-100 disabled:opacity-60 font-semibold"
-                  disabled={Boolean(unlockAt && now < unlockAt)}
-                  onClick={() => {
-                    if (meetingUrl) window.open(meetingUrl, '_blank');
-                  }}
-                >
-                  <Video className="w-4 h-4 mr-2" />
-                  Join Session Now
-                </Button>
-                {/* Display the actual meeting URL */}
-                <div className="mt-3 p-2 bg-white/70 rounded border border-blue-200">
-                  <p className="text-xs text-blue-600 font-medium mb-1">Meeting Link:</p>
-                  <p className="text-[11px] text-blue-700 break-all font-mono">
-                    {meetingUrl}
-                  </p>
+      // Always show join button for video/audio sessions
+      // Room will be created on-demand if it doesn't exist
+      return (
+        <div className="mt-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border-2 border-blue-200">
+          <h4 className="font-semibold text-blue-900 mb-2 flex items-center">
+            <Video className="w-5 h-5 mr-2" />
+            Join Your Session
+          </h4>
+          {booking.status === 'completed' ? (
+            <div className="mb-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+              <p className="text-sm text-green-700 flex items-center">
+                <CheckCircle className="w-4 h-4 mr-2" />
+                This session has been completed. You can view the details below.
+              </p>
+            </div>
+          ) : (
+            <>
+              {!canAccessImmediately && unlockAt && now < unlockAt ? (
+                <div className="mb-3 text-sm text-blue-700 flex items-center">
+                  <Lock className="w-4 h-4 mr-2" />
+                  Join button unlocks 10 minutes before your session.
                 </div>
-              </>
-            )}
-            {roomCode && (
-              <div className="mt-2 p-2 bg-white/70 rounded border border-blue-200">
-                <p className="text-xs text-blue-600 font-medium mb-1">Room Code:</p>
-                <p className="text-sm font-mono font-bold text-blue-800">{roomCode}</p>
-              </div>
-            )}
-          </div>
-        );
-      }
-      
-      // Only show fallback if there's truly no meeting link or room code
-      return null;
+              ) : (
+                <p className="text-sm text-blue-700 mb-3">Click the button below to join your {sessionType} session:</p>
+              )}
+              <Button
+                variant="outline"
+                className="w-full border-2 border-blue-300 text-blue-700 hover:bg-blue-100 disabled:opacity-60 font-semibold"
+                disabled={!canAccessImmediately && Boolean(unlockAt && now < unlockAt)}
+                onClick={() => {
+                  // Navigate to session page with bookingId
+                  // The session page will create the room on-demand if it doesn't exist
+                  const therapistId = booking.therapistId || (booking as any).therapistProfileId || (window.location.pathname.match(/\/therapists\/([^\/]+)/)?.[1]);
+                  const sessionUrl = `/therabook/therapists/${therapistId}/book/session?bookingId=${bookingId}${callRoomId ? `&roomId=${callRoomId}` : ''}${roomCode ? `&roomCode=${roomCode}` : ''}`;
+                  window.location.href = sessionUrl;
+                }}
+              >
+                <Video className="w-4 h-4 mr-2" />
+                Join Session Now
+              </Button>
+            </>
+          )}
+          {!callRoomId && !roomCode && (
+            <p className="text-xs text-blue-600 mt-2 italic">
+              Note: The video room will be created automatically when you join.
+            </p>
+          )}
+          {meetingUrl && (
+            <div className="mt-3 p-2 bg-white/70 rounded border border-blue-200">
+              <p className="text-xs text-blue-600 font-medium mb-1">Meeting Link:</p>
+              <p className="text-[11px] text-blue-700 break-all font-mono">
+                {meetingUrl}
+              </p>
+            </div>
+          )}
+          {roomCode && (
+            <div className="mt-2 p-2 bg-white/70 rounded border border-blue-200">
+              <p className="text-xs text-blue-600 font-medium mb-1">Room Code:</p>
+              <p className="text-sm font-mono font-bold text-blue-800">{roomCode}</p>
+            </div>
+          )}
+        </div>
+      );
     })()}
           </CardContent>
         </Card>

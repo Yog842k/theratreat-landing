@@ -142,14 +142,29 @@ export async function POST(request: NextRequest) {
     }
 
     const base = Number(booking.totalAmount || manualAmount || 0);
-  const platformFee = 5; // TODO: replace with dynamic fee logic
-  const tax = 10; // TODO: calculate GST/VAT if required
+  const platformFee = Number(process.env.RAZORPAY_PLATFORM_FEE || 5); // Configurable platform fee
+  const tax = Number(process.env.RAZORPAY_TAX || 10); // Configurable tax
   const grossAmount = base + platformFee + tax;
-  // Fetch therapist for commission rule
-  const therapist = booking.therapistId ? await database.findOne('therapists', { _id: booking.therapistId }) : null;
-  const defaultCommission = therapist?.defaultCommissionPercent ?? 0.15; // 15% fallback
-  const commissionAmount = Number((grossAmount * defaultCommission).toFixed(2));
-  const therapistAmount = Number((grossAmount - commissionAmount).toFixed(2));
+  
+  // Fetch therapist or clinic for commission rule
+  let therapist: any = null;
+  let clinic: any = null;
+  if (booking.therapistId) {
+    therapist = await database.findOne('therapists', { _id: booking.therapistId });
+  }
+  // Check if booking has clinicId (for clinic-based bookings)
+  if (booking.clinicId) {
+    clinic = await database.findOne('clinics', { _id: booking.clinicId });
+  }
+  
+  // Determine commission - check therapist first, then clinic, then use default
+  const defaultCommissionPercent = Number(process.env.RAZORPAY_DEFAULT_COMMISSION_PERCENT || 15) / 100; // 15% default
+  const commissionPercent = therapist?.defaultCommissionPercent ?? 
+                            clinic?.defaultCommissionPercent ?? 
+                            defaultCommissionPercent;
+  
+  const commissionAmount = Number((grossAmount * commissionPercent).toFixed(2));
+  const providerAmount = Number((grossAmount - commissionAmount).toFixed(2));
   const amount = grossAmount; // total charged to patient
     if (!Number.isFinite(amount) || amount <= 0) {
       return ResponseUtils.badRequest('Invalid amount to charge');
@@ -201,13 +216,14 @@ export async function POST(request: NextRequest) {
                 mode: creds.mode,
                 simulated: true,
                 createdAt: new Date(),
-                split: therapist?.razorpayAccountId && process.env.RAZORPAY_PLATFORM_ACCOUNT ? {
-                  commissionPercent: defaultCommission,
+                split: (therapist?.razorpayAccountId || clinic?.razorpayAccountId) && process.env.RAZORPAY_PLATFORM_ACCOUNT ? {
+                  commissionPercent: commissionPercent,
                   commissionAmount,
-                  therapistAmount,
+                  providerAmount,
                   grossAmount,
-                  therapistAccount: therapist?.razorpayAccountId,
-                  platformAccount: process.env.RAZORPAY_PLATFORM_ACCOUNT
+                  providerAccount: therapist?.razorpayAccountId || clinic?.razorpayAccountId,
+                  platformAccount: process.env.RAZORPAY_PLATFORM_ACCOUNT,
+                  providerType: therapist ? 'therapist' : clinic ? 'clinic' : 'unknown'
                 } : null
               },
               updatedAt: new Date()
@@ -215,7 +231,7 @@ export async function POST(request: NextRequest) {
           });
         } catch {}
       }
-      return ResponseUtils.success({ order: fakeOrder, keyId: creds.publicKey, mode: creds.mode, simulated: true, reason: 'forced', split: { commissionPercent: defaultCommission, commissionAmount, therapistAmount } }, 'Simulated');
+      return ResponseUtils.success({ order: fakeOrder, keyId: creds.publicKey, mode: creds.mode, simulated: true, reason: 'forced', split: { commissionPercent: commissionPercent, commissionAmount, providerAmount } }, 'Simulated');
     }
 
     const autoCapture = Number(process.env.RAZORPAY_AUTO_CAPTURE ?? 1) === 0 ? 0 : 1;
@@ -233,34 +249,75 @@ export async function POST(request: NextRequest) {
     }
     let order: any;
     try {
-      const transfers: any[] = [];
+      // Get provider account (therapist or clinic)
+      const providerAccount = (therapist?.razorpayAccountId || clinic?.razorpayAccountId || '').trim();
       const platformAccount = (process.env.RAZORPAY_PLATFORM_ACCOUNT || '').trim();
-      const therapistAccount = (therapist?.razorpayAccountId || '').trim();
-      if (therapistAccount && platformAccount) {
-        transfers.push(
+      
+      // Prepare order data
+      const orderData: any = {
+        amount: Math.round(amount * 100),
+        currency,
+        receipt: bookingId ? `booking_${bookingId}` : `direct_${Date.now()}`,
+        payment_capture: autoCapture,
+        notes: {
+          bookingId: String(bookingId || ''),
+          mode: creds.mode,
+          commissionPercent: commissionPercent,
+          providerType: therapist ? 'therapist' : clinic ? 'clinic' : 'unknown',
+          providerId: therapist?._id?.toString() || clinic?._id?.toString() || ''
+        }
+      };
+
+      // Use Razorpay Transfers for split payments with connected accounts
+      // Transfers automatically split payments between platform and provider at payment time
+      if (providerAccount && platformAccount) {
+        // Create transfers array for split payment
+        // Note: Transfers work with connected accounts (sub-accounts) created via accounts API
+        orderData.transfers = [
           {
-            account: therapistAccount,
-            amount: Math.round(therapistAmount * 100),
+            account: providerAccount,
+            amount: Math.round(providerAmount * 100),
             currency,
-            notes: { role: 'therapist', therapistId: String(booking.therapistId || '') }
+            notes: {
+              role: therapist ? 'therapist' : 'clinic',
+              entityId: therapist?._id?.toString() || clinic?._id?.toString() || '',
+              bookingId: String(bookingId || ''),
+              description: `Payment to ${therapist ? 'therapist' : 'clinic'}`
+            }
           },
           {
             account: platformAccount,
             amount: Math.round(commissionAmount * 100),
             currency,
-            notes: { role: 'platform_commission', bookingId: String(bookingId) }
+            notes: {
+              role: 'platform_commission',
+              bookingId: String(bookingId || ''),
+              commissionPercent: String(commissionPercent),
+              description: 'Platform commission'
+            }
           }
-        );
+        ];
+        
+        console.log('[RZP][ORDER] Creating order with split payment (transfers):', {
+          totalAmount: amount,
+          providerAmount,
+          commissionAmount,
+          providerAccount,
+          platformAccount,
+          commissionPercent: `${(commissionPercent * 100).toFixed(2)}%`,
+          providerType: therapist ? 'therapist' : clinic ? 'clinic' : 'none'
+        });
+      } else {
+        console.warn('[RZP][ORDER] Split payment not configured - missing provider or platform account:', {
+          hasProviderAccount: !!providerAccount,
+          hasPlatformAccount: !!platformAccount,
+          providerType: therapist ? 'therapist' : clinic ? 'clinic' : 'none',
+          therapistId: therapist?._id?.toString(),
+          clinicId: clinic?._id?.toString()
+        });
       }
-      order = await rzp.orders.create({
-        amount: Math.round(amount * 100),
-        currency,
-        // Provide clearer receipt id for direct payments without bookingId
-        receipt: bookingId ? `booking_${bookingId}` : `direct_${Date.now()}`,
-        payment_capture: autoCapture,
-        notes: { bookingId: String(bookingId||''), mode: creds.mode, commissionPercent: defaultCommission },
-        ...(transfers.length ? { transfers } : {})
-      });
+
+      order = await rzp.orders.create(orderData);
     } catch (e: any) {
       const reason = e?.error?.description || e?.message || 'Unknown';
       console.error('[RZP][ORDER] order create error raw:', e);
@@ -285,13 +342,14 @@ export async function POST(request: NextRequest) {
               currency: order.currency,
               mode: creds.mode,
               autoCapture: !!autoCapture,
-              split: therapist?.razorpayAccountId && process.env.RAZORPAY_PLATFORM_ACCOUNT ? {
-                commissionPercent: defaultCommission,
+              split: (therapist?.razorpayAccountId || clinic?.razorpayAccountId) && process.env.RAZORPAY_PLATFORM_ACCOUNT ? {
+                commissionPercent: commissionPercent,
                 commissionAmount,
-                therapistAmount,
+                providerAmount,
                 grossAmount,
-                therapistAccount: therapist?.razorpayAccountId,
-                platformAccount: process.env.RAZORPAY_PLATFORM_ACCOUNT
+                providerAccount: therapist?.razorpayAccountId || clinic?.razorpayAccountId,
+                platformAccount: process.env.RAZORPAY_PLATFORM_ACCOUNT,
+                providerType: therapist ? 'therapist' : clinic ? 'clinic' : 'unknown'
               } : null,
               createdAt: new Date()
             },
@@ -303,7 +361,19 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return ResponseUtils.success({ order, keyId: creds.publicKey, mode: creds.mode, split: { commissionPercent: defaultCommission, commissionAmount, therapistAmount, grossAmount, context: bookingContext } });
+    return ResponseUtils.success({ 
+      order, 
+      keyId: creds.publicKey, 
+      mode: creds.mode, 
+      split: { 
+        commissionPercent: commissionPercent, 
+        commissionAmount, 
+        providerAmount, 
+        grossAmount, 
+        context: bookingContext,
+        providerType: therapist ? 'therapist' : clinic ? 'clinic' : 'none'
+      } 
+    });
   } catch (error: any) {
     console.error('[RZP][ORDER] uncaught error:', error?.stack || error);
     const devDetail = process.env.NODE_ENV !== 'production' ? (error?.message || 'unknown') : undefined;

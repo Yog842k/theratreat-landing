@@ -1318,6 +1318,19 @@ export default function TherapistDashboardPage() {
                               <Badge variant="outline" className="border-blue-200 text-blue-700 bg-blue-50 mt-1 text-xs">{session.sessionType}</Badge>
                             </div>
                             <div className="flex space-x-2">
+                              {(session.sessionType === 'video' || session.sessionType === 'audio') && (
+                                <Button 
+                                  size="sm" 
+                                  className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
+                                  onClick={() => {
+                                    const therapistId = resolvedTherapistId || user?._id || '';
+                                    window.location.href = `/therabook/therapists/${therapistId}/book/session?bookingId=${session.id}`;
+                                  }}
+                                >
+                                  <Video className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                                  Join
+                                </Button>
+                              )}
                               <Button size="sm" variant="outline" className="border-blue-200 hover:bg-blue-50 p-2">
                                 <MessageCircle className="w-3 h-3 sm:w-4 sm:h-4 text-blue-600" />
                               </Button>
@@ -1365,6 +1378,21 @@ export default function TherapistDashboardPage() {
                               </Badge>
                             </div>
                             <div className="flex space-x-2 pt-2">
+                              {(appointment.type === 'video' || appointment.type === 'audio') && (
+                                <Button 
+                                  size="sm" 
+                                  className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white flex-1 text-xs"
+                                  onClick={() => {
+                                    const therapistId = resolvedTherapistId || user?._id || '';
+                                    // Try to get bookingId from appointment - might need to fetch it
+                                    const bookingId = (appointment as any).bookingId || appointment.id;
+                                    window.location.href = `/therabook/therapists/${therapistId}/book/session?bookingId=${bookingId}`;
+                                  }}
+                                >
+                                  <Video className="w-3 h-3 mr-1" />
+                                  Join
+                                </Button>
+                              )}
                               <Button size="sm" variant="outline" className="border-blue-200 hover:bg-blue-50 flex-1 text-xs">
                                 <MessageCircle className="w-3 h-3 mr-1" />
                                 Message
@@ -1407,6 +1435,20 @@ export default function TherapistDashboardPage() {
                                 </TableCell>
                                 <TableCell>
                                   <div className="flex space-x-2">
+                                    {(appointment.type === 'video' || appointment.type === 'audio') && (
+                                      <Button 
+                                        size="sm" 
+                                        className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
+                                        onClick={() => {
+                                          const therapistId = resolvedTherapistId || user?._id || '';
+                                          const bookingId = (appointment as any).bookingId || appointment.id;
+                                          window.location.href = `/therabook/therapists/${therapistId}/book/session?bookingId=${bookingId}`;
+                                        }}
+                                      >
+                                        <Video className="w-4 h-4 mr-1" />
+                                        Join
+                                      </Button>
+                                    )}
                                     <Button size="sm" variant="outline" className="border-blue-200 hover:bg-blue-50">
                                       <MessageCircle className="w-4 h-4 text-blue-600" />
                                     </Button>

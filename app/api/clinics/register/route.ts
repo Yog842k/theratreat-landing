@@ -196,6 +196,43 @@ export async function POST(request: NextRequest) {
   // Assign generated _id back (cast to any to satisfy structural typing for inline object)
   (clinicDoc as any)._id = clinicRes.insertedId;
 
+  // Create Razorpay sub-account for split payments (non-blocking)
+  if (body.accountNumber && body.ifscCode && body.accountHolderName) {
+    (async () => {
+      try {
+        const { createRazorpaySubAccount } = await import('@/lib/razorpay-subaccount');
+        const subAccount = await createRazorpaySubAccount({
+          name: body.clinicName,
+          email: clinicEmailLower,
+          contact: body.contactNumber,
+          bankDetails: {
+            accountHolderName: body.accountHolderName,
+            accountNumber: body.accountNumber,
+            ifscCode: body.ifscCode,
+            bankName: body.bankName,
+            upiId: body.upiId
+          },
+          type: 'clinic',
+          entityId: clinicRes.insertedId.toString()
+        });
+        
+        if (subAccount) {
+          await database.updateOne('clinics', { _id: clinicRes.insertedId }, {
+            $set: {
+              razorpayAccountId: subAccount.id,
+              razorpayAccountMode: subAccount.mode,
+              razorpayAccountLinkedAt: new Date()
+            }
+          });
+          console.log('[CLINIC REGISTER] Razorpay sub-account created:', subAccount.id);
+        }
+      } catch (e: any) {
+        console.warn('[CLINIC REGISTER] Razorpay sub-account creation failed (non-blocking):', e?.message);
+        // Don't block registration - sub-account can be created later
+      }
+    })();
+  }
+
   // Token payload should be an object with userId & userType for consistency with auth endpoints
   const token = AuthUtils.generateToken({ userId: ownerUserId.toString(), userType: 'clinic-owner' });
   const { password: _pw, ...ownerResp } = ownerUser as any; (ownerResp as any)._id = ownerUserId;

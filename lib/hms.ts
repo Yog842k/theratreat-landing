@@ -1,9 +1,25 @@
 import * as HMS from "@100mslive/server-sdk";
 
-const hms = new HMS.SDK(
-  process.env.HMS_ACCESS_KEY!,
-  process.env.HMS_SECRET!
-);
+// Initialize SDK with validation
+let hms: HMS.SDK | null = null;
+
+function getSDK() {
+  if (hms) return hms;
+  
+  const accessKey = process.env.HMS_ACCESS_KEY;
+  const secret = process.env.HMS_SECRET;
+  
+  if (!accessKey || !secret) {
+    throw new Error('HMS_ACCESS_KEY and HMS_SECRET must be configured in environment variables');
+  }
+  
+  try {
+    hms = new HMS.SDK(accessKey, secret);
+    return hms;
+  } catch (error: any) {
+    throw new Error(`Failed to initialize 100ms SDK: ${error?.message || String(error)}`);
+  }
+}
 
 // Example: create a video session room for a therapist-patient meeting
 export async function createSessionRoom({ therapistId, patientId, templateId }: {
@@ -11,11 +27,50 @@ export async function createSessionRoom({ therapistId, patientId, templateId }: 
   patientId: string;
   templateId: string;
 }) {
-  return await hms.rooms.create({
-    name: `session_${therapistId}_${patientId}_${Date.now()}`,
-    description: `Therapist ${therapistId} & Patient ${patientId}`,
-    template_id: templateId,
-  });
+  try {
+    const sdk = getSDK();
+    
+    if (!templateId) {
+      throw new Error('templateId is required to create a room');
+    }
+    
+    const room = await sdk.rooms.create({
+      name: `session_${therapistId}_${patientId}_${Date.now()}`,
+      description: `Therapist ${therapistId} & Patient ${patientId}`,
+      template_id: templateId,
+    });
+    
+    return room;
+  } catch (error: any) {
+    // Provide more detailed error information
+    const errorMessage = error?.message || String(error);
+    const errorDetails = {
+      message: errorMessage,
+      name: error?.name,
+      code: error?.code,
+      status: error?.status,
+      statusCode: error?.statusCode,
+      response: error?.response,
+      hasAccessKey: !!process.env.HMS_ACCESS_KEY,
+      hasSecret: !!process.env.HMS_SECRET,
+      hasTemplateId: !!templateId,
+      errorType: error?.constructor?.name || 'Unknown',
+      ...(error?.stack && { stack: error.stack })
+    };
+    
+    console.error('[lib/hms] createSessionRoom error:', errorDetails);
+    
+    // Try to extract more details from the error
+    let enhancedMessage = errorMessage;
+    if (error?.response) {
+      try {
+        const responseText = typeof error.response === 'string' ? error.response : JSON.stringify(error.response);
+        enhancedMessage = `${errorMessage} (Response: ${responseText})`;
+      } catch {}
+    }
+    
+    throw new Error(`Failed to create 100ms room: ${enhancedMessage}`);
+  }
 }
 
 // Alias for compatibility with route.ts
@@ -27,11 +82,17 @@ export async function generateJoinToken({ roomId, userId, role }: {
   userId: string;
   role: "host" | "guest" | "viewer";
 }) {
-  return await hms.auth.getAuthToken({
-    roomId,
-    role,
-    userId,
-  });
+  try {
+    const sdk = getSDK();
+    return await sdk.auth.getAuthToken({
+      roomId,
+      role,
+      userId,
+    });
+  } catch (error: any) {
+    console.error('[lib/hms] generateJoinToken error:', error);
+    throw new Error(`Failed to generate join token: ${error?.message || String(error)}`);
+  }
 }
 
 
@@ -61,28 +122,46 @@ export async function deleteRoom(roomId: string) {
  * Generate a client auth token for joining a room
  */
 export async function generateRoomToken(roomId: string, userId: string, role: string) {
-  return await hms.auth.getAuthToken({ roomId, userId, role });
+  const hmsInstance = getSDK();
+  if (!hmsInstance) {
+    throw new Error('HMS SDK not initialized');
+  }
+  return await hmsInstance.auth.getAuthToken({ roomId, userId, role });
 }
 
 /**
  * Generate a management token
  */
 export async function getManagementToken() {
-  return await hms.auth.getManagementToken();
+  try {
+    const sdk = getSDK();
+    return await sdk.auth.getManagementToken();
+  } catch (error: any) {
+    console.error('[lib/hms] getManagementToken error:', error);
+    throw new Error(`Failed to generate management token: ${error?.message || String(error)}`);
+  }
 }
 
 /**
  * List active peers in a room
  */
 export async function listActivePeers(roomId: string) {
-  return await hms.activeRooms.retrieveActivePeers(roomId);
+  const hmsInstance = getSDK();
+  if (!hmsInstance) {
+    throw new Error('HMS SDK not initialized');
+  }
+  return await hmsInstance.activeRooms.retrieveActivePeers(roomId);
 }
 
 /**
  * Send a broadcast message to all peers in a room
  */
 export async function sendBroadcastMessage(roomId: string, message: string) {
-  return await hms.activeRooms.sendMessage(roomId, { message });
+  const hmsInstance = getSDK();
+  if (!hmsInstance) {
+    throw new Error('HMS SDK not initialized');
+  }
+  return await hmsInstance.activeRooms.sendMessage(roomId, { message });
 }
 
 /**
@@ -98,7 +177,11 @@ export async function listSessions(filters?: { roomId?: string; limit?: number }
       params.limit = filters.limit;
     }
   }
-  const iterable = hms.sessions.list(params);
+  const hmsInstance = getSDK();
+  if (!hmsInstance) {
+    throw new Error('HMS SDK not initialized');
+  }
+  const iterable = hmsInstance.sessions.list(params);
   const sessions = [];
   for await (const session of iterable) {
     sessions.push(session);

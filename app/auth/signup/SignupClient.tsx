@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import { toast } from 'sonner';
 import { Eye, EyeOff, Mail, Lock, User, Phone, ArrowLeft, UserPlus, Heart, UserCheck, GraduationCap, BookOpen, Building2 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -62,9 +63,24 @@ export default function SignupClient() {
   };
 
   const validateForm = () => {
-    if (formData.password !== formData.confirmPassword) { setError('Passwords do not match'); return false; }
-    if (formData.password.length < 8) { setError('Password must be at least 8 characters long'); return false; }
-    if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password)) { setError('Password must contain at least one uppercase letter, one lowercase letter, and one number'); return false; }
+    if (formData.password !== formData.confirmPassword) { 
+      const errorMsg = 'Passwords do not match';
+      setError(errorMsg);
+      toast.error('Validation error', { description: errorMsg });
+      return false; 
+    }
+    if (formData.password.length < 8) { 
+      const errorMsg = 'Password must be at least 8 characters long';
+      setError(errorMsg);
+      toast.error('Validation error', { description: errorMsg });
+      return false; 
+    }
+    if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password)) { 
+      const errorMsg = 'Password must contain at least one uppercase letter, one lowercase letter, and one number';
+      setError(errorMsg);
+      toast.error('Validation error', { description: errorMsg });
+      return false; 
+    }
     return true;
   };
 
@@ -77,7 +93,11 @@ export default function SignupClient() {
       const response = await fetch('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(submitData) });
       const data = await response.json();
       if (data.success) {
-        setSuccess('Account created successfully! Redirecting to login...');
+        const successMsg = 'Account created successfully! Redirecting...';
+        setSuccess(successMsg);
+        toast.success('Registration successful!', {
+          description: 'Your account has been created. Redirecting...',
+        });
         if (data.data.token && data.data.user) login(data.data.token, data.data.user);
         setTimeout(() => {
           if (data.data.token) {
@@ -91,11 +111,19 @@ export default function SignupClient() {
           } else router.push('/auth/login');
         }, 2000);
       } else {
-        setError(data.message || (data.errors?.join(', ') || 'Registration failed'));
+        const errorMsg = data.message || (data.errors?.join(', ') || 'Registration failed');
+        setError(errorMsg);
+        toast.error('Registration failed', {
+          description: errorMsg,
+        });
       }
     } catch (err) {
       console.error('Registration error:', err);
-      setError('An error occurred. Please try again.');
+      const errorMsg = 'An error occurred. Please try again.';
+      setError(errorMsg);
+      toast.error('Registration error', {
+        description: errorMsg,
+      });
     } finally { setLoading(false); }
   };
 

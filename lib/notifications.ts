@@ -19,6 +19,22 @@ function getTwilio() {
   return twilioClient;
 }
 
+/**
+ * Wraps Twilio API calls with a timeout to prevent hanging on network issues
+ */
+async function twilioWithTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number = 8000,
+  operation: string = 'Twilio operation'
+): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`${operation} timed out after ${timeoutMs}ms`)), timeoutMs)
+    )
+  ]);
+}
+
 function getMeetingUrl(roomCode?: string) {
   if (!roomCode) return null;
   const via = hmsConfig.getRoomUrl(roomCode);
@@ -56,6 +72,7 @@ export async function sendBookingConfirmation(payload: BookingNotificationPayloa
   const emailAllowed = !!(process.env.SENDGRID_API_KEY && process.env.SENDGRID_FROM_EMAIL && payload.userEmail);
   const debug = process.env.NOTIFICATIONS_DEBUG === '1';
 
+  const isVideoOrAudio = payload.sessionType === 'video' || payload.sessionType === 'audio';
   const subject = `Booking Confirmed · ${payload.bookingId}`;
   const textBody = [
     `Hi ${payload.userName || 'there'},`,
@@ -65,13 +82,22 @@ export async function sendBookingConfirmation(payload: BookingNotificationPayloa
     `Type: ${payload.sessionType || 'video'}`,
     `Date: ${payload.date ? new Date(payload.date).toLocaleString() : 'TBA'}`,
     `Time: ${payload.timeSlot || 'TBA'}`,
-    meetingUrl ? `Join: ${meetingUrl}` : 'Join link will follow.',
     '',
+    ...(isVideoOrAudio && meetingUrl ? [
+      '═══════════════════════════════════════',
+      '🎥 JOIN YOUR VIDEO SESSION:',
+      meetingUrl,
+      '═══════════════════════════════════════',
+      ''
+    ] : meetingUrl ? [
+      `Join: ${meetingUrl}`,
+      ''
+    ] : []),
     'Please join 5 minutes early.',
     '— TheraTreat'
   ].join('\n');
 
-  const htmlBody = `<!doctype html><html><body style="font-family:system-ui,Arial,sans-serif;line-height:1.5;color:#111">\n<h2 style="margin:0 0 16px">Booking Confirmed</h2>\n<p>Hi ${payload.userName || 'there'},</p>\n<p>Your session is confirmed. Details:</p>\n<ul>\n<li><strong>Therapist:</strong> ${payload.therapistName || 'Assigned Therapist'}</li>\n<li><strong>Type:</strong> ${payload.sessionType || 'video'}</li>\n<li><strong>Date:</strong> ${payload.date ? new Date(payload.date).toLocaleString() : 'TBA'}</li>\n<li><strong>Time:</strong> ${payload.timeSlot || 'TBA'}</li>\n</ul>\n${meetingUrl ? `<p><a href="${meetingUrl}" style="background:#2563eb;color:#fff;padding:10px 14px;border-radius:6px;text-decoration:none;font-weight:600">Join Session</a></p><p style=\"font-size:14px;color:#555\">Or copy: <a href='${meetingUrl}'>${meetingUrl}</a></p>` : '<p><em>Join link will follow.</em></p>'}\n<p>Please join 5 minutes early to test audio/video.</p>\n<p>Thank you,<br/>TheraTreat Team</p>\n<hr style="margin:32px 0;border:none;border-top:1px solid #eee"/>\n<p style="font-size:12px;color:#777">Automated notification. Do not reply.</p>\n</body></html>`;
+  const htmlBody = `<!doctype html><html><body style="font-family:system-ui,Arial,sans-serif;line-height:1.5;color:#111">\n<h2 style="margin:0 0 16px">Booking Confirmed</h2>\n<p>Hi ${payload.userName || 'there'},</p>\n<p>Your session is confirmed. Details:</p>\n<ul>\n<li><strong>Therapist:</strong> ${payload.therapistName || 'Assigned Therapist'}</li>\n<li><strong>Type:</strong> ${payload.sessionType || 'video'}</li>\n<li><strong>Date:</strong> ${payload.date ? new Date(payload.date).toLocaleString() : 'TBA'}</li>\n<li><strong>Time:</strong> ${payload.timeSlot || 'TBA'}</li>\n</ul>\n${isVideoOrAudio && meetingUrl ? `<div style="background:#f0f9ff;border:2px solid #2563eb;border-radius:8px;padding:20px;margin:24px 0;text-align:center"><h3 style="margin:0 0 12px;color:#1e40af">🎥 Join Your ${payload.sessionType === 'video' ? 'Video' : 'Audio'} Session</h3><p style="margin:0 0 16px"><a href="${meetingUrl}" style="background:#2563eb;color:#fff;padding:14px 28px;border-radius:6px;text-decoration:none;font-weight:600;font-size:16px;display:inline-block">Join Session Now</a></p><p style="margin:12px 0 0;font-size:13px;color:#555;word-break:break-all">Or copy this link:<br/><a href="${meetingUrl}" style="color:#2563eb">${meetingUrl}</a></p></div>` : meetingUrl ? `<p><a href="${meetingUrl}" style="background:#2563eb;color:#fff;padding:10px 14px;border-radius:6px;text-decoration:none;font-weight:600">Join Session</a></p><p style=\"font-size:14px;color:#555\">Or copy: <a href='${meetingUrl}'>${meetingUrl}</a></p>` : '<p><em>Join link will follow.</em></p>'}\n<p>Please join 5 minutes early to test audio/video.</p>\n<p>Thank you,<br/>TheraTreat Team</p>\n<hr style="margin:32px 0;border:none;border-top:1px solid #eee"/>\n<p style="font-size:12px;color:#777">Automated notification. Do not reply.</p>\n</body></html>`;
 
   let emailSent = false; let emailMessageId: string | undefined;
   if (emailAllowed) {
@@ -120,17 +146,32 @@ export async function sendBookingConfirmation(payload: BookingNotificationPayloa
     try {
       const client = getTwilio();
       if (!client) throw new Error('Twilio client not initialized');
-      const body = `Booking ${payload.bookingId} confirmed. ${meetingUrl ? 'Join: ' + meetingUrl : ''}`.trim();
-      const msg = await client.messages.create({
-        from: process.env.TWILIO_SMS_FROM,
-        to: sanitizedPhone,
-        body
-      });
+      // Make meeting link more prominent for video/audio sessions
+      let body: string;
+      if (isVideoOrAudio && meetingUrl) {
+        body = `✅ Booking ${payload.bookingId} confirmed!\n\n📅 ${payload.date ? new Date(payload.date).toLocaleString() : 'TBA'}\n⏰ ${payload.timeSlot || 'TBA'}\n\n🎥 Join your ${payload.sessionType} session:\n${meetingUrl}\n\nPlease join 5 minutes early.`;
+      } else {
+        body = `Booking ${payload.bookingId} confirmed. ${meetingUrl ? 'Join: ' + meetingUrl : ''}`.trim();
+      }
+      const msg = await twilioWithTimeout<{ sid: string }>(
+        client.messages.create({
+          from: process.env.TWILIO_SMS_FROM,
+          to: sanitizedPhone,
+          body
+        }),
+        8000,
+        'SMS send'
+      );
       smsSent = true; smsSid = msg.sid;
       if (debug) console.log('[notifications] sms sent', { smsSid });
     } catch (e: any) {
-      errors.push('SMS:' + (e?.message || 'failed'));
-      console.error('[notifications] sms error', e);
+      const errorMsg = e?.message || 'failed';
+      errors.push('SMS:' + errorMsg);
+      if (debug) {
+        console.error('[notifications] sms error', errorMsg);
+      } else {
+        console.warn('[notifications] sms failed:', errorMsg.includes('timeout') ? 'Connection timeout' : errorMsg);
+      }
     }
   }
 
@@ -139,17 +180,32 @@ export async function sendBookingConfirmation(payload: BookingNotificationPayloa
     try {
       const client = getTwilio();
       if (!client) throw new Error('Twilio client not initialized');
-      const body = `Booking ${payload.bookingId} confirmed. ${meetingUrl ? 'Join: ' + meetingUrl : ''}`.trim();
-      const msg = await client.messages.create({
-        from: `whatsapp:${process.env.TWILIO_WHATSAPP_FROM}`,
-        to: `whatsapp:${sanitizedPhone}`,
-        body
-      });
+      // Make meeting link more prominent for video/audio sessions
+      let body: string;
+      if (isVideoOrAudio && meetingUrl) {
+        body = `✅ *Booking ${payload.bookingId} confirmed!*\n\n📅 ${payload.date ? new Date(payload.date).toLocaleString() : 'TBA'}\n⏰ ${payload.timeSlot || 'TBA'}\n\n🎥 *Join your ${payload.sessionType} session:*\n${meetingUrl}\n\nPlease join 5 minutes early.`;
+      } else {
+        body = `Booking ${payload.bookingId} confirmed. ${meetingUrl ? 'Join: ' + meetingUrl : ''}`.trim();
+      }
+      const msg = await twilioWithTimeout<{ sid: string }>(
+        client.messages.create({
+          from: `whatsapp:${process.env.TWILIO_WHATSAPP_FROM}`,
+          to: `whatsapp:${sanitizedPhone}`,
+          body
+        }),
+        8000,
+        'WhatsApp send'
+      );
       whatsappSent = true; whatsappSid = msg.sid;
       if (debug) console.log('[notifications] whatsapp sent', { whatsappSid });
     } catch (e: any) {
-      errors.push('WHATSAPP:' + (e?.message || 'failed'));
-      console.error('[notifications] whatsapp error', e);
+      const errorMsg = e?.message || 'failed';
+      errors.push('WHATSAPP:' + errorMsg);
+      if (debug) {
+        console.error('[notifications] whatsapp error', errorMsg);
+      } else {
+        console.warn('[notifications] whatsapp failed:', errorMsg.includes('timeout') ? 'Connection timeout' : errorMsg);
+      }
     }
   }
 
@@ -221,12 +277,22 @@ export async function sendBookingReceipt(payload: BookingNotificationPayload): P
       const client = getTwilio();
       if (!client) throw new Error('Twilio client not initialized');
       const body = `We received your booking request ${payload.bookingId}. Complete payment to confirm.`;
-      const msg = await client.messages.create({ from: process.env.TWILIO_SMS_FROM, to: sanitizedPhone, body });
+      const msg = await twilioWithTimeout<{ sid: string }>(
+        client.messages.create({ from: process.env.TWILIO_SMS_FROM, to: sanitizedPhone, body }),
+        8000,
+        'SMS send'
+      );
       smsSent = true; smsSid = msg.sid;
       if (debug) console.log('[notifications] receipt sms sent', { smsSid });
     } catch (e: any) {
-      errors.push('SMS:' + (e?.message || 'failed'));
-      console.error('[notifications] receipt sms error', e);
+      const errorMsg = e?.message || 'failed';
+      errors.push('SMS:' + errorMsg);
+      // Only log essential error info, not full stack trace
+      if (debug) {
+        console.error('[notifications] receipt sms error', errorMsg);
+      } else {
+        console.warn('[notifications] receipt sms failed:', errorMsg.includes('timeout') ? 'Connection timeout' : errorMsg);
+      }
     }
   }
   if (whatsappAllowed && sanitizedPhone) {
@@ -234,12 +300,22 @@ export async function sendBookingReceipt(payload: BookingNotificationPayload): P
       const client = getTwilio();
       if (!client) throw new Error('Twilio client not initialized');
       const body = `We received your booking request ${payload.bookingId}. Complete payment to confirm.`;
-      const msg = await client.messages.create({ from: `whatsapp:${process.env.TWILIO_WHATSAPP_FROM}`, to: `whatsapp:${sanitizedPhone}`, body });
+      const msg = await twilioWithTimeout<{ sid: string }>(
+        client.messages.create({ from: `whatsapp:${process.env.TWILIO_WHATSAPP_FROM}`, to: `whatsapp:${sanitizedPhone}`, body }),
+        8000,
+        'WhatsApp send'
+      );
       whatsappSent = true; whatsappSid = msg.sid;
       if (debug) console.log('[notifications] receipt whatsapp sent', { whatsappSid });
     } catch (e: any) {
-      errors.push('WHATSAPP:' + (e?.message || 'failed'));
-      console.error('[notifications] receipt whatsapp error', e);
+      const errorMsg = e?.message || 'failed';
+      errors.push('WHATSAPP:' + errorMsg);
+      // Only log essential error info, not full stack trace
+      if (debug) {
+        console.error('[notifications] receipt whatsapp error', errorMsg);
+      } else {
+        console.warn('[notifications] receipt whatsapp failed:', errorMsg.includes('timeout') ? 'Connection timeout' : errorMsg);
+      }
     }
   }
 
@@ -309,12 +385,21 @@ export async function sendBookingReminder(payload: BookingNotificationPayload): 
       const client = getTwilio();
       if (!client) throw new Error('Twilio client not initialized');
       const body = `Reminder: Booking ${payload.bookingId} is in 24 hours. ${meetingUrl ? 'Join: ' + meetingUrl : ''}`.trim();
-      const msg = await client.messages.create({ from: process.env.TWILIO_SMS_FROM, to: sanitizedPhone, body });
+      const msg = await twilioWithTimeout<{ sid: string }>(
+        client.messages.create({ from: process.env.TWILIO_SMS_FROM, to: sanitizedPhone, body }),
+        8000,
+        'Reminder SMS send'
+      );
       smsSent = true; smsSid = msg.sid;
       if (debug) console.log('[notifications] reminder sms sent', { smsSid });
     } catch (e: any) {
-      errors.push('SMS:' + (e?.message || 'failed'));
-      console.error('[notifications] reminder sms error', e);
+      const errorMsg = e?.message || 'failed';
+      errors.push('SMS:' + errorMsg);
+      if (debug) {
+        console.error('[notifications] reminder sms error', errorMsg);
+      } else {
+        console.warn('[notifications] reminder sms failed:', errorMsg.includes('timeout') ? 'Connection timeout' : errorMsg);
+      }
     }
   }
   if (whatsappAllowed && sanitizedPhone) {
@@ -322,12 +407,21 @@ export async function sendBookingReminder(payload: BookingNotificationPayload): 
       const client = getTwilio();
       if (!client) throw new Error('Twilio client not initialized');
       const body = `Reminder: Booking ${payload.bookingId} is in 24 hours. ${meetingUrl ? 'Join: ' + meetingUrl : ''}`.trim();
-      const msg = await client.messages.create({ from: `whatsapp:${process.env.TWILIO_WHATSAPP_FROM}`, to: `whatsapp:${sanitizedPhone}`, body });
+      const msg = await twilioWithTimeout<{ sid: string }>(
+        client.messages.create({ from: `whatsapp:${process.env.TWILIO_WHATSAPP_FROM}`, to: `whatsapp:${sanitizedPhone}`, body }),
+        8000,
+        'Reminder WhatsApp send'
+      );
       whatsappSent = true; whatsappSid = msg.sid;
       if (debug) console.log('[notifications] reminder whatsapp sent', { whatsappSid });
     } catch (e: any) {
-      errors.push('WHATSAPP:' + (e?.message || 'failed'));
-      console.error('[notifications] reminder whatsapp error', e);
+      const errorMsg = e?.message || 'failed';
+      errors.push('WHATSAPP:' + errorMsg);
+      if (debug) {
+        console.error('[notifications] reminder whatsapp error', errorMsg);
+      } else {
+        console.warn('[notifications] reminder whatsapp failed:', errorMsg.includes('timeout') ? 'Connection timeout' : errorMsg);
+      }
     }
   }
 
@@ -392,13 +486,22 @@ export async function sendAccountWelcome({
       const client = getTwilio();
       if (client) {
         const body = `Hi ${safeName}, your TheraTreat account is ready. — TheraTreat`;
-        const msg = await client.messages.create({ from: process.env.TWILIO_SMS_FROM, to: sanitizedPhone, body });
+        const msg = await twilioWithTimeout<{ sid: string }>(
+          client.messages.create({ from: process.env.TWILIO_SMS_FROM, to: sanitizedPhone, body }),
+          8000,
+          'Welcome SMS send'
+        );
         smsSent = true; smsSid = msg.sid;
         if (debug) console.log('[notifications] welcome sms sent', { smsSid });
       }
     } catch (e: any) {
-      errors.push('SMS:' + (e?.message || 'failed'));
-      console.error('[notifications] welcome sms error', e);
+      const errorMsg = e?.message || 'failed';
+      errors.push('SMS:' + errorMsg);
+      if (debug) {
+        console.error('[notifications] welcome sms error', errorMsg);
+      } else {
+        console.warn('[notifications] welcome sms failed:', errorMsg.includes('timeout') ? 'Connection timeout' : errorMsg);
+      }
     }
   }
 

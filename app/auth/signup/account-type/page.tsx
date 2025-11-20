@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
 import { ArrowLeft, Heart, UserCheck, GraduationCap, BookOpen, Building2 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -73,9 +74,26 @@ export default function AccountTypeSelection() {
   const router = useRouter();
 
   const handleContinue = () => {
-    if (!selectedType) return;
+    if (!selectedType) {
+      toast.error('Please select an account type', {
+        description: 'Choose how you want to use TheraBook',
+      });
+      return;
+    }
     
     setIsLoading(true);
+    
+    const accountTypeNames: Record<string, string> = {
+      patient: 'Patient',
+      therapist: 'Therapist',
+      instructor: 'Instructor',
+      student: 'Student',
+      clinic: 'Clinic'
+    };
+    
+    toast.info('Redirecting...', {
+      description: `Setting up ${accountTypeNames[selectedType]} account`,
+    });
     
     // Redirect to the appropriate signup flow based on account type
     if (selectedType === 'patient') {

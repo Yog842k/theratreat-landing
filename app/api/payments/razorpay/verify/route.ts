@@ -179,6 +179,9 @@ export async function POST(request: NextRequest) {
           const fresh = await database.findOne('bookings', { _id: new ObjectId(bookingId) });
           const userDoc = fresh?.userId ? await database.findOne('users', { _id: fresh.userId }) : null;
           const therapistDoc = fresh?.therapistId ? await database.findOne('therapists', { _id: fresh.therapistId }) : null;
+          const therapistUser = fresh?.therapistId ? await database.findOne('users', { _id: fresh.therapistId }) : null;
+          
+          // Notify patient
           await sendBookingConfirmation({
             bookingId,
             userEmail: userDoc?.email,
@@ -191,6 +194,22 @@ export async function POST(request: NextRequest) {
             meetingUrl: fresh?.meetingUrl || null,
             roomCode: fresh?.roomCode || null
           });
+          
+          // Notify therapist
+          if (therapistUser?.email || therapistUser?.phone) {
+            await sendBookingConfirmation({
+              bookingId,
+              userEmail: therapistUser?.email,
+              userName: therapistUser?.name,
+              userPhone: therapistUser?.phone,
+              therapistName: therapistDoc?.displayName,
+              sessionType: fresh?.sessionType,
+              date: fresh?.appointmentDate?.toISOString?.() || fresh?.date?.toString?.(),
+              timeSlot: fresh?.appointmentTime || fresh?.timeSlot,
+              meetingUrl: fresh?.meetingUrl || null,
+              roomCode: fresh?.roomCode || null
+            });
+          }
           // Optional in-process 10-minute reminder
           try {
             if (process.env.NOTIFICATIONS_IN_PROCESS_SCHEDULER === '1') {

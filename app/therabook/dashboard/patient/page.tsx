@@ -5,7 +5,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Download, RefreshCw } from 'lucide-react';
+import { Download, RefreshCw, Eye, CheckCircle } from 'lucide-react';
+import Link from 'next/link';
 
 interface BookingItem {
   _id: string;
@@ -16,6 +17,7 @@ interface BookingItem {
   totalAmount?: number;
   therapist?: { name?: string };
   therapistId?: string;
+  therapistProfileId?: string;
 }
 
 export default function PatientBookingsDashboard() {
@@ -105,7 +107,15 @@ export default function PatientBookingsDashboard() {
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge>{b.status}</Badge>
-                    <Button size="sm" variant="outline" onClick={() => cancelBooking(b._id)}>Cancel</Button>
+                    <Link href={`/therabook/therapists/${b.therapistId || b.therapistProfileId || 'unknown'}/book/confirmation?bookingId=${b._id}`}>
+                      <Button size="sm" variant="outline">
+                        <Eye className="w-4 h-4 mr-1" />
+                        View Details
+                      </Button>
+                    </Link>
+                    {b.status !== 'completed' && b.status !== 'cancelled' && (
+                      <Button size="sm" variant="outline" onClick={() => cancelBooking(b._id)}>Cancel</Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -124,7 +134,22 @@ export default function PatientBookingsDashboard() {
                     <div className="text-xs text-slate-500">Amount: ₹{b.totalAmount || 0}</div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge variant="outline">{b.status}</Badge>
+                    <Badge variant={b.status === 'completed' ? 'default' : 'outline'} className={b.status === 'completed' ? 'bg-green-600' : ''}>
+                      {b.status === 'completed' ? (
+                        <>
+                          <CheckCircle className="w-3 h-3 mr-1" />
+                          Completed
+                        </>
+                      ) : (
+                        b.status
+                      )}
+                    </Badge>
+                    <Link href={`/therabook/therapists/${b.therapistId || b.therapistProfileId || 'unknown'}/book/confirmation?bookingId=${b._id}`}>
+                      <Button size="sm" variant="outline">
+                        <Eye className="w-4 h-4 mr-1" />
+                        View Details
+                      </Button>
+                    </Link>
                     <Button size="sm" variant="outline"><Download className="w-4 h-4 mr-1" />Invoice</Button>
                   </div>
                 </CardContent>

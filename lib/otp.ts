@@ -190,10 +190,13 @@ export async function requestOtp({ phone, purpose }: { phone: string; purpose: s
 
   try {
     // Custom OTP message template
+    // This applies to ALL OTPs: patient registration, therapist registration, clinic registration, etc.
     // To use a custom message, you need to:
-    // 1. Request a custom template from Twilio Support with message: "Welcome to theratreat, your OTP is {{code}}"
-    // 2. Get the Template SID (starts with HJ...)
-    // 3. Set it in environment variable: TWILIO_VERIFY_TEMPLATE_SID
+    // 1. Configure in Twilio Console: Verify → Services → Your Service → Message Template
+    //    Set message to: "Welcome to theratreat, your OTP is {{code}}"
+    // OR
+    // 2. Request a custom template from Twilio Support with message: "Welcome to theratreat, your OTP is {{code}}"
+    //    Get the Template SID (starts with HJ...) and set: TWILIO_VERIFY_TEMPLATE_SID
     const customTemplateSid = process.env.TWILIO_VERIFY_TEMPLATE_SID;
     
     const verificationParams: any = {

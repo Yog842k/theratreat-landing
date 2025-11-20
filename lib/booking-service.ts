@@ -35,7 +35,23 @@ interface AvailabilityResponse {
 
 function authHeaders(token?: string) {
   const headers: Record<string,string> = { 'Content-Type': 'application/json' };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
+  if (token) {
+    // Ensure token doesn't already have "Bearer " prefix
+    const cleanToken = token.startsWith('Bearer ') ? token.substring(7) : token;
+    headers['Authorization'] = `Bearer ${cleanToken}`;
+    
+    // Log for debugging (only in development)
+    if (process.env.NODE_ENV !== 'production') {
+      console.log('[booking-service] 📤 Auth header prepared', {
+        hasToken: !!cleanToken,
+        tokenLength: cleanToken.length,
+        tokenPrefix: cleanToken.substring(0, 20) + '...',
+        headerFormat: 'Bearer ' + cleanToken.substring(0, 20) + '...'
+      });
+    }
+  } else {
+    console.warn('[booking-service] ⚠️ No token provided for auth headers');
+  }
   return headers;
 }
 
@@ -44,13 +60,39 @@ async function handleJson<T>(res: Response): Promise<T> {
   if (!res.ok) {
     const code = (data as any)?.code;
     const message = (data as any)?.message || `Request failed (${res.status})`;
+    const error = (data as any)?.error;
+    
+    // Enhanced logging for authentication errors
     if (res.status === 401) {
-      throw new Error(code ? `[${code}] ${message}` : `Unauthorized: ${message}`);
+      console.error('[booking-service] ❌ 401 Unauthorized', {
+        status: res.status,
+        statusText: res.statusText,
+        code,
+        message,
+        error,
+        url: res.url,
+        hasAuthHeader: res.headers.get('authorization') ? 'yes' : 'no'
+      });
+      throw new Error(code ? `[${code}] ${message}` : `Unauthorized: ${message || error || 'Authentication failed'}`);
     }
     if (res.status === 403) {
-      throw new Error(code ? `[${code}] ${message}` : `Forbidden: ${message}`);
+      console.error('[booking-service] ❌ 403 Forbidden', {
+        status: res.status,
+        code,
+        message,
+        error
+      });
+      throw new Error(code ? `[${code}] ${message}` : `Forbidden: ${message || error || 'Access denied'}`);
     }
-    throw new Error(code ? `[${code}] ${message}` : message);
+    
+    console.error('[booking-service] ❌ Request failed', {
+      status: res.status,
+      statusText: res.statusText,
+      code,
+      message,
+      error
+    });
+    throw new Error(code ? `[${code}] ${message}` : message || error || `Request failed (${res.status})`);
   }
   return data.data ?? data; // our api nests payload under data
 }
@@ -71,12 +113,40 @@ export const bookingService = {
   },
 
   async createBooking(data: BookingData, token?: string): Promise<Booking> {
+    // Log request details (excluding token for security)
+    console.log('[booking-service] 📤 Creating booking', {
+      hasToken: !!token,
+      tokenLength: token?.length || 0,
+      therapistId: data.therapistId,
+      appointmentDate: data.appointmentDate,
+      appointmentTime: data.appointmentTime,
+      sessionType: data.sessionType
+    });
+    
     const res = await fetch('/api/bookings', {
       method: 'POST',
       headers: authHeaders(token),
       body: JSON.stringify(data)
     });
-    return handleJson<{ booking: Booking }>(res).then(r => r.booking);
+    
+    // Log response details
+    console.log('[booking-service] 📥 Booking response', {
+      status: res.status,
+      statusText: res.statusText,
+      ok: res.ok,
+      hasToken: !!token
+    });
+    
+    const result = await handleJson<{ booking: Booking; isDuplicate?: boolean }>(res);
+    // If it's a duplicate but booking exists, return the existing booking
+    if (result.isDuplicate && result.booking) {
+      console.log('[booking-service] ℹ️ Duplicate booking detected, returning existing booking');
+      return result.booking;
+    }
+    console.log('[booking-service] ✅ Booking created successfully', {
+      bookingId: result.booking?._id
+    });
+    return result.booking;
   },
 
   async updateBooking(id: string, patch: Partial<Pick<Booking,'status'|'notes'>>, token?: string) {

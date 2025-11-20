@@ -1,5 +1,6 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   HMSRoomProvider,
   useHMSActions,
@@ -30,10 +31,53 @@ import {
 
 function JoinForm() {
   const hmsActions = useHMSActions();
+  const searchParams = useSearchParams();
   const [name, setName] = useState("");
   const [roomCode, setRoomCode] = useState("");
   const [isJoining, setIsJoining] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const handleAutoJoin = async (token: string, userName: string) => {
+    setIsJoining(true);
+    setError(null);
+    try {
+      await hmsActions.join({ userName, authToken: token });
+    } catch (err: any) {
+      setError(err.message || 'Join failed');
+      setIsJoining(false);
+    }
+  };
+
+  // Check if token and room data are provided via query params (from combined flow)
+  useEffect(() => {
+    const token = searchParams?.get('token');
+    const roomId = searchParams?.get('roomId');
+    const userName = searchParams?.get('userName');
+    const role = searchParams?.get('role');
+
+    if (token && roomId && userName) {
+      // Auto-join with provided token
+      setName(userName);
+      handleAutoJoin(token, userName);
+    } else if (typeof window !== 'undefined') {
+      // Check sessionStorage as fallback
+      const storedToken = sessionStorage.getItem('hms_token');
+      const storedRoomId = sessionStorage.getItem('hms_room_id');
+      const storedUserName = sessionStorage.getItem('hms_user_name');
+      
+      if (storedToken && storedRoomId && storedUserName) {
+        setName(storedUserName);
+        handleAutoJoin(storedToken, storedUserName);
+        // Clear sessionStorage after use
+        sessionStorage.removeItem('hms_token');
+        sessionStorage.removeItem('hms_room_id');
+        sessionStorage.removeItem('hms_user_id');
+        sessionStorage.removeItem('hms_user_name');
+        sessionStorage.removeItem('hms_role');
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -157,11 +201,13 @@ export default function RoomPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-100 to-slate-200 flex flex-col">
       <div className="py-8 text-center">
-        <h1 className="text-3xl font-bold">Room Code Demo</h1>
-        <p className="text-gray-600 text-sm mt-2">Enter an existing 100ms room code to join</p>
+        <h1 className="text-3xl font-bold">100ms Video Room</h1>
+        <p className="text-gray-600 text-sm mt-2">Join your video call room</p>
       </div>
       <HMSRoomProvider>
-        <RoomContent />
+        <Suspense fallback={<div className="flex items-center justify-center p-8">Loading...</div>}>
+          <RoomContent />
+        </Suspense>
       </HMSRoomProvider>
     </div>
   );

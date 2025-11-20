@@ -15,6 +15,7 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/components/ui/utils';
+import { toast } from 'sonner';
 import { ArrowLeft, Building, Calendar as CalendarIcon, Calendar, CheckCircle, Clock, CreditCard, Heart, MapPin, Phone, Shield, Star, Timer, Video, AlertCircle, Info } from 'lucide-react';
 
 type TherapyBookingProps = {
@@ -75,7 +76,7 @@ const sessionTypes = [
 
 export function TherapyBookingEnhanced({ therapistId }: TherapyBookingProps) {
   const router = useRouter();
-  const { user, token, isAuthenticated, isLoading } = useAuth();
+  const { user, token, isAuthenticated, isLoading, refresh } = useAuth();
 
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(
     new Date(Date.now() + 24 * 60 * 60 * 1000)
@@ -98,13 +99,19 @@ export function TherapyBookingEnhanced({ therapistId }: TherapyBookingProps) {
   const fetchCounterRef = useRef<number>(0);
 
   // 6-step flow overall
-  // 1. Select Therapist (review card)
-  // 2. Date & Time
-  // 3. Session Format
-  // 4. Your Details
-  // 5. Payment (other page)
-  // 6. Confirmation (other page)
+  // 1. Confirm Therapist (separate page - /confirm-therapist)
+  // 2. Date & Time (Step 1 in this component)
+  // 3. Session Format (Step 2 in this component)
+  // 4. Your Details (Step 3 in this component)
+  // 5. Payment (Step 4 in this component - integrated)
+  // 6. Confirmation (separate page)
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  
+  // Payment state
+  const [bookingId, setBookingId] = useState<string | null>(null);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [gatewayMode, setGatewayMode] = useState<string>('');
 
   // Patient details (Step 4)
   const [patientFullName, setPatientFullName] = useState('');
@@ -127,20 +134,20 @@ export function TherapyBookingEnhanced({ therapistId }: TherapyBookingProps) {
   const isValidObjectId = (id: string) => /^[a-fA-F0-9]{24}$/.test(id);
   const therapistIdValid = isValidObjectId(therapistId);
 
-  const canProceedFromStep1 = true; // Step 1 is just therapist review
-  const canProceedFromStep2 = useMemo(() => !!(selectedDate && selectedTime), [selectedDate, selectedTime]);
-  const canProceedFromStep3 = useMemo(() => !!selectedSessionType, [selectedSessionType]);
+  const canProceedFromStep1 = useMemo(() => !!(selectedDate && selectedTime), [selectedDate, selectedTime]); // Step 1 is now Date & Time
+  const canProceedFromStep2 = useMemo(() => !!selectedSessionType, [selectedSessionType]); // Step 2 is Session Type
   const inHomeSelected = useMemo(() => selectedSessionType === 'home', [selectedSessionType]);
-  const canProceedFromStep4 = useMemo(() => {
+  const canProceedFromStep3 = useMemo(() => {
     const baseOk = !!(patientFullName && patientEmail && patientPhone && patientConcerns);
     if (!inHomeSelected) return baseOk;
     const pinOk = /^\d{6}$/.test(inHomePincode.trim());
-    const phoneOk = inHomeContactPhone.trim().length >= 10; // simple length check
+    const phoneOk = inHomeContactPhone.trim().length >= 10;
     return baseOk && !!(inHomeAddressLine1 && inHomeCity) && pinOk && phoneOk;
-  }, [patientFullName, patientEmail, patientPhone, patientConcerns, inHomeSelected, inHomeAddressLine1, inHomeCity, inHomePincode, inHomeContactPhone]);
+  }, [patientFullName, patientEmail, patientPhone, patientConcerns, inHomeSelected, inHomeAddressLine1, inHomeCity, inHomePincode, inHomeContactPhone]); // Step 3 is Details
+  const canProceedFromStep4 = useMemo(() => !!bookingId, [bookingId]); // Step 4 is Payment - requires booking to be created
   const canBook = useMemo(() => (
-    !!(therapistIdValid && selectedSessionType && selectedDate && selectedTime && canProceedFromStep4)
-  ), [therapistIdValid, selectedSessionType, selectedDate, selectedTime, canProceedFromStep4]);
+    !!(therapistIdValid && selectedSessionType && selectedDate && selectedTime && canProceedFromStep3)
+  ), [therapistIdValid, selectedSessionType, selectedDate, selectedTime, canProceedFromStep3]);
 
   useEffect(() => {
     // Skip if therapist ID is invalid
@@ -453,18 +460,90 @@ export function TherapyBookingEnhanced({ therapistId }: TherapyBookingProps) {
     return minPrice;
   };
 
-  const next = () => setStep((s) => (s < 4 ? ((s + 1) as 1 | 2 | 3 | 4) : s));
+  const next = () => {
+    if (step === 3 && canBook) {
+      // Step 3 → Step 4: Create booking first, then proceed to payment
+      handleCreateBooking();
+    } else {
+      setStep((s) => (s < 4 ? ((s + 1) as 1 | 2 | 3 | 4) : s));
+    }
+  };
   const back = () => setStep((s) => (s > 1 ? ((s - 1) as 1 | 2 | 3 | 4) : s));
 
-  const handleBooking = async () => {
+  // Create booking before payment step with enhanced error handling and retry logic
+  const handleCreateBooking = async (retryCount = 0): Promise<void> => {
     if (!canBook || !selectedDate) return;
+    
+    // Enhanced authentication check with detailed logging
     if (!isAuthenticated || !user) {
+      console.error('[Booking] ❌ Authentication check failed', {
+        isAuthenticated,
+        hasUser: !!user,
+        hasToken: !!token,
+        isLoading
+      });
       setBookingError('Please log in to book a session');
       return;
     }
+    
+    // Validate token exists - try to get from storage as fallback
+    let finalToken = token;
+    if (!finalToken) {
+      console.warn('[Booking] ⚠️ Token missing from context, checking localStorage...');
+      try {
+        const storedToken = localStorage.getItem('token') || sessionStorage.getItem('token');
+        if (storedToken) {
+          console.log('[Booking] ✅ Found token in storage');
+          finalToken = storedToken;
+        } else {
+          console.error('[Booking] ❌ Token not found in storage either', {
+            isAuthenticated,
+            hasUser: !!user,
+            userId: user?._id,
+            userEmail: user?.email,
+            isLoading,
+            localStorageToken: !!localStorage.getItem('token'),
+            sessionStorageToken: !!sessionStorage.getItem('token')
+          });
+          setBookingError('Authentication token is missing. Please log in again.');
+          toast.error("Authentication required", { 
+            description: "Please log in to continue booking",
+            action: {
+              label: "Go to Login",
+              onClick: () => router.push('/therabook/login')
+            }
+          });
+          return;
+        }
+      } catch (storageError) {
+        console.error('[Booking] ❌ Error accessing storage:', storageError);
+        setBookingError('Unable to access authentication. Please log in again.');
+        toast.error("Authentication error", { description: "Please log in to continue" });
+        return;
+      }
+    }
+    
     setIsBooking(true);
     setBookingError(null);
+    
+    const maxRetries = 2;
+    const retryDelay = 1000; // 1 second
+    
     try {
+      // Log booking attempt with structured data (excluding token for security)
+      console.log('[Booking] Creating booking attempt', {
+        attempt: retryCount + 1,
+        therapistId,
+        date: selectedDate.toISOString().split('T')[0],
+        time: selectedTime,
+        sessionType: selectedSessionType,
+        userId: user._id,
+        userEmail: user.email,
+        hasToken: !!token,
+        tokenLength: token?.length || 0,
+        timestamp: new Date().toISOString()
+      });
+
       const patientDetails: any = {
         fullName: patientFullName,
         email: patientEmail,
@@ -494,19 +573,338 @@ export function TherapyBookingEnhanced({ therapistId }: TherapyBookingProps) {
         sessionType: selectedSessionType,
         notes: JSON.stringify(patientDetails)
       };
-      const booking = await bookingService.createBooking(bookingData, token || undefined);
-      const bookingId = (booking as any)?._id || (booking as any)?.bookingId || 'unknown';
-      if (user?.email === 'sachinparihar10@gmail.com') {
-        // Skip payment page for developer
-        router.push(`/therabook/therapists/${therapistId}/book/confirmation?bookingId=${bookingId}`);
-      } else {
-        router.push(`/therabook/therapists/${therapistId}/book/payment?bookingId=${bookingId}`);
+
+      let booking;
+      let newBookingId: string;
+      
+      // Use finalToken (from context or storage fallback)
+      if (!finalToken) {
+        throw new Error('Authentication token is missing. Please log in again.');
       }
+      
+      try {
+        console.log('[Booking] 📤 Sending booking request', {
+          hasToken: !!finalToken,
+          tokenSource: finalToken === token ? 'context' : 'storage',
+          tokenPrefix: finalToken?.substring(0, 20) + '...',
+          bookingData: {
+            therapistId: bookingData.therapistId,
+            appointmentDate: bookingData.appointmentDate,
+            appointmentTime: bookingData.appointmentTime,
+            sessionType: bookingData.sessionType
+          }
+        });
+        
+        booking = await bookingService.createBooking(bookingData, finalToken);
+        newBookingId = (booking as any)?._id || (booking as any)?.bookingId || 'unknown';
+        
+        console.log('[Booking] ✅ Booking created successfully', {
+          bookingId: newBookingId,
+          booking: booking,
+          timestamp: new Date().toISOString()
+        });
+      } catch (bookingError: any) {
+        // Enhanced error logging
+        const errorDetails = {
+          error: bookingError,
+          message: bookingError?.message || 'Unknown error',
+          response: bookingError?.response,
+          status: bookingError?.status,
+          statusText: bookingError?.statusText,
+          data: bookingError?.data,
+          stack: bookingError?.stack
+        };
+        
+        console.error('[Booking] ❌ Booking creation failed', errorDetails);
+        
+        // Retry logic for network errors or transient failures
+        const isRetryableError = 
+          bookingError?.message?.includes('network') ||
+          bookingError?.message?.includes('timeout') ||
+          bookingError?.message?.includes('fetch') ||
+          bookingError?.status === 500 ||
+          bookingError?.status === 503 ||
+          bookingError?.status === 502 ||
+          !bookingError?.status; // Network errors often don't have status
+        
+        if (isRetryableError && retryCount < maxRetries) {
+          console.log(`[Booking] 🔄 Retrying booking creation (${retryCount + 1}/${maxRetries})...`);
+          await new Promise(resolve => setTimeout(resolve, retryDelay * (retryCount + 1)));
+          return handleCreateBooking(retryCount + 1);
+        }
+        
+        // Provide user-friendly error messages
+        let userMessage = 'Failed to create booking';
+        if (bookingError?.message?.includes('already booked') || bookingError?.message?.includes('duplicate')) {
+          userMessage = 'This time slot is already booked. Please select another time.';
+        } else if (bookingError?.message?.includes('network') || bookingError?.message?.includes('timeout')) {
+          userMessage = 'Network error. Please check your connection and try again.';
+        } else if (bookingError?.status === 401 || bookingError?.status === 403 || bookingError?.message?.includes('Unauthorized') || bookingError?.message?.includes('Authentication failed')) {
+          userMessage = 'Your session has expired. Please log in again to continue booking.';
+          // Clear potentially invalid token and redirect to login
+          console.warn('[Booking] ⚠️ Authentication failed - token may be expired or invalid', {
+            hasToken: !!finalToken,
+            tokenLength: finalToken?.length || 0,
+            error: bookingError?.message,
+            status: bookingError?.status
+          });
+          
+          // Clear auth state
+          try {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            sessionStorage.removeItem('token');
+            sessionStorage.removeItem('user');
+          } catch (e) {
+            console.warn('[Booking] Could not clear auth storage:', e);
+          }
+          
+          // Don't retry on auth errors - they won't succeed
+          setBookingError(userMessage);
+          toast.error("Session Expired", { 
+            description: "Please log in again to continue booking",
+            duration: 5000,
+            action: {
+              label: "Go to Login",
+              onClick: () => {
+                router.push('/therabook/login?redirect=' + encodeURIComponent(window.location.pathname));
+              }
+            }
+          });
+          
+          // Redirect to login after a short delay
+          setTimeout(() => {
+            router.push('/therabook/login?redirect=' + encodeURIComponent(window.location.pathname));
+          }, 2000);
+          
+          throw bookingError;
+        } else if (bookingError?.status === 400) {
+          userMessage = bookingError?.message || 'Invalid booking data. Please check your selections.';
+        } else if (bookingError?.message) {
+          userMessage = bookingError.message;
+        }
+        
+        setBookingError(userMessage);
+        throw bookingError;
+      }
+      
+      setBookingId(newBookingId);
+      setBookingError(null); // Clear any previous errors
+      
+      // Check if user should skip payment (for specific emails)
+      const allowedEmails = ['sachinparihar10@gmail.com'];
+      const userEmail = user?.email || patientEmail || '';
+      const shouldSkipPayment = allowedEmails.includes(userEmail.toLowerCase());
+      
+      if (shouldSkipPayment) {
+        console.log('[Booking] ⏭️ Skipping payment for allowed email');
+        // Mark booking as paid and redirect to confirmation
+        try {
+          // Update booking payment status to paid (this will automatically set status to 'confirmed')
+          const updateResponse = await fetch(`/api/bookings/${newBookingId}`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token ? { Authorization: `Bearer ${token}` } : {})
+            },
+            body: JSON.stringify({ 
+              paymentStatus: 'paid'
+            })
+          });
+          
+          if (!updateResponse.ok) {
+            const errorData = await updateResponse.json().catch(() => ({}));
+            console.warn('[Booking] ⚠️ Payment status update response:', {
+              status: updateResponse.status,
+              error: errorData,
+              bookingId: newBookingId
+            });
+      } else {
+            console.log('[Booking] ✅ Payment status updated to paid');
+          }
+          
+          // Redirect directly to confirmation
+          router.push(`/therabook/therapists/${therapistId}/book/confirmation?bookingId=${newBookingId}`);
+          return;
+        } catch (updateError) {
+          console.error('[Booking] ❌ Failed to update booking payment status:', {
+            error: updateError,
+            bookingId: newBookingId
+          });
+          // Still redirect to confirmation even if update fails
+          router.push(`/therabook/therapists/${therapistId}/book/confirmation?bookingId=${newBookingId}`);
+          return;
+        }
+      }
+      
+      // Load gateway config for normal payment flow
+      fetch('/api/payments/razorpay/config').then(async r => {
+        const json = await r.json().catch(() => null);
+        const mode = json?.data?.mode || json?.mode;
+        if (mode) {
+          setGatewayMode(mode);
+          console.log('[Booking] ✅ Payment gateway mode loaded:', mode);
+        }
+      }).catch((err) => {
+        console.warn('[Booking] ⚠️ Failed to load payment gateway config:', err);
+      });
+      
+      // Move to payment step
+      setStep(4);
+      console.log('[Booking] ✅ Booking flow completed, moved to payment step');
     } catch (error: any) {
-      console.error('Booking error:', error);
-      setBookingError(error.message || 'Failed to create booking');
+      // Final error handling with detailed logging
+      const errorLog = {
+        error,
+        message: error?.message || 'Unknown error',
+        stack: error?.stack,
+        retryCount,
+        timestamp: new Date().toISOString()
+      };
+      
+      console.error('[Booking] ❌ Final booking error:', errorLog);
+      
+      // Don't set error if it's already been set (from retry logic)
+      if (!bookingError) {
+        setBookingError(error?.message || 'Failed to create booking. Please try again.');
+      }
     } finally {
       setIsBooking(false);
+    }
+  };
+
+  // Load Razorpay script
+  const loadRazorpayScript = () => new Promise<boolean>((resolve) => {
+    if (typeof window !== 'undefined' && (window as any).Razorpay) return resolve(true);
+    if (document.getElementById('razorpay-js')) return resolve(true);
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.id = 'razorpay-js';
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+
+  // Handle payment
+  const handlePayment = async () => {
+    if (!bookingId) return;
+    setIsProcessingPayment(true);
+    setPaymentError(null);
+    try {
+      // Create order on server
+      const res = await fetch('/api/payments/razorpay/order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ bookingId })
+      });
+      const text = await res.text();
+      let parsed: any = null;
+      try { parsed = text ? JSON.parse(text) : null; } catch {}
+      if (!res.ok) {
+        const code = parsed?.code;
+        const serverMsg = parsed?.message || parsed?.error || text || 'Failed to initialize payment';
+        let friendly = serverMsg;
+        if (code === 'RAZORPAY_NO_CREDENTIALS') {
+          friendly = 'Payment gateway not configured. Please contact support.';
+        } else if (code === 'RAZORPAY_PREFIX_MISMATCH') {
+          friendly = serverMsg + ' (Key ID prefix mismatch)';
+        } else if (code === 'RAZORPAY_WEAK_SECRET') {
+          friendly = 'Payment gateway configuration error. Please contact support.';
+        } else if (code === 'RAZORPAY_AUTH') {
+          friendly = 'Gateway authentication failed. Please contact support.';
+        }
+        throw new Error(`[${code || 'ERR'}] ${friendly}`);
+      }
+      const { data } = parsed || {};
+      const { order, keyId, simulated } = data || {};
+      if (!order?.id || !keyId) throw new Error('Invalid order response');
+
+      // If server is running in fake mode, bypass Razorpay and auto-verify
+      if (simulated) {
+        try {
+          const verifyRes = await fetch('/api/payments/razorpay/verify', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token ? { Authorization: `Bearer ${token}` } : {})
+            },
+            body: JSON.stringify({
+              bookingId,
+              razorpay_payment_id: 'pay_FAKE',
+              razorpay_order_id: order.id,
+              razorpay_signature: 'sig_FAKE',
+            })
+          });
+          if (!verifyRes.ok) throw new Error('Verification failed');
+          router.push(`/therabook/therapists/${therapistId}/book/confirmation?bookingId=${bookingId}`);
+          return;
+        } catch (e) {
+          console.error(e);
+          setPaymentError('Payment verification failed (simulated). Please contact support.');
+          setIsProcessingPayment(false);
+          return;
+        }
+      }
+
+      const loaded = await loadRazorpayScript();
+      if (!loaded) throw new Error('Razorpay SDK failed to load');
+
+      const options: any = {
+        key: keyId,
+        amount: order.amount,
+        currency: order.currency,
+        name: 'TheraBook',
+        description: 'Therapy session payment',
+        order_id: order.id,
+        prefill: {
+          name: patientFullName || user?.name || '',
+          email: patientEmail || user?.email || '',
+        },
+        notes: { bookingId },
+        handler: async function (response: any) {
+          try {
+            const verifyRes = await fetch('/api/payments/razorpay/verify', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { Authorization: `Bearer ${token}` } : {})
+              },
+              body: JSON.stringify({
+                bookingId,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_signature: response.razorpay_signature,
+              })
+            });
+            if (!verifyRes.ok) throw new Error('Verification failed');
+            router.push(`/therabook/therapists/${therapistId}/book/confirmation?bookingId=${bookingId}`);
+          } catch (e) {
+            console.error(e);
+            setPaymentError('Payment verification failed. Please contact support.');
+            setIsProcessingPayment(false);
+          }
+        },
+        modal: {
+          ondismiss: () => setIsProcessingPayment(false)
+        },
+        theme: { color: '#2563eb' }
+      };
+
+      // @ts-ignore
+      const rzp = new window.Razorpay(options);
+      rzp.open();
+    } catch (e: any) {
+      console.error('handlePayment error:', e);
+      const msg = e?.message || '';
+      if (/Failed to fetch|NetworkError/i.test(msg)) {
+        setPaymentError('Could not reach the server. Please check your connection and try again.');
+      } else {
+        setPaymentError(msg || 'Payment failed. Please try again.');
+      }
+      setIsProcessingPayment(false);
     }
   };
 
@@ -523,7 +921,7 @@ export function TherapyBookingEnhanced({ therapistId }: TherapyBookingProps) {
 
   // Memoize StepHeader before any conditional returns (Rules of Hooks)
   const StepHeader = React.useMemo(() => {
-    const stepLabels = ['Select Therapist', 'Date & Time', 'Session Format', 'Your Details', 'Payment', 'Confirmation'];
+    const stepLabels = ['Date & Time', 'Session Format', 'Your Details', 'Payment'];
     const stepText = stepLabels[step - 1];
     return (
       <div className="bg-white/90 backdrop-blur-md border-b border-gray-200 shadow-lg sticky top-0 z-50">
@@ -555,13 +953,13 @@ export function TherapyBookingEnhanced({ therapistId }: TherapyBookingProps) {
           <div className="mt-4 sm:mt-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0 mb-2">
               <h2 className="text-lg sm:text-2xl font-bold text-gray-800">{stepText}</h2>
-              <Badge variant="secondary" className="bg-blue-100 text-blue-700 text-xs">Step {step} of 6</Badge>
+              <Badge variant="secondary" className="bg-blue-100 text-blue-700 text-xs">Step {step + 1} of 6</Badge>
             </div>
             {/* 6-step indicators - responsive */}
             <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 sm:gap-4 mt-3 sm:mt-4">
-              {stepLabels.map((label, idx) => {
+              {['Confirm Therapist', ...stepLabels, 'Confirmation'].map((label, idx) => {
                 const s = idx + 1;
-                const active = s <= step;
+                const active = s <= (step + 1); // step + 1 because step 1 is on separate page
                 return (
                   <div key={label} className="flex flex-col items-center">
                     <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center border text-xs sm:text-sm ${active ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-500 border-gray-300'}`}>{s}</div>
@@ -718,69 +1116,8 @@ export function TherapyBookingEnhanced({ therapistId }: TherapyBookingProps) {
         <div className="grid lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
           {/* Main Column */}
           <div className="lg:col-span-2 space-y-8">
-            {/* Step 1: Select Therapist (review) */}
+            {/* Step 1: Date & Time */}
             {step === 1 && (
-              <Card className="shadow-xl border-0 rounded-2xl sm:rounded-3xl overflow-hidden transition-all duration-300 hover:shadow-2xl">
-                <CardHeader className="bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 pb-4 sm:pb-6 p-4 sm:p-6 text-center">
-                  <CardTitle className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                    Select Therapist
-                  </CardTitle>
-                  <CardDescription className="text-sm sm:text-base mt-2">Choose your preferred therapist</CardDescription>
-                </CardHeader>
-                <CardContent className="p-4 sm:p-6">
-                  <div className="max-w-2xl mx-auto p-4 sm:p-6 border-2 border-gray-100 rounded-2xl bg-white shadow-sm hover:shadow-md transition-shadow duration-300">
-                    <div className="flex flex-col items-center text-center">
-                      <div className="relative">
-                        <Avatar className="w-16 h-16 sm:w-20 sm:h-20 ring-4 ring-blue-100 shadow-lg">
-                        <AvatarImage src={therapist.image} alt={therapist.name} />
-                          <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white text-lg sm:text-xl font-bold">
-                            {String(therapist.name||'').slice(0,2).toUpperCase()}
-                          </AvatarFallback>
-                      </Avatar>
-                        {isUsingFallbackData && (
-                          <div className="absolute -top-1 -right-1 bg-amber-500 rounded-full p-1">
-                            <Info className="w-3 h-3 text-white" />
-                          </div>
-                        )}
-                      </div>
-                      <h3 className="text-lg sm:text-xl font-bold mt-4 text-gray-900">{therapist.name}</h3>
-                      <p className="text-sm sm:text-base text-gray-600 mt-1">{therapist.title}</p>
-                      <div className="flex gap-2 items-center mt-3">
-                        {(therapist as any).rating ? (
-                          <>
-                            <Star className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-400 fill-current" />
-                            <span className="text-sm sm:text-base font-semibold">{(therapist as any).rating}</span>
-                          </>
-                        ) : null}
-                        <Badge variant="outline" className="text-green-700 border-green-300 bg-green-50 font-medium">
-                          <CheckCircle className="w-3 h-3 mr-1" />
-                          Verified
-                        </Badge>
-                      </div>
-                      <p className="text-xs sm:text-sm text-gray-600 mt-4 max-w-md leading-relaxed">
-                        Specializes in anxiety, depression, and trauma therapy with a focus on CBT and mindfulness.
-                      </p>
-                      <div className="flex flex-col sm:flex-row gap-3 mt-6 w-full sm:w-auto">
-                        <Link href="/therabook/therapists" className="w-full sm:w-auto">
-                          <Button variant="outline" className="w-full sm:w-auto rounded-xl border-2 hover:bg-gray-50 transition-all">
-                            Choose Different Therapist
-                          </Button>
-                        </Link>
-                        <Button 
-                          onClick={next} 
-                          className="w-full sm:w-auto bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-300"
-                        >
-                          Continue with {therapist.name?.split(' ')[0] || 'Therapist'}
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Step 2: Date & Time */}
-            {step === 2 && (
               <>
                 {/* Date Selection (Improved) */}
                 <Card className="shadow-xl border-0 rounded-2xl sm:rounded-3xl overflow-hidden">
@@ -909,16 +1246,18 @@ export function TherapyBookingEnhanced({ therapistId }: TherapyBookingProps) {
                       </div>
                     )}
                     <div className="flex flex-col sm:flex-row justify-between gap-2 sm:gap-0 pt-4">
-                      <Button variant="outline" onClick={back} size="sm" className="rounded-xl sm:rounded-2xl px-4 sm:px-6 w-full sm:w-auto text-sm sm:text-base">Back</Button>
-                      <Button onClick={next} disabled={!canProceedFromStep2} size="sm" className="rounded-xl sm:rounded-2xl px-4 sm:px-6 w-full sm:w-auto text-sm sm:text-base">Continue</Button>
+                      <Link href={`/therabook/therapists/${therapistId}/book/confirm-therapist`}>
+                        <Button variant="outline" size="sm" className="rounded-xl sm:rounded-2xl px-4 sm:px-6 w-full sm:w-auto text-sm sm:text-base">Back</Button>
+                      </Link>
+                      <Button onClick={next} disabled={!canProceedFromStep1} size="sm" className="rounded-xl sm:rounded-2xl px-4 sm:px-6 w-full sm:w-auto text-sm sm:text-base">Continue</Button>
                     </div>
                   </CardContent>
                 </Card>
               </>
             )}
 
-            {/* Step 3: Session Format */}
-            {step === 3 && (
+            {/* Step 2: Session Format */}
+            {step === 2 && (
               <Card className="shadow-xl border-0 rounded-2xl sm:rounded-3xl overflow-hidden transition-all duration-300 hover:shadow-2xl">
                 <CardHeader className="bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 pb-4 sm:pb-6 p-4 sm:p-6 text-center">
                   <CardTitle className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
@@ -986,7 +1325,7 @@ export function TherapyBookingEnhanced({ therapistId }: TherapyBookingProps) {
                     </Button>
                     <Button 
                       onClick={next} 
-                      disabled={!canProceedFromStep3}
+                      disabled={!canProceedFromStep2}
                       className="rounded-xl sm:rounded-2xl px-4 sm:px-6 w-full sm:w-auto text-sm sm:text-base bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       Continue
@@ -996,8 +1335,8 @@ export function TherapyBookingEnhanced({ therapistId }: TherapyBookingProps) {
               </Card>
             )}
 
-            {/* Step 4: Your Details */}
-            {step === 4 && (
+            {/* Step 3: Your Details */}
+            {step === 3 && (
               <Card className="shadow-xl border-0 rounded-3xl overflow-hidden">
                 <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50 pb-6 text-center">
                   <CardTitle className="text-3xl">Your Details</CardTitle>
@@ -1088,7 +1427,7 @@ export function TherapyBookingEnhanced({ therapistId }: TherapyBookingProps) {
                     <Button
                       className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-4 rounded-2xl text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
                       disabled={!canBook || isBooking}
-                      onClick={handleBooking}
+                      onClick={next}
                     >
                       {isBooking ? (
                         <>
@@ -1117,6 +1456,76 @@ export function TherapyBookingEnhanced({ therapistId }: TherapyBookingProps) {
                       </div>
                     </div>
                   )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Step 4: Payment */}
+            {step === 4 && bookingId && (
+              <Card className="shadow-xl border-0 rounded-2xl sm:rounded-3xl overflow-hidden">
+                <CardHeader className="bg-gradient-to-r from-green-50 to-blue-50 pb-4 sm:pb-6 p-4 sm:p-6">
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-green-500 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+                      <CreditCard className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg sm:text-2xl">Secure Payment</CardTitle>
+                      <CardDescription className="text-xs sm:text-base">Complete your booking with secure payment</CardDescription>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-4 sm:p-6 space-y-6">
+                  {paymentError && (
+                    <div className="p-4 bg-red-50 border-l-4 border-red-400 rounded-lg">
+                      <div className="flex items-start gap-3">
+                        <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                        <div className="flex-1">
+                          <p className="text-red-800 text-sm font-medium">{paymentError}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="bg-blue-50 border-l-4 border-blue-600 p-4 rounded-r-lg">
+                    <div className="flex items-start gap-3">
+                      <Shield className="w-6 h-6 text-blue-600 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <h4 className="font-semibold text-blue-900 mb-1">Secure Payment Gateway</h4>
+                        <p className="text-sm text-blue-800">
+                          Your payment is processed securely through Razorpay. We never store your card details.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {gatewayMode && (
+                    <div className="text-xs text-gray-500 text-center">
+                      Payment mode: <span className="font-medium">{gatewayMode}</span>
+                    </div>
+                  )}
+
+                  <div className="flex justify-between gap-4">
+                    <Button variant="outline" onClick={back} disabled={isProcessingPayment}>
+                      Previous
+                    </Button>
+                    <Button
+                      className="flex-1 bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white py-4 rounded-2xl text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
+                      disabled={isProcessingPayment}
+                      onClick={handlePayment}
+                    >
+                      {isProcessingPayment ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                          Processing...
+                        </>
+                      ) : (
+                        <>
+                          <CreditCard className="w-5 h-5 mr-3" />
+                          Pay Securely
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             )}
@@ -1237,19 +1646,19 @@ export function TherapyBookingEnhanced({ therapistId }: TherapyBookingProps) {
                 )}
                 {step === 4 && (
                   <Button
-                    className="w-full mt-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-4 rounded-2xl text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
-                    disabled={!canBook || isBooking}
-                    onClick={handleBooking}
+                    className="w-full mt-2 bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white py-4 rounded-2xl text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
+                    disabled={!bookingId || isProcessingPayment}
+                    onClick={handlePayment}
                   >
-                    {isBooking ? (
+                    {isProcessingPayment ? (
                       <>
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        Creating Booking...
+                        Processing...
                       </>
                     ) : (
                       <>
                         <CreditCard className="w-5 h-5 mr-3" />
-                        Continue to Payment
+                        Pay Securely
                       </>
                     )}
                   </Button>
