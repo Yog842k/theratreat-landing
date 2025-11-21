@@ -9,6 +9,11 @@ import { Navigation } from '@/components/Navigation'
 export const metadata: Metadata = {
   title: 'TheraTreat - Health & Wellness Platform',
   description: 'Your comprehensive health and wellness platform',
+  icons: {
+    icon: '/logo.png',
+    shortcut: '/logo.png',
+    apple: '/logo.png'
+  }
 }
 
 export default function RootLayout({
