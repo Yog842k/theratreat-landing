@@ -195,6 +195,22 @@ export default function ClinicRegistration() {
     }
   };
 
+  const handleClinicOtpExpiredDuringSubmit = async () => {
+    setOtpVerified(false);
+    setOtpCode('');
+    const message = 'OTP expired. A new code has been sent to the owner’s number.';
+    setOtpError(message);
+    toast.info('OTP expired', { description: 'Sending a fresh OTP to the owner’s phone.' });
+    try {
+      await sendOtp();
+    } catch (error: any) {
+      const fallbackMsg = error?.message || 'OTP resend failed. Please try again manually.';
+      setOtpError(fallbackMsg);
+      toast.error('OTP resend failed', { description: fallbackMsg });
+    }
+    setIsSubmitting(false);
+  };
+
   const verifyOtpCode = async () => {
     if (!formData.contactPhone || !otpCode || otpVerifying) return;
     setOtpVerifying(true);
@@ -439,8 +455,14 @@ export default function ClinicRegistration() {
         window.location.href = "/clinics/dashboard";
         }, 2000);
       } else {
-        setIsSubmitting(false);
         const errorMessage = responseData.message || responseData.error || 'Registration failed. Please check all fields and try again.';
+        const errorCode = responseData.code || responseData.error;
+        const isOtpExpired = (errorCode === 'EXPIRED') || (typeof errorMessage === 'string' && errorMessage.toLowerCase().includes('expired'));
+        if (isOtpExpired) {
+          await handleClinicOtpExpiredDuringSubmit();
+          return;
+        }
+        setIsSubmitting(false);
         console.error('Registration error:', { status: res.status, error: errorMessage, responseData });
         toast.error('Registration failed', {
           description: errorMessage,

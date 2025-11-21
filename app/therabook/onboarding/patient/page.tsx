@@ -380,6 +380,21 @@ export default function PatientOnboarding() {
     }
   };
 
+  const handleOtpExpiredOnSubmit = async () => {
+    setOtpVerified(false);
+    setOtpCode('');
+    const message = 'OTP expired. A fresh code has been sent.';
+    setOtpError(message);
+    setOtpInfo(message);
+    try {
+      await sendOtp();
+    } catch (error: any) {
+      const fallbackMsg = error?.message || 'Failed to resend OTP. Please try again.';
+      setOtpError(fallbackMsg);
+      alert(fallbackMsg);
+    }
+  };
+
   const validateStep = (step: number): boolean => {
     setError('');
     
@@ -497,6 +512,14 @@ export default function PatientOnboarding() {
         return;
       }
       if (!res.ok) {
+        const errorMessage = result.message || result.error || '';
+        const errorCode = result.code || result?.errors?.error;
+        const isOtpExpired = (errorCode === 'EXPIRED') || (typeof errorMessage === 'string' && errorMessage.toLowerCase().includes('expired'));
+        if (isOtpExpired) {
+          await handleOtpExpiredOnSubmit();
+          setLoading(false);
+          return;
+        }
         throw new Error(result.message || 'Registration failed');
       }
       // Registration successful, now sign in
