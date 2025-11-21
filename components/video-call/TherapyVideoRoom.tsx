@@ -36,6 +36,7 @@ export function VideoRoomContent({ onLeave: onLeaveCallback, therapistName, user
   const [showInstructions, setShowInstructions] = useState(true);
   const [wasConnected, setWasConnected] = useState(false);
   const [redirecting, setRedirecting] = useState(false);
+  const [therapistSeen, setTherapistSeen] = useState(false);
   
   const actualVideoEnabled = isLocalVideoEnabledStore ?? isLocalVideoEnabled;
   const actualAudioEnabled = isLocalAudioEnabledStore ?? isLocalAudioEnabled;
@@ -68,9 +69,13 @@ export function VideoRoomContent({ onLeave: onLeaveCallback, therapistName, user
         const role = (p as any)?.role?.name;
         return role === 'host' || role === 'therapist';
       });
+
+      if (therapistPeer && !therapistSeen) {
+        setTherapistSeen(true);
+      }
       
-      // If disconnected or therapist left, redirect to feedback
-      if ((!isConnected || !therapistPeer) && onSessionEnded) {
+      // If disconnected or therapist left after they had joined, redirect to feedback
+      if (therapistSeen && (!isConnected || !therapistPeer) && onSessionEnded) {
         setRedirecting(true);
         
         // Check booking status and redirect to feedback if completed
@@ -114,7 +119,7 @@ export function VideoRoomContent({ onLeave: onLeaveCallback, therapistName, user
         }
       }
     }
-  }, [isConnected, wasConnected, isHost, peers, bookingId, onSessionEnded, redirecting]);
+  }, [isConnected, wasConnected, isHost, peers, bookingId, onSessionEnded, redirecting, therapistSeen]);
 
   // Session timer
   useEffect(() => {

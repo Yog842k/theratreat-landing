@@ -114,10 +114,24 @@ export default function TherapistDashboardPage() {
   const [emailNotifications, setEmailNotifications] = useState<boolean>(true);
   const [smsNotifications, setSmsNotifications] = useState<boolean>(true);
   const [publicProfile, setPublicProfile] = useState<boolean>(true);
+  const weekDays = ["Monday","Tuesday","Wednesday","Thursday","Friday"];
+  const [weeklySlots, setWeeklySlots] = useState(() =>
+    weekDays.map(day => ({
+      day,
+      start: "09:00",
+      end: "17:00",
+      enabled: true
+    }))
+  );
 
   // Handlers for Service Options
   const handleServiceTypesChange = (value: string[]) => {
     setServiceTypes(value);
+  };
+  const handleWeeklySlotChange = (day: string, field: 'start' | 'end' | 'enabled', value: string | boolean) => {
+    setWeeklySlots(prev =>
+      prev.map(slot => (slot.day === day ? { ...slot, [field]: value } : slot))
+    );
   };
   const handleUpdateServiceOptions = () => {
     // TODO: Integrate with backend API
@@ -130,6 +144,10 @@ export default function TherapistDashboardPage() {
         duration
       }
     }));
+  };
+  const handleUpdateAvailability = () => {
+    console.log('Saving availability slots', weeklySlots);
+    // TODO: Persist availability to backend
   };
 
   // Handlers for Privacy & Notification
@@ -1217,19 +1235,36 @@ export default function TherapistDashboardPage() {
                     <div className="space-y-4">
                       <h4 className="font-semibold text-base sm:text-lg text-gray-800 mb-4">Weekly Time Slots</h4>
                       <div className="space-y-3">
-                        {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].map((day) => (
-                          <div key={day} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 sm:p-4 border-2 border-blue-100 rounded-xl hover:border-blue-300 transition-colors bg-white shadow-sm">
-                            <span className="font-semibold text-gray-800 text-sm sm:text-base">{day}</span>
+                        {weeklySlots.map((slot) => (
+                          <div key={slot.day} className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 sm:p-4 border-2 border-blue-100 rounded-xl hover:border-blue-300 transition-colors bg-white shadow-sm">
+                            <span className="font-semibold text-gray-800 text-sm sm:text-base">{slot.day}</span>
                             <div className="flex items-center space-x-2 sm:space-x-3 w-full sm:w-auto">
-                              <Input placeholder="9:00 AM" className="w-20 sm:w-24 border-blue-200 text-xs sm:text-sm" />
+                              <Input
+                                type="time"
+                                value={slot.start}
+                                onChange={(e) => handleWeeklySlotChange(slot.day, 'start', e.target.value)}
+                                className="w-20 sm:w-24 border-blue-200 text-xs sm:text-sm"
+                              />
                               <span className="text-gray-500 text-xs sm:text-sm">to</span>
-                              <Input placeholder="5:00 PM" className="w-20 sm:w-24 border-blue-200 text-xs sm:text-sm" />
-                              <Switch className="data-[state=checked]:bg-blue-600" />
+                              <Input
+                                type="time"
+                                value={slot.end}
+                                onChange={(e) => handleWeeklySlotChange(slot.day, 'end', e.target.value)}
+                                className="w-20 sm:w-24 border-blue-200 text-xs sm:text-sm"
+                              />
+                              <Switch
+                                checked={slot.enabled}
+                                onCheckedChange={(checked) => handleWeeklySlotChange(slot.day, 'enabled', Boolean(checked))}
+                                className="data-[state=checked]:bg-blue-600"
+                              />
                             </div>
                           </div>
                         ))}
                       </div>
-                      <Button className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md text-sm sm:text-base">
+                      <Button
+                        className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md text-sm sm:text-base"
+                        onClick={handleUpdateAvailability}
+                      >
                         Update Availability
                       </Button>
                     </div>

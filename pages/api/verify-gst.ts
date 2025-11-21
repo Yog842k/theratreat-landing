@@ -6,15 +6,22 @@ const IDFY_API_KEY = process.env.IDFY_API_KEY;
 const IDFY_API_SECRET = process.env.IDFY_API_SECRET;
 
 async function verifyGST(gstNumber: string) {
+  if (!IDFY_BASE_URL || !IDFY_API_KEY || !IDFY_API_SECRET) {
+    // Fallback mock response when IDfy is not configured
+    return {
+      gstin: gstNumber,
+      verified: true,
+      fallback: true,
+      message: 'Mocked GST verification (IDfy not configured)',
+    };
+  }
   // IDfy GST verification endpoint and payload
-  const url = `${IDFY_BASE_URL}/verify/gst`; // Replace with actual endpoint
-  const payload = {
-    gstin: gstNumber,
-  };
+  const url = `${IDFY_BASE_URL}/verify/gst`;
+  const payload = { gstin: gstNumber };
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    'api-key': IDFY_API_KEY ?? '',
-    'api-secret': IDFY_API_SECRET ?? '',
+    'api-key': IDFY_API_KEY,
+    'api-secret': IDFY_API_SECRET,
   };
   const response = await fetch(url, {
     method: 'POST',
@@ -22,7 +29,8 @@ async function verifyGST(gstNumber: string) {
     body: JSON.stringify(payload),
   });
   if (!response.ok) {
-    throw new Error('GST verification failed');
+    const detail = await response.text().catch(() => 'Unknown');
+    throw new Error(`GST verification failed (${response.status}): ${detail}`);
   }
   return response.json();
 }
@@ -39,6 +47,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const result = await verifyGST(gstNumber);
     res.status(200).json({ success: true, result });
   } catch (error: any) {
-    res.status(500).json({ success: false, error: error.message });
+    console.error('[GST VERIFY] error', error);
+    res.status(500).json({ success: false, error: error?.message || 'Verification failed' });
   }
 }

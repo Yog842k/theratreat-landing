@@ -16,6 +16,7 @@ interface ClinicFormData {
   designation?: string;
   designationOther?: string;
   ownerEmail?: string;
+  ownerPhone?: string;
   ownerIdProof?: File | null;
   ownerPhoto?: File | null;
   signatureStamp?: File | null;
@@ -86,6 +87,7 @@ export default function ClinicRegistration() {
     designation: "",
     designationOther: "",
     ownerEmail: "",
+    ownerPhone: "",
     ownerIdProof: null,
     ownerPhoto: null,
     signatureStamp: null,
@@ -138,8 +140,8 @@ export default function ClinicRegistration() {
 
   // Memo and functions for OTP
   const canSendOtp = useMemo(() => {
-    return Boolean(formData.contactPhone && formData.contactPhone.length === 10);
-  }, [formData.contactPhone]);
+    return Boolean(formData.ownerPhone && formData.ownerPhone.length === 10);
+  }, [formData.ownerPhone]);
 
   const sendOtp = async () => {
     if (!canSendOtp || otpSending || resendSeconds > 0) return;
@@ -148,12 +150,13 @@ export default function ClinicRegistration() {
   setOtpInfo("");
     setOtpVerified(false);
     try {
-      let phone = formData.contactPhone.replace(/\D/g, '');
-      if (phone.length !== 10) {
-        setOtpError('Please enter a valid 10-digit phone number');
-        setOtpSending(false);
-        return;
-      }
+      const phoneSource = formData.ownerPhone || '';
+    let phone = phoneSource.replace(/\D/g, '');
+    if (phone.length !== 10) {
+      setOtpError('Please enter a valid 10-digit phone number');
+      setOtpSending(false);
+      return;
+    }
       // Normalize phone to E.164 format (+91XXXXXXXXXX)
       const digits = phone.replace(/\D/g, '');
       const normalizedPhone = digits.length === 10 ? `+91${digits}` : digits.length > 10 && digits.startsWith('91') ? `+${digits}` : digits.length > 10 ? `+${digits}` : `+91${digits}`;
@@ -198,7 +201,8 @@ export default function ClinicRegistration() {
     setOtpError("");
     setOtpInfo("");
     try {
-      let phone = formData.contactPhone.replace(/\D/g, '');
+      const phoneSource = formData.ownerPhone || '';
+      let phone = phoneSource.replace(/\D/g, '');
       if (phone.length !== 10) {
         setOtpError('Please enter a valid 10-digit phone number');
         setOtpVerifying(false);
@@ -364,7 +368,7 @@ export default function ClinicRegistration() {
         yearsInOperation: formData.yearsInOperation,
         ownerName: formData.ownerName,
         designation: formData.designation,
-        ownerMobile: formData.contactPhone, // If you have a separate owner mobile, use that
+        ownerMobile: formData.ownerPhone, // Owner mobile for login (formerly clinic contact)
         ownerEmail: formData.ownerEmail,
         ownerPassword: formData.password, // Backend will hash this
         declarationAccepted: formData.agreements.accuracy,
@@ -444,10 +448,11 @@ export default function ClinicRegistration() {
         });
       }
     } catch (err) {
-      setIsSubmitting(false);
       toast.error('Registration error', {
         description: String(err),
       });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -725,6 +730,18 @@ export default function ClinicRegistration() {
                   </div>
                   <Label className="text-slate-700 font-semibold mb-2 block">Email Address*</Label>
                   <Input type="email" value={formData.ownerEmail||''} onChange={e=>handleInputChange('ownerEmail',e.target.value)} placeholder="owner@example.com" required className="h-12 border-2 border-blue-200 rounded-xl" />
+                  <Label className="text-slate-700 font-semibold mb-2 block">Owner Mobile Number*</Label>
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold">+91</span>
+                    <Input
+                      value={formData.ownerPhone||''}
+                      onChange={e=>handleInputChange('ownerPhone',e.target.value.replace(/\D/g, '').slice(0, 10))}
+                      placeholder="9876543210"
+                      maxLength={10}
+                      required
+                      className="h-12 border-2 border-blue-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 rounded-xl w-full"
+                    />
+                  </div>
                   <Label className="text-slate-700 font-semibold mb-2 block">Government ID Proof (PAN / Aadhaar / Passport)</Label>
                   <Input type="file" accept=".pdf,.jpeg,.jpg,.png" onChange={e=>handleInputChange('ownerIdProof',e.target.files?.[0]||null)} className="h-12 border-2 border-blue-200 rounded-xl" />
                   {formData.ownerIdProof && (<div className="mt-2 text-green-700">{formData.ownerIdProof.name}</div>)}
@@ -733,9 +750,9 @@ export default function ClinicRegistration() {
                   {formData.ownerPhoto && (<div className="mt-2 text-green-700">{formData.ownerPhoto.name}</div>)}
                   <Label className="text-slate-700 font-semibold mb-2 block">Owner Mobile OTP Verification</Label>
                   <OtpVerification
-  phone={formData.contactPhone}
-  onVerified={() => {/* handle verified state if needed */}}
-/>
+                    phone={formData.ownerPhone || ''}
+                    onVerified={() => {/* handle verified state if needed */}}
+                  />
                 </div>
               )}
               {/* Step 3: Services */}

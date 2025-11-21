@@ -496,6 +496,7 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
         password: formData.password,
         phoneNumber: formData.phoneNumber,
         otpCode: otpCode || undefined,
+        skipOtp: otpVerified ? true : undefined,
         gender: formData.gender,
         dateOfBirth: formData.dateOfBirth,
         residentialAddress: formData.residentialAddress,
@@ -575,6 +576,20 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
     } catch (error) {
       setIsSubmitting(false);
       const errorMessage = error instanceof Error ? error.message : 'Please try again.';
+      const normalizedMsg = errorMessage?.toLowerCase?.() || '';
+      const isOtpExpired = normalizedMsg.includes('expired') && normalizedMsg.includes('otp');
+      if (isOtpExpired) {
+        setOtpVerified(false);
+        setOtpCode('');
+        setOtpError('OTP expired. Please enter the fresh code that was just sent.');
+        try {
+          await sendOtp();
+        } catch (sendErr) {
+          console.error('Failed to resend OTP after expiry:', sendErr);
+          setOtpError('OTP expired and we could not send a new code. Please try again later.');
+        }
+        return;
+      }
       alert(`Registration failed: ${errorMessage}`);
     }
   };
@@ -843,7 +858,14 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
                       
                       // Check if verification was successful
                       const data = verifyJson?.data || {};
-                      const isMatch = data.match === true || data.match === 'true';
+                      const matchPayload = data.match;
+                      const isMatch =
+                        matchPayload === true ||
+                        matchPayload === 'true' ||
+                        (matchPayload &&
+                          typeof matchPayload === 'object' &&
+                          Boolean(matchPayload?.nameMatch) &&
+                          (matchPayload?.dobMatch === undefined || Boolean(matchPayload?.dobMatch)));
                       
                       if (isMatch) {
                         setPanVerified(true);

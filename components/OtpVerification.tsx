@@ -90,6 +90,12 @@ export default function OtpVerification({ phone, onVerified }: OtpVerificationPr
     }
   }, [resendSeconds]);
 
+  React.useEffect(() => {
+    if (step === "success") {
+      onVerified();
+    }
+  }, [step, onVerified]);
+
   return (
     <div className="max-w-md mx-auto bg-white rounded-2xl shadow-xl p-8 flex flex-col items-center gap-6">
       <h3 className="text-xl font-bold text-violet-700 flex items-center gap-2">
@@ -103,9 +109,6 @@ export default function OtpVerification({ phone, onVerified }: OtpVerificationPr
             <CheckCircle className="w-7 h-7 text-green-600 flex-shrink-0" />
             <span className="text-green-800 font-bold text-lg">{info || "OTP verified"}</span>
           </div>
-          <Button className="mt-2 w-full h-12 text-lg bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold shadow-lg" onClick={onVerified}>
-            Continue
-          </Button>
         </div>
       ) : step === "request" ? (
         <>
