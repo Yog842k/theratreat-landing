@@ -191,20 +191,9 @@ export default function ClinicDashboard() {
             </div>
             
             <div className="flex items-center gap-4">
-              <div className="relative">
-                <Search className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 transform -translate-y-1/2" />
-                <Input 
-                  placeholder="Search..." 
-                  className="pl-10 w-64 h-10 border-2 border-blue-200 focus:border-blue-600 rounded-lg"
-                />
-              </div>
-              <Button variant="ghost" className="relative">
-                <Bell className="w-5 h-5 text-slate-600" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-blue-600 rounded-full"></span>
+              <Button variant="outline" size="sm" onClick={() => setSection("overview")} className="text-xs sm:text-sm">
+                Return to Overview
               </Button>
-              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                <User className="w-5 h-5 text-blue-600" />
-              </div>
             </div>
           </div>
         </div>

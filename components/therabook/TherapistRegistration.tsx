@@ -594,6 +594,16 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
     }
   };
 
+  const selectAllAgreements = () => {
+    setFormData(prev => {
+      const updatedAgreements: FormData["agreements"] = { ...prev.agreements };
+      (Object.keys(updatedAgreements) as Array<keyof typeof updatedAgreements>).forEach((key) => {
+        updatedAgreements[key] = true;
+      });
+      return { ...prev, agreements: updatedAgreements };
+    });
+  };
+
   const isFormValid = () => {
     return Object.values(formData.agreements).every(value => value === true) &&
            formData.fullName && formData.email && formData.phoneNumber && 
@@ -1796,6 +1806,17 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
                 Please read and accept all agreements to complete registration.
               </AlertDescription>
             </Alert>
+
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={selectAllAgreements}
+                className="text-sm font-semibold px-4 py-2"
+              >
+                Accept all agreements
+              </Button>
+            </div>
 
             <div className="space-y-3">
               {[

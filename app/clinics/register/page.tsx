@@ -264,6 +264,7 @@ export default function ClinicRegistration() {
   const [isVisible, setIsVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   // OTP & PAN verification state
   const [otpCode, setOtpCode] = useState("");
@@ -276,6 +277,7 @@ export default function ClinicRegistration() {
   const [resendSeconds, setResendSeconds] = useState(0);
   const [panVerified, setPanVerified] = useState(false);
   const [panVerifyMsg, setPanVerifyMsg] = useState("");
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // ...existing code...
 
@@ -313,6 +315,7 @@ export default function ClinicRegistration() {
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
+    setSubmitError(null);
     try {
       // Validate password before submission
       if (!formData.password || formData.password.trim() === '') {
@@ -445,14 +448,14 @@ export default function ClinicRegistration() {
       }
       
       if (res.ok && responseData.success) {
+        setSubmitError(null);
         setIsSubmitting(false);
         toast.success('Registration successful!', {
-          description: `You can now login using: ${formData.ownerEmail}`,
+          description: 'Your clinic credentials are ready. Please login on the auth page.',
           duration: 5000,
         });
-        // Redirect to clinic dashboard after successful registration
         setTimeout(() => {
-        window.location.href = "/clinics/dashboard";
+          window.location.href = '/auth/login';
         }, 2000);
       } else {
         const errorMessage = responseData.message || responseData.error || 'Registration failed. Please check all fields and try again.';
@@ -470,8 +473,10 @@ export default function ClinicRegistration() {
         });
       }
     } catch (err) {
+      const message = String(err);
+      setSubmitError(message);
       toast.error('Registration error', {
-        description: String(err),
+        description: message,
       });
     } finally {
       setIsSubmitting(false);
@@ -1268,24 +1273,27 @@ export default function ClinicRegistration() {
                     <Input type="date" value={formData.signatureDate||''} onChange={e=>setFormData(f=>({...f,signatureDate:e.target.value}))} className="h-12 border-2 border-blue-200 rounded-xl w-48" />
                   </div>
                   <div className="pt-6">
-                    <Button 
-                      type="submit" 
-                      disabled={isSubmitting}
-                      className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white h-14 rounded-xl text-lg font-black shadow-xl shadow-blue-500/50 transition-all duration-500 transform hover:scale-105 hover:shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-                    >
-                      {isSubmitting ? (
-                        <div className="flex items-center justify-center gap-3">
-                          <div className="w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin" />
-                          Processing Your Registration...
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-center gap-3">
-                          <Zap className="w-6 h-6" />
-                          Complete Registration
-                          <ArrowRight className="w-6 h-6" />
-                        </div>
-                      )}
-                    </Button>
+                  <Button 
+                    type="submit" 
+                    disabled={isSubmitting}
+                    className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white h-14 rounded-xl text-lg font-black shadow-xl shadow-blue-500/50 transition-all duration-500 transform hover:scale-105 hover:shadow-2xl disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                  >
+                    {isSubmitting ? (
+                      <div className="flex items-center justify-center gap-3">
+                        <div className="w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin" />
+                        Processing Your Registration...
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center gap-3">
+                        <Zap className="w-6 h-6" />
+                        Complete Registration
+                        <ArrowRight className="w-6 h-6" />
+                      </div>
+                    )}
+                  </Button>
+                  {submitError && (
+                    <p className="mt-3 text-sm text-red-700 font-medium text-center">{submitError}</p>
+                  )}
                   </div>
                 </div>
               )}

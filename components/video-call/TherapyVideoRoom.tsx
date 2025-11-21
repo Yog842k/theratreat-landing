@@ -69,7 +69,7 @@ export function VideoRoomContent({ onLeave: onLeaveCallback, therapistName, user
         const role = (p as any)?.role?.name;
         return role === 'host' || role === 'therapist';
       });
-
+      
       if (therapistPeer && !therapistSeen) {
         setTherapistSeen(true);
       }

@@ -468,6 +468,10 @@ export default function PatientOnboarding() {
   };
 
   const handleSubmit = async () => {
+    if (!otpVerified) {
+      setError('Please verify your phone number via OTP before submitting.');
+      return;
+    }
     setLoading(true);
     setError('');
     try {
@@ -483,7 +487,8 @@ export default function PatientOnboarding() {
         email: data.emailId,
         password: data.password,
         phoneNumber: phone,
-        otpCode: otpCode || undefined,
+        otpCode: otpVerified ? otpCode : undefined,
+        otpVerified,
         gender: data.gender,
         dateOfBirth: data.dateOfBirth,
         city: data.city,
