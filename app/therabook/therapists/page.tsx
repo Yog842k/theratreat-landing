@@ -79,9 +79,11 @@ export default function TherapistsListingPage() {
     const search = searchParams?.get('search') || '';
     const condition = searchParams?.get('condition') || '';
     const therapy = searchParams?.get('therapy') || '';
-  const sessionType = searchParams?.get('sessionType') || '';
-  const category = searchParams?.get('category') || '';
-  const source = searchParams?.get('source') || '';
+    const locationParam = searchParams?.get('location') || '';
+    const specialtyParam = searchParams?.get('specialty') || '';
+	  const sessionType = searchParams?.get('sessionType') || '';
+	  const category = searchParams?.get('category') || '';
+	  const source = searchParams?.get('source') || '';
     
     // Handle smart selector results
     const q0 = searchParams?.get('q0') || ''; // Therapy type from smart selector
@@ -118,9 +120,11 @@ export default function TherapistsListingPage() {
     
     setSearchQuery(finalSearchQuery);
     setSelectedSessionType(finalSessionType);
+    setSelectedLocation(locationParam);
+    setSelectedSpecialty(specialtyParam);
     
     // Apply initial filters
-    filterTherapists(finalSearchQuery, selectedLocation, selectedSpecialty, finalSessionType);
+    filterTherapists(finalSearchQuery, locationParam, specialtyParam, finalSessionType);
   }, [searchParams]);
 
   const filterTherapists = (search: string, location: string, specialty: string, sessionType: string) => {

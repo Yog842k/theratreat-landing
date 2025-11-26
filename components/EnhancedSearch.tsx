@@ -31,10 +31,17 @@ import {
   Zap,
   Target,
   FileText,
-  Award
+  Award,
+  Loader2
 } from "lucide-react";
 import { ViewType } from "@/constants/app-data";
 import { useTherapistSearch } from "./TherapistSearchContext";
+import {
+  useGooglePlacesAutocomplete,
+  GooglePlacePrediction,
+  getPredictionMainText,
+  getPredictionSecondaryText,
+} from "@/hooks/useGooglePlacesAutocomplete";
 
 interface EnhancedSearchProps {
   onSearch: (searchParams: SearchParams) => void;
@@ -45,12 +52,12 @@ interface EnhancedSearchProps {
 }
 
 interface SearchParams {
-  query: string;
-  location: string;
-  date: string;
-  sessionType: string;
-  specialty: string;
-  availability: string;
+  search?: string;
+  location?: string;
+  date?: string;
+  sessionType?: string;
+  specialty?: string;
+  availability?: string;
 }
 
 interface SearchSuggestion {
@@ -80,6 +87,17 @@ export function EnhancedSearch({
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const locationDropdownRef = useRef<HTMLDivElement>(null);
+  const locationDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const searchLocationDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const [locationSuggestions, setLocationSuggestions] = useState<GooglePlacePrediction[]>([]);
+  const [searchLocationSuggestions, setSearchLocationSuggestions] = useState<GooglePlacePrediction[]>([]);
+  const [showLocationDropdown, setShowLocationDropdown] = useState(false);
+  const [isFetchingLocations, setIsFetchingLocations] = useState(false);
+  const { isReady: isPlacesReady, getPredictions } = useGooglePlacesAutocomplete({
+    componentRestrictions: { country: "in" },
+    types: ["(cities)"],
+  });
   const { setFilterState, clearFilterState } = useTherapistSearch();
 
   // Mock data for search suggestions
@@ -173,6 +191,85 @@ export function EnhancedSearch({
     recognition.start();
   };
 
+  // Fetch location suggestions using Google Places
+  useEffect(() => {
+    if (!isPlacesReady) return;
+
+    if (locationDebounceRef.current) {
+      clearTimeout(locationDebounceRef.current);
+    }
+
+    if (!selectedLocation || selectedLocation.trim().length < 3) {
+      setLocationSuggestions([]);
+      setShowLocationDropdown(false);
+      return;
+    }
+
+    locationDebounceRef.current = setTimeout(() => {
+      setIsFetchingLocations(true);
+      getPredictions(selectedLocation)
+        .then((predictions) => {
+          setLocationSuggestions(predictions.slice(0, 6));
+          setShowLocationDropdown(predictions.length > 0);
+        })
+        .catch((error) => {
+          console.error("Failed to fetch location suggestions", error);
+          setLocationSuggestions([]);
+          setShowLocationDropdown(false);
+        })
+        .finally(() => setIsFetchingLocations(false));
+    }, 300);
+
+    return () => {
+      if (locationDebounceRef.current) {
+        clearTimeout(locationDebounceRef.current);
+      }
+    };
+  }, [selectedLocation, isPlacesReady]);
+
+  // Fetch Google location suggestions for the main search bar
+  useEffect(() => {
+    if (!isPlacesReady) return;
+
+    if (searchLocationDebounceRef.current) {
+      clearTimeout(searchLocationDebounceRef.current);
+    }
+
+    if (!showSuggestions || !searchQuery || searchQuery.trim().length < 3) {
+      setSearchLocationSuggestions([]);
+      return;
+    }
+
+    searchLocationDebounceRef.current = setTimeout(() => {
+      getPredictions(searchQuery)
+        .then((predictions) => {
+          setSearchLocationSuggestions(predictions.slice(0, 5));
+        })
+        .catch((error) => {
+          console.error("Failed to fetch search location suggestions", error);
+          setSearchLocationSuggestions([]);
+        });
+    }, 300);
+
+    return () => {
+      if (searchLocationDebounceRef.current) {
+        clearTimeout(searchLocationDebounceRef.current);
+      }
+    };
+  }, [searchQuery, showSuggestions, isPlacesReady]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (locationDropdownRef.current && !locationDropdownRef.current.contains(event.target as Node)) {
+        setShowLocationDropdown(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   // Handle search submission
   const handleSearch = () => {
     if (!searchQuery.trim()) return;
@@ -186,14 +283,13 @@ export function EnhancedSearch({
     setShowSuggestions(false);
 
     // Prepare search parameters
-    const searchParams: SearchParams = {
-      query: searchQuery,
-      location: selectedLocation,
-      date: selectedDate,
-      sessionType: selectedSessionType,
-      specialty: selectedSpecialty,
-      availability: selectedAvailability
-    };
+    const searchParams: SearchParams = {};
+    if (searchQuery) searchParams.search = searchQuery;
+    if (selectedLocation) searchParams.location = selectedLocation;
+    if (selectedDate) searchParams.date = selectedDate;
+    if (selectedSessionType) searchParams.sessionType = selectedSessionType;
+    if (selectedSpecialty) searchParams.specialty = selectedSpecialty;
+    if (selectedAvailability) searchParams.availability = selectedAvailability;
 
     // Update filter state for context
     const filters: any = {};
@@ -210,6 +306,21 @@ export function EnhancedSearch({
     if (setCurrentView) {
       setCurrentView("therapist-search");
     }
+  };
+
+  const handleLocationPredictionSelect = (prediction: GooglePlacePrediction) => {
+    setSelectedLocation(getPredictionMainText(prediction));
+    setLocationSuggestions([]);
+    setShowLocationDropdown(false);
+  };
+
+  const handleSearchLocationSelect = (prediction: GooglePlacePrediction) => {
+    const label = getPredictionMainText(prediction);
+    setSelectedLocation(label);
+    setSearchQuery(label);
+    setSearchLocationSuggestions([]);
+    setShowSuggestions(false);
+    setTimeout(handleSearch, 100);
   };
 
   // Handle suggestion click
@@ -344,28 +455,68 @@ export function EnhancedSearch({
               ? 'grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4'
               : 'grid grid-cols-1 md:grid-cols-4 gap-4'
           }>
-            <Select value={selectedLocation} onValueChange={setSelectedLocation}>
-              <SelectTrigger className={
-                variant === 'hero'
-                  ? 'bg-white/95 border-0 h-12'
-                  : variant === 'page'
-                    ? 'bg-white/90 h-12 rounded-xl border-gray-200/60'
-                    : 'h-10'
-              }>
-                <div className="flex items-center space-x-2">
-                  <MapPin className="w-4 h-4 text-gray-500" />
-                  <SelectValue placeholder="Location" />
-                </div>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="mumbai">Mumbai</SelectItem>
-                <SelectItem value="delhi">Delhi</SelectItem>
-                <SelectItem value="bangalore">Bangalore</SelectItem>
-                <SelectItem value="pune">Pune</SelectItem>
-                <SelectItem value="chennai">Chennai</SelectItem>
-                <SelectItem value="online">Online Sessions</SelectItem>
-              </SelectContent>
-            </Select>
+            <div ref={locationDropdownRef} className="relative">
+              <div className="relative">
+                <MapPin className="w-4 h-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                <Input
+                  value={selectedLocation}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setSelectedLocation(value);
+                    if (!value) {
+                      setLocationSuggestions([]);
+                      setShowLocationDropdown(false);
+                    }
+                  }}
+                  onFocus={() => {
+                    if (locationSuggestions.length > 0) {
+                      setShowLocationDropdown(true);
+                    }
+                  }}
+                  placeholder="Search city or area"
+                  autoComplete="off"
+                  className={
+                    variant === 'hero'
+                      ? 'pl-10 pr-10 bg-white/95 border-0 h-12 rounded-xl'
+                      : variant === 'page'
+                        ? 'pl-10 pr-10 bg-white/90 h-12 rounded-xl border-gray-200/60'
+                        : 'pl-8 pr-8 h-10'
+                  }
+                />
+                {isFetchingLocations && (
+                  <Loader2 className="w-4 h-4 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 animate-spin" />
+                )}
+              </div>
+
+              {showLocationDropdown && locationSuggestions.length > 0 && (
+                <Card className="absolute left-0 right-0 mt-2 z-40 shadow-xl border border-gray-200 rounded-xl overflow-hidden">
+                  <ScrollArea className="max-h-64">
+                    <div className="py-2">
+                      {locationSuggestions.map((prediction, index) => (
+                        <button
+                          key={prediction.place_id || prediction.description || `location-${index}`}
+                          type="button"
+                          onClick={() => handleLocationPredictionSelect(prediction)}
+                          className="w-full px-4 py-2 text-left hover:bg-gray-50 flex flex-col"
+                        >
+                          <span className="text-sm font-medium text-gray-900">
+                            {getPredictionMainText(prediction)}
+                          </span>
+                          {getPredictionSecondaryText(prediction) && (
+                            <span className="text-xs text-gray-500">
+                              {getPredictionSecondaryText(prediction)}
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                  <div className="text-[10px] uppercase tracking-wider text-gray-400 text-right pr-3 pb-2">
+                    Powered by Google
+                  </div>
+                </Card>
+              )}
+            </div>
 
             <Select value={selectedSpecialty} onValueChange={setSelectedSpecialty}>
               <SelectTrigger className={
@@ -537,6 +688,41 @@ export function EnhancedSearch({
               <ScrollArea className="max-h-96">
                 <div className="p-4 space-y-4">
                   {/* Filtered Suggestions */}
+                  {searchLocationSuggestions.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-900 mb-2 flex items-center">
+                        <MapPin className="w-4 h-4 mr-2" />
+                        Locations (Google)
+                      </h4>
+                      <div className="space-y-1">
+                        {searchLocationSuggestions.map((suggestion, index) => (
+                          <button
+                            key={suggestion.place_id || suggestion.description || `search-${index}`}
+                            onClick={() => handleSearchLocationSelect(suggestion)}
+                            className="w-full flex items-center space-x-3 p-2 hover:bg-gray-50 rounded-lg text-left"
+                          >
+                            <div className="text-gray-400">
+                              <MapPin className="w-4 h-4" />
+                            </div>
+                            <div className="flex-1">
+                              <div className="text-sm font-medium text-gray-900">
+                                {getPredictionMainText(suggestion)}
+                              </div>
+                              {getPredictionSecondaryText(suggestion) && (
+                                <div className="text-xs text-gray-500">
+                                  {getPredictionSecondaryText(suggestion)}
+                                </div>
+                              )}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-[10px] uppercase tracking-wider text-gray-400 text-right mt-1">
+                        Powered by Google
+                      </p>
+                    </div>
+                  )}
+
                   {filteredSuggestions.length > 0 && (
                     <div>
                       <h4 className="text-sm font-medium text-gray-900 mb-2">Suggestions</h4>

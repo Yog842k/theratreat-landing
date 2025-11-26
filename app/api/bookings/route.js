@@ -460,44 +460,9 @@ export async function POST(request) {
       });
     }
 
-    // Fire & forget immediate receipt notification (email/SMS) if configured
-    try {
-      const { notificationsEnabled, sendBookingReceipt, sendBookingConfirmation } = require('@/lib/notifications');
-      if (notificationsEnabled && notificationsEnabled()) {
-        queueMicrotask(async () => {
-          try {
-            const fullUser = await database.findOne('users', { _id: new ObjectId(user._id) });
-            const therapistDoc = therapistProfile || (therapistProfileId ? await database.findOne('therapists', { _id: therapistProfileId }) : null);
-            // Notify patient
-            await sendBookingReceipt({
-              bookingId: booking._id.toString(),
-              userEmail: fullUser?.email,
-              userName: fullUser?.name,
-              userPhone: fullUser?.phone,
-              therapistName: therapistDoc?.displayName || therapistUser?.name,
-              sessionType: booking.sessionType,
-              date: booking.appointmentDate?.toISOString?.(),
-              timeSlot: booking.appointmentTime,
-              meetingUrl: booking.meetingUrl || null,
-              roomCode: booking.roomCode || null
-            });
-            // Notify therapist
-            await sendBookingConfirmation({
-              bookingId: booking._id.toString(),
-              userEmail: therapistUser?.email,
-              userName: therapistUser?.name,
-              userPhone: therapistUser?.phone,
-              therapistName: therapistDoc?.displayName || therapistUser?.name,
-              sessionType: booking.sessionType,
-              date: booking.appointmentDate?.toISOString?.(),
-              timeSlot: booking.appointmentTime,
-              meetingUrl: booking.meetingUrl || null,
-              roomCode: booking.roomCode || null
-            });
-          } catch (e) { console.error('sendBookingReceipt/Confirmation failed', e); }
-        });
-      }
-    } catch (e) { /* ignore */ }
+    // Calendar sync removed - using email notifications only
+
+    // Email notifications removed - booking confirmation only via API response
 
     return ResponseUtils.success({
       bookingId: result.insertedId,
@@ -510,4 +475,58 @@ export async function POST(request) {
     // If this was thrown earlier intentionally we may still have a generic message
     return ResponseUtils.error('Failed to create booking', 500, msg);
   }
+}
+
+function buildAppointmentDateTime(date, timeString) {
+  const base = new Date(date);
+  if (Number.isNaN(base.getTime())) {
+    return new Date();
+  }
+
+  if (!timeString) {
+    return base;
+  }
+
+  const parts = timeString.trim().split(/\s+/);
+  const timePart = parts[0] || '09:00';
+  const meridiem = (parts[1] || '').toUpperCase();
+
+  const [hourStr, minuteStr = '0'] = timePart.split(':');
+  let hours = parseInt(hourStr, 10);
+  let minutes = parseInt(minuteStr, 10);
+
+  if (Number.isNaN(hours)) hours = 9;
+  if (Number.isNaN(minutes)) minutes = 0;
+
+  if (meridiem === 'PM' && hours < 12) hours += 12;
+  if (meridiem === 'AM' && hours === 12) hours = 0;
+
+  return new Date(
+    Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), base.getUTCDate(), hours, minutes)
+  );
+}
+
+function resolveSessionDurationMinutes(sessionType, profile) {
+  const defaultDurations = {
+    video: 60,
+    audio: 45,
+    clinic: 60,
+    home: 75,
+  };
+
+  if (profile?.sessionDurations?.length) {
+    const first = profile.sessionDurations.find(Boolean);
+    if (first) {
+      const match = first.match(/(\d+)\s*min/);
+      if (match) {
+        const minutes = parseInt(match[1], 10);
+        if (!Number.isNaN(minutes) && minutes > 0) {
+          return minutes;
+        }
+      }
+    }
+  }
+
+  const key = String(sessionType || '').toLowerCase();
+  return defaultDurations[key] || 60;
 }

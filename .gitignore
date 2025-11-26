@@ -177,3 +177,13 @@ app/api/**/*test*/**/*.js
 app/api/debug/**
 app/api/**/email-test/**
 app/api/**/network-test/**
+
+# TheraStore (exclude from main project)
+app/therastore/**
+app/**/therastore/**
+components/therastore/**
+lib/therastore/**
+
+# Additional test pages to ignore
+app/test-*/**
+app/**/test-*/**

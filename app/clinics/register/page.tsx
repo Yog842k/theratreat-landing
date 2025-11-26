@@ -6,8 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from 'sonner';
-import { Upload, CheckCircle2, Building2, MapPin, Phone, Mail, Calendar, Clock, Briefcase, Globe, Instagram, FileText, Shield, Sparkles, ArrowRight, Check, AlertCircle, Heart, Award, Users, Zap, TrendingUp, Bot, Star, Network } from "lucide-react";
+import { Upload, CheckCircle2, Building2, MapPin, Phone, Mail, Calendar, Clock, Briefcase, Globe, Instagram, FileText, Shield, Sparkles, ArrowRight, Check, AlertCircle, Heart, Award, Users, Zap, TrendingUp, Bot, Star, Network, Loader2 } from "lucide-react";
 import { PRIMARY_FILTERS, CATEGORY_FILTERS, THERAPY_TYPES, getAllConditions } from "@/constants/therabook-filters";
+import {
+  useGooglePlacesAutocomplete,
+  getPredictionMainText,
+  getPredictionSecondaryText,
+  GooglePlacePrediction,
+} from "@/hooks/useGooglePlacesAutocomplete";
 
 
 interface ClinicFormData {
@@ -137,6 +143,16 @@ export default function ClinicRegistration() {
     password: "",
     confirmPassword: ""
   });
+
+  const {
+    isReady: isPlacesReady,
+    getPredictions: getAddressPredictions,
+  } = useGooglePlacesAutocomplete({ componentRestrictions: { country: "in" } });
+  const clinicAddressDropdownRef = useRef<HTMLDivElement>(null);
+  const clinicAddressDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const [clinicAddressSuggestions, setClinicAddressSuggestions] = useState<GooglePlacePrediction[]>([]);
+  const [showClinicAddressDropdown, setShowClinicAddressDropdown] = useState(false);
+  const [isClinicAddressFetching, setIsClinicAddressFetching] = useState(false);
 
   // Memo and functions for OTP
   const canSendOtp = useMemo(() => {
@@ -287,8 +303,60 @@ export default function ClinicRegistration() {
     setIsVisible(true);
   }, []);
 
+  useEffect(() => {
+    if (!isPlacesReady) return;
+
+    if (clinicAddressDebounceRef.current) {
+      clearTimeout(clinicAddressDebounceRef.current);
+    }
+
+    const inputValue = formData.address;
+    if (!inputValue || inputValue.trim().length < 3) {
+      setClinicAddressSuggestions([]);
+      setShowClinicAddressDropdown(false);
+      return;
+    }
+
+    clinicAddressDebounceRef.current = setTimeout(() => {
+      setIsClinicAddressFetching(true);
+      getAddressPredictions(inputValue, { types: ["address"] })
+        .then((predictions) => {
+          setClinicAddressSuggestions(predictions.slice(0, 6));
+          setShowClinicAddressDropdown(predictions.length > 0);
+        })
+        .catch(() => {
+          setClinicAddressSuggestions([]);
+          setShowClinicAddressDropdown(false);
+        })
+        .finally(() => setIsClinicAddressFetching(false));
+    }, 300);
+
+    return () => {
+      if (clinicAddressDebounceRef.current) {
+        clearTimeout(clinicAddressDebounceRef.current);
+      }
+    };
+  }, [formData.address, isPlacesReady, getAddressPredictions]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (clinicAddressDropdownRef.current && !clinicAddressDropdownRef.current.contains(event.target as Node)) {
+        setShowClinicAddressDropdown(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   const handleInputChange = (field: keyof ClinicFormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleClinicAddressSelect = (prediction: GooglePlacePrediction) => {
+    handleInputChange("address", getPredictionMainText(prediction));
+    setClinicAddressSuggestions([]);
+    setShowClinicAddressDropdown(false);
   };
 
   const handleArrayToggle = (field: keyof ClinicFormData, value: string) => {
@@ -666,7 +734,45 @@ export default function ClinicRegistration() {
                   </div>
                   <div>
                     <Label className="text-slate-700 font-semibold mb-2 flex items-center gap-2">Clinic Address*</Label>
-                    <textarea value={formData.address} onChange={e=>handleInputChange('address',e.target.value)} placeholder="Street, Area, Landmark" className="w-full h-20 border-2 border-blue-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 rounded-xl p-3" required />
+                    <div ref={clinicAddressDropdownRef} className="relative">
+                      <textarea
+                        value={formData.address}
+                        onChange={e=>handleInputChange('address',e.target.value)}
+                        onFocus={() => clinicAddressSuggestions.length > 0 && setShowClinicAddressDropdown(true)}
+                        placeholder="Street, Area, Landmark"
+                        className="w-full h-20 border-2 border-blue-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 rounded-xl p-3 pr-10"
+                        required
+                      />
+                      {isClinicAddressFetching && (
+                        <Loader2 className="w-4 h-4 text-blue-400 absolute top-3 right-3 animate-spin" />
+                      )}
+                      {showClinicAddressDropdown && clinicAddressSuggestions.length > 0 && (
+                        <Card className="absolute left-0 right-0 mt-2 z-50 border border-blue-100 shadow-xl">
+                          <div className="max-h-60 overflow-y-auto py-2">
+                            {clinicAddressSuggestions.map((prediction, index) => (
+                              <button
+                                key={prediction.place_id || prediction.description || `clinic-address-${index}`}
+                                type="button"
+                                onClick={() => handleClinicAddressSelect(prediction)}
+                                className="w-full text-left px-4 py-2 hover:bg-blue-50"
+                              >
+                                <div className="text-sm font-medium text-blue-900">
+                                  {getPredictionMainText(prediction)}
+                                </div>
+                                {getPredictionSecondaryText(prediction) && (
+                                  <div className="text-xs text-slate-500">
+                                    {getPredictionSecondaryText(prediction)}
+                                  </div>
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                          <div className="text-[10px] uppercase tracking-wider text-slate-400 text-right pr-3 pb-2">
+                            Powered by Google
+                          </div>
+                        </Card>
+                      )}
+                    </div>
                   </div>
                   <div className="grid md:grid-cols-3 gap-4">
                     <div>
@@ -739,7 +845,7 @@ export default function ClinicRegistration() {
                       />
                     </div>
                   </div>
-                  <Label className="text-slate-700 font-semibold mb-2 block">Full Name*</Label>
+                  <Label className="text-slate-700 font-semibold mb-2 block">Full Name (As per Pan Card)*</Label>
                   <Input value={formData.ownerName||''} onChange={e=>handleInputChange('ownerName',e.target.value)} placeholder="Owner/Coordinator Name" required className="h-12 border-2 border-blue-200 rounded-xl" />
                   <Label className="text-slate-700 font-semibold mb-2 block">Designation*</Label>
                   <div className="flex flex-wrap gap-3 mb-2">

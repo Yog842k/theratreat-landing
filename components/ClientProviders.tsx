@@ -2,6 +2,7 @@
 
 import { ReactNode, useEffect } from 'react';
 import { TherapistSearchProvider } from './TherapistSearchContext';
+import { Toaster } from '@/components/ui/sonner';
 
 interface ClientProvidersProps {
   children: ReactNode;
@@ -32,5 +33,10 @@ export function ClientProviders({ children }: ClientProvidersProps) {
       }
     })();
   }, []);
-  return <TherapistSearchProvider>{children}</TherapistSearchProvider>;
+  return (
+    <TherapistSearchProvider>
+      {children}
+      <Toaster />
+    </TherapistSearchProvider>
+  );
 }

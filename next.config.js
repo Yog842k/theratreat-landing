@@ -6,7 +6,23 @@ const nextConfig = {
   // Help Next pick the correct workspace root in environments with multiple lockfiles
   outputFileTracingRoot: __dirname,
   images: {
-    domains: ['localhost'],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'via.placeholder.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'http',
+        hostname: 'localhost',
+        pathname: '/**',
+      },
+    ],
   },
   eslint: {
     // Allow build to succeed even if there are lint warnings/errors (temporarily)

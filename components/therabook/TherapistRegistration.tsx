@@ -22,6 +22,12 @@ import {
   MessageCircle, Loader2, Sparkles, CheckCircle2, Search
 } from "lucide-react";
 import { PRIMARY_FILTERS, CATEGORY_FILTERS, THERAPY_TYPES, getAllConditions } from "@/constants/therabook-filters";
+import {
+  useGooglePlacesAutocomplete,
+  getPredictionMainText,
+  getPredictionSecondaryText,
+  GooglePlacePrediction,
+} from "@/hooks/useGooglePlacesAutocomplete";
 
 interface TherapistRegistrationProps {
   setCurrentView: (view: any) => void;
@@ -207,6 +213,16 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
     }
   });
 
+  const {
+    isReady: isPlacesReady,
+    getPredictions: getAddressPredictions,
+  } = useGooglePlacesAutocomplete({ componentRestrictions: { country: "in" } });
+  const residentialDropdownRef = useRef<HTMLDivElement>(null);
+  const residentialDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const [residentialSuggestions, setResidentialSuggestions] = useState<GooglePlacePrediction[]>([]);
+  const [showResidentialDropdown, setShowResidentialDropdown] = useState(false);
+  const [isResidentialFetching, setIsResidentialFetching] = useState(false);
+
   const totalSteps = 8;
   const progress = (currentStep / totalSteps) * 100;
 
@@ -276,6 +292,12 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
     });
   };
 
+  const handleResidentialAddressSelect = (prediction: GooglePlacePrediction) => {
+    handleInputChange("residentialAddress", getPredictionMainText(prediction));
+    setResidentialSuggestions([]);
+    setShowResidentialDropdown(false);
+  };
+
   const uploadToCloud = async (file: File, cb: (url:string)=>void, kind?: keyof typeof uploadProgress) => {
     try {
       const isPdf = file.type === 'application/pdf';
@@ -320,6 +342,52 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
     const t = setInterval(() => setResendSeconds((s) => (s > 0 ? s - 1 : 0)), 1000);
     return () => clearInterval(t);
   }, [resendSeconds]);
+
+  useEffect(() => {
+    if (!isPlacesReady) return;
+
+    if (residentialDebounceRef.current) {
+      clearTimeout(residentialDebounceRef.current);
+    }
+
+    const inputValue = formData.residentialAddress;
+    if (!inputValue || inputValue.trim().length < 3) {
+      setResidentialSuggestions([]);
+      setShowResidentialDropdown(false);
+      return;
+    }
+
+    residentialDebounceRef.current = setTimeout(() => {
+      setIsResidentialFetching(true);
+      getAddressPredictions(inputValue, { types: ["address"] })
+        .then((predictions) => {
+          setResidentialSuggestions(predictions.slice(0, 6));
+          setShowResidentialDropdown(predictions.length > 0);
+        })
+        .catch(() => {
+          setResidentialSuggestions([]);
+          setShowResidentialDropdown(false);
+        })
+        .finally(() => setIsResidentialFetching(false));
+    }, 300);
+
+    return () => {
+      if (residentialDebounceRef.current) {
+        clearTimeout(residentialDebounceRef.current);
+      }
+    };
+  }, [formData.residentialAddress, isPlacesReady, getAddressPredictions]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (residentialDropdownRef.current && !residentialDropdownRef.current.contains(event.target as Node)) {
+        setShowResidentialDropdown(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // Normalize phone number for OTP
   const normalizePhoneForOtp = (phone: string): string => {
@@ -625,7 +693,7 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
               <div className="space-y-2">
                 <Label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                   <User className="w-4 h-4 text-blue-600" />
-                  Full Name *
+                  Full Name (As per Pan Card) *
                 </Label>
                 <Input
                   value={formData.fullName}
@@ -965,13 +1033,45 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
 
             <div className="space-y-2">
               <Label className="text-sm font-semibold text-slate-700">Residential Address *</Label>
-              <Textarea
-                value={formData.residentialAddress}
-                onChange={(e) => handleInputChange("residentialAddress", e.target.value)}
-                placeholder="Enter complete address"
-                rows={3}
-                className="border-2 border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all rounded-xl"
-              />
+              <div ref={residentialDropdownRef} className="relative">
+                <Textarea
+                  value={formData.residentialAddress}
+                  onChange={(e) => handleInputChange("residentialAddress", e.target.value)}
+                  onFocus={() => residentialSuggestions.length > 0 && setShowResidentialDropdown(true)}
+                  placeholder="Enter complete address"
+                  rows={3}
+                  className="border-2 border-slate-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 transition-all rounded-xl pr-10"
+                />
+                {isResidentialFetching && (
+                  <Loader2 className="w-4 h-4 text-slate-400 absolute top-3 right-3 animate-spin" />
+                )}
+                {showResidentialDropdown && residentialSuggestions.length > 0 && (
+                  <Card className="absolute left-0 right-0 mt-2 z-50 border border-slate-200 shadow-xl">
+                    <div className="max-h-60 overflow-y-auto py-2">
+                      {residentialSuggestions.map((prediction, index) => (
+                        <button
+                          key={prediction.place_id || prediction.description || `res-address-${index}`}
+                          type="button"
+                          onClick={() => handleResidentialAddressSelect(prediction)}
+                          className="w-full text-left px-4 py-2 hover:bg-slate-50"
+                        >
+                          <div className="text-sm font-medium text-slate-900">
+                            {getPredictionMainText(prediction)}
+                          </div>
+                          {getPredictionSecondaryText(prediction) && (
+                            <div className="text-xs text-slate-500">
+                              {getPredictionSecondaryText(prediction)}
+                            </div>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="text-[10px] uppercase tracking-wider text-slate-400 text-right pr-3 pb-2">
+                      Powered by Google
+                    </div>
+                  </Card>
+                )}
+              </div>
             </div>
 
             {/* GST Registration Section - OUTSIDE the grid, always visible in step 1 */}

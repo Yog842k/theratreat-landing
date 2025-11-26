@@ -531,16 +531,26 @@ export default function PatientOnboarding() {
       const loginRes = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: data.emailId, password: data.password })
+        body: JSON.stringify({ email: data.emailId.toLowerCase(), password: data.password })
       });
       const loginResult = await loginRes.json();
-      if (!loginRes.ok || !loginResult?.token) {
+      
+      // Login API returns { success: true, data: { token, user }, message }
+      const token = loginResult?.data?.token || loginResult?.token;
+      
+      if (!loginRes.ok || !token) {
+        console.error('[PatientRegistration] Login failed:', {
+          status: loginRes.status,
+          response: loginResult,
+          email: data.emailId
+        });
         setLoading(false);
+        setError(loginResult?.message || 'Registration succeeded but login failed. Please sign in manually.');
         alert('Registration succeeded but login failed. Please sign in manually.');
         return;
       }
       // Store token (localStorage for demo, replace with cookie if needed)
-      localStorage.setItem('authToken', loginResult.token);
+      localStorage.setItem('authToken', token);
       setLoading(false);
       // Show toast and redirect
       if (typeof window !== 'undefined') {
