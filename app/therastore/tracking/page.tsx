@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
 import Link from 'next/link';
 import { 
   Package, 
@@ -42,9 +43,9 @@ interface Order {
   estimatedDelivery?: string;
 }
 
-export default function TrackingPage() {
+function TrackingPageInner() {
   const searchParams = useSearchParams();
-  const orderId = searchParams.get('id');
+  const orderId = searchParams?.get('id') || null;
   const [order, setOrder] = useState<Order | null>(null);
   const [trackingId, setTrackingId] = useState('');
   const [loading, setLoading] = useState(false);
@@ -290,6 +291,14 @@ export default function TrackingPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function TrackingPage() {
+  return (
+    <Suspense fallback={null}>
+      <TrackingPageInner />
+    </Suspense>
   );
 }
 

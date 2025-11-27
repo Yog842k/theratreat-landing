@@ -112,7 +112,7 @@ export function TheraStoreHeader() {
           <nav className="hidden lg:flex items-center gap-1">
             {navLinks.map((link) => {
               const Icon = link.icon;
-              const isActive = pathname === link.href || (link.href !== '/therastore' && pathname.startsWith(link.href));
+              const isActive = pathname === link.href || (link.href !== '/therastore' && (pathname?.startsWith(link.href) || false));
               return (
                 <Link
                   key={link.href}
@@ -254,7 +254,7 @@ export function TheraStoreHeader() {
             <div className="space-y-2">
               {navLinks.map((link) => {
                 const Icon = link.icon;
-                const isActive = pathname === link.href || (link.href !== '/therastore' && pathname.startsWith(link.href));
+                const isActive = pathname === link.href || (link.href !== '/therastore' && (pathname?.startsWith(link.href) || false));
                 return (
                   <Link
                     key={link.href}
@@ -308,7 +308,7 @@ export function TheraStoreHeader() {
                 </Link>
                 {accountLinks.map((link) => {
                   const Icon = link.icon;
-                  const isActive = pathname === link.href || pathname.startsWith(link.href);
+                  const isActive = pathname === link.href || (pathname?.startsWith(link.href) || false);
                   return (
                     <Link
                       key={link.href}

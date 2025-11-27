@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
 
     // Connect to database
     await database.connect();
-    const vendorsCollection = database.db.collection('therastore_vendors');
+    const vendorsCollection = await database.getCollection('therastore_vendors');
 
     // Check if vendor already exists with same email or GSTIN
     const existingVendor = await vendorsCollection.findOne({

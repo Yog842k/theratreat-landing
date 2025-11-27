@@ -59,14 +59,19 @@ export async function GET(request: NextRequest) {
     }
 
     const collection = await database.getCollection('products');
-    const products = await collection
-      .find(filter)
-      .sort(sort)
-      .skip(skip)
-      .limit(limit)
-      .toArray();
+    // Use an aggregation pipeline to support our collection shim
+    const pipeline: any[] = [
+      { $match: filter },
+      { $sort: sort },
+      { $skip: skip },
+      { $limit: limit },
+    ];
+    const products = await collection.aggregate(pipeline).toArray();
 
-    const total = await collection.countDocuments(filter);
+    const totalAgg = await collection
+      .aggregate([{ $match: filter }, { $count: 'count' }])
+      .toArray();
+    const total = totalAgg.length ? totalAgg[0].count : 0;
 
     return NextResponse.json({
       success: true,

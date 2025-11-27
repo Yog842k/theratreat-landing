@@ -37,12 +37,12 @@ export default function OrderDetailPage() {
 
   useEffect(() => {
     const orders = JSON.parse(localStorage.getItem('therastore_orders') || '[]');
-    const orderId = parseInt(params.id as string);
+    const orderId = params?.id ? parseInt(String(params.id)) : NaN;
     if (orders[orderId]) {
       setOrder(orders[orderId]);
     }
     setLoading(false);
-  }, [params.id]);
+  }, [params?.id]);
 
   const getStatusIcon = (status: string) => {
     switch (status) {
@@ -125,7 +125,7 @@ export default function OrderDetailPage() {
               <div className="flex items-center space-x-4">
                 {getStatusIcon(order.status)}
                 <div>
-                  <h2 className="text-xl font-semibold">Order #{parseInt(params.id as string) + 1}</h2>
+                  <h2 className="text-xl font-semibold">Order #{params?.id ? parseInt(String(params.id)) + 1 : ''}</h2>
                   <p className="text-muted-foreground">
                     Placed on {new Date(order.orderDate).toLocaleDateString('en-US', {
                       year: 'numeric',

@@ -51,14 +51,14 @@ export default function ProductDetailPage() {
   const [isInWishlist, setIsInWishlist] = useState(false);
 
   useEffect(() => {
-    if (params.id) {
+    if (params?.id) {
       fetchProduct();
     }
-  }, [params.id]);
+  }, [params?.id]);
 
   const fetchProduct = async () => {
     try {
-      const res = await fetch(`/api/therastore/products/${params.id}`);
+      const res = await fetch(`/api/therastore/products/${String(params?.id)}`);
       const data = await res.json();
       if (data.success) {
         setProduct(data.data);

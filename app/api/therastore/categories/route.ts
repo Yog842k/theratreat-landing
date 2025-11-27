@@ -6,20 +6,15 @@ export async function GET() {
   try {
     await database.connect();
     const collection = await database.getCollection('products');
-    
-    // Get distinct categories
-    const categories = await collection.distinct('category', { isActive: true });
-    
-    // Get category counts
-    const categoryData = await Promise.all(
-      categories.map(async (category) => {
-        const count = await collection.countDocuments({ 
-          category, 
-          isActive: true 
-        });
-        return { name: category, count };
-      })
-    );
+
+    // Use aggregation to compute distinct categories with counts
+    const pipeline = [
+      { $match: { isActive: true, category: { $exists: true, $ne: '' } } },
+      { $group: { _id: '$category', count: { $sum: 1 } } },
+      { $project: { _id: 0, name: '$_id', count: 1 } },
+      { $sort: { name: 1 } }
+    ];
+    const categoryData = await collection.aggregate(pipeline).toArray();
 
     return NextResponse.json({
       success: true,

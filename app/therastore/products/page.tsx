@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { 
   Search, 
@@ -150,7 +150,7 @@ const mockCategories = [
   { name: 'Rehabilitation', count: 41 }
 ];
 
-export default function ProductsPage() {
+function ProductsPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [products, setProducts] = useState(mockProducts);
@@ -249,6 +249,7 @@ export default function ProductsPage() {
   };
 
   return (
+    <Suspense fallback={null}>
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-50">
       {/* Hero Header */}
       <div className="relative bg-gradient-to-br from-emerald-600 via-emerald-700 to-teal-800 text-white overflow-hidden">
@@ -517,6 +518,15 @@ export default function ProductsPage() {
         )}
       </div>
     </div>
+    </Suspense>
+  );
+}
+
+export default function ProductsPage() {
+  return (
+    <Suspense fallback={null}>
+      <ProductsPageInner />
+    </Suspense>
   );
 }
 

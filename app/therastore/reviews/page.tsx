@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
 import Link from 'next/link';
 import { 
   Star,
@@ -27,9 +28,9 @@ interface Review {
   images?: string[];
 }
 
-export default function ReviewsPage() {
+function ReviewsPageInner() {
   const searchParams = useSearchParams();
-  const productId = searchParams.get('product');
+  const productId = searchParams?.get('product') || null;
   const [reviews, setReviews] = useState<Review[]>([]);
   const [filter, setFilter] = useState<'all' | '5' | '4' | '3' | '2' | '1'>('all');
   const [sortBy, setSortBy] = useState<'recent' | 'helpful' | 'rating'>('recent');
@@ -279,6 +280,14 @@ export default function ReviewsPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function ReviewsPage() {
+  return (
+    <Suspense fallback={null}>
+      <ReviewsPageInner />
+    </Suspense>
   );
 }
 
