@@ -845,8 +845,8 @@ export default function ClinicRegistration() {
                       />
                     </div>
                   </div>
-                  <Label className="text-slate-700 font-semibold mb-2 block">Full Name (As per Pan Card)*</Label>
-                  <Input value={formData.ownerName||''} onChange={e=>handleInputChange('ownerName',e.target.value)} placeholder="Owner/Coordinator Name" required className="h-12 border-2 border-blue-200 rounded-xl" />
+                  <Label className="text-slate-700 font-semibold mb-2 block">Name as per PAN card*</Label>
+                  <Input value={formData.ownerName||''} onChange={e=>handleInputChange('ownerName',e.target.value)} placeholder="Name as per PAN card" required className="h-12 border-2 border-blue-200 rounded-xl" />
                   <Label className="text-slate-700 font-semibold mb-2 block">Designation*</Label>
                   <div className="flex flex-wrap gap-3 mb-2">
                     {['Owner','Coordinator','Admin'].map(role => (

@@ -96,8 +96,8 @@ export function PatientRegistration({ onSuccess, setCurrentView }: Props) {
             )}
             <div className="grid md:grid-cols-2 gap-6">
               <div className="space-y-2">
-                <Label htmlFor="fullName">Full Name *</Label>
-                <Input id="fullName" value={fullName} onChange={e=>setFullName(e.target.value)} placeholder="Your full name" />
+                <Label htmlFor="fullName">Name as per PAN card *</Label>
+                <Input id="fullName" value={fullName} onChange={e=>setFullName(e.target.value)} placeholder="Name as per PAN card" />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="email">Email *</Label>

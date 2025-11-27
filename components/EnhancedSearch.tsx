@@ -476,9 +476,9 @@ export function EnhancedSearch({
                   placeholder="Search city or area"
                   autoComplete="off"
                   className={
-                    variant === 'hero'
+                variant === 'hero'
                       ? 'pl-10 pr-10 bg-white/95 border-0 h-12 rounded-xl'
-                      : variant === 'page'
+                  : variant === 'page'
                         ? 'pl-10 pr-10 bg-white/90 h-12 rounded-xl border-gray-200/60'
                         : 'pl-8 pr-8 h-10'
                   }
@@ -516,7 +516,7 @@ export function EnhancedSearch({
                   </div>
                 </Card>
               )}
-            </div>
+                </div>
 
             <Select value={selectedSpecialty} onValueChange={setSelectedSpecialty}>
               <SelectTrigger className={
