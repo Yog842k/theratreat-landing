@@ -102,10 +102,15 @@ export async function sendBookingConfirmation(payload: BookingNotificationPayloa
   let emailSent = false; let emailMessageId: string | undefined;
   if (emailAllowed) {
     try {
-      // Lazy load sendgrid
+      // Lazy load sendgrid (guarded so builds don't fail if dependency missing)
       // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const sgMail = require('@sendgrid/mail');
-      if (!sgMail.setApiKey) throw new Error('SendGrid module invalid');
+      let sgMail: any;
+      try {
+        sgMail = require('@sendgrid/mail');
+      } catch (err) {
+        sgMail = null;
+      }
+      if (!sgMail || !sgMail.setApiKey) throw new Error('SendGrid not available');
       sgMail.setApiKey(process.env.SENDGRID_API_KEY);
       const res = await sgMail.send({
         to: payload.userEmail!,
@@ -128,13 +133,6 @@ export async function sendBookingConfirmation(payload: BookingNotificationPayloa
         detail += ` | ${msgs.join('; ')}`;
       }
       if (status) detail = `${detail} (status ${status})`;
-      /* Common 403 Causes:
-         - Unverified FROM email or domain
-         - Free plan single sender not validated
-         - API key missing "Mail Send" permission scope
-         - Using wrong data center / restricted IP
-         - Account temporarily disabled
-      */
       errors.push('EMAIL:' + detail);
       console.error('[notifications] email error', { detail, raw: e });
     }
@@ -251,7 +249,13 @@ export async function sendBookingReceipt(payload: BookingNotificationPayload): P
   if (emailAllowed) {
     try {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const sgMail = require('@sendgrid/mail');
+      let sgMail: any;
+      try {
+        sgMail = require('@sendgrid/mail');
+      } catch (err) {
+        sgMail = null;
+      }
+      if (!sgMail || !sgMail.setApiKey) throw new Error('SendGrid not available');
       sgMail.setApiKey(process.env.SENDGRID_API_KEY);
       const res = await sgMail.send({ to: payload.userEmail!, from: process.env.SENDGRID_FROM_EMAIL, subject, text: textBody, html: htmlBody });
       emailSent = true; emailMessageId = res?.[0]?.headers?.['x-message-id'] || res?.[0]?.body?.message_id;
@@ -352,7 +356,13 @@ export async function sendBookingReminder(payload: BookingNotificationPayload): 
   if (emailAllowed) {
     try {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const sgMail = require('@sendgrid/mail');
+      let sgMail: any;
+      try {
+        sgMail = require('@sendgrid/mail');
+      } catch (err) {
+        sgMail = null;
+      }
+      if (!sgMail || !sgMail.setApiKey) throw new Error('SendGrid not available');
       sgMail.setApiKey(process.env.SENDGRID_API_KEY);
       const res = await sgMail.send({
         to: payload.userEmail!,

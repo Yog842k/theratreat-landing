@@ -5,20 +5,21 @@ import { ObjectId } from 'mongodb';
 // GET /api/therastore/products/[id] - Get single product
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: any
 ) {
   try {
     await database.connect();
     const collection = await database.getCollection('products');
     
-    if (!ObjectId.isValid(params.id)) {
+    const id = context?.params?.id;
+    if (!ObjectId.isValid(id)) {
       return NextResponse.json(
         { success: false, error: 'Invalid product ID' },
         { status: 400 }
       );
     }
 
-    const product = await collection.findOne({ _id: new ObjectId(params.id) });
+    const product = await collection.findOne({ _id: new ObjectId(id) });
 
     if (!product) {
       return NextResponse.json(
@@ -43,13 +44,14 @@ export async function GET(
 // PUT /api/therastore/products/[id] - Update product
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: any
 ) {
   try {
     await database.connect();
     const body = await request.json();
 
-    if (!ObjectId.isValid(params.id)) {
+    const id = context?.params?.id;
+    if (!ObjectId.isValid(id)) {
       return NextResponse.json(
         { success: false, error: 'Invalid product ID' },
         { status: 400 }
@@ -84,7 +86,7 @@ export async function PUT(
 
     const collection = await database.getCollection('products');
     const result = await collection.updateOne(
-      { _id: new ObjectId(params.id) },
+      { _id: new ObjectId(id) },
       { $set: updateData }
     );
 
@@ -95,7 +97,7 @@ export async function PUT(
       );
     }
 
-    const updatedProduct = await collection.findOne({ _id: new ObjectId(params.id) });
+    const updatedProduct = await collection.findOne({ _id: new ObjectId(id) });
 
     return NextResponse.json({
       success: true,
@@ -113,12 +115,13 @@ export async function PUT(
 // DELETE /api/therastore/products/[id] - Delete product
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: any
 ) {
   try {
     await database.connect();
 
-    if (!ObjectId.isValid(params.id)) {
+    const id = context?.params?.id;
+    if (!ObjectId.isValid(id)) {
       return NextResponse.json(
         { success: false, error: 'Invalid product ID' },
         { status: 400 }
@@ -126,7 +129,7 @@ export async function DELETE(
     }
 
     const collection = await database.getCollection('products');
-    const result = await collection.deleteOne({ _id: new ObjectId(params.id) });
+    const result = await collection.deleteOne({ _id: new ObjectId(id) });
 
     if (result.deletedCount === 0) {
       return NextResponse.json(

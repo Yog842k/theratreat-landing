@@ -35,6 +35,29 @@ When introducing a new provider:
 - Document required values and scopes.
 - Avoid inline literals; reference `process.env.X` only.
 
+#### SendGrid (Email)
+- `SENDGRID_API_KEY`: API key with Mail Send permissions.
+- `SENDGRID_FROM_EMAIL`: Verified sender email or domain.
+
+Notes:
+- Verify the sender in SendGrid or use a verified domain; otherwise emails may fail with 403.
+- Keep keys out of client-side code; only server-side envs should include them.
+
+#### Twilio (SMS/WhatsApp)
+- `TWILIO_ACCOUNT_SID`
+- `TWILIO_AUTH_TOKEN`
+- `TWILIO_SMS_FROM`: E.164 number (e.g. `+15551234567`).
+- `TWILIO_WHATSAPP_FROM`: WhatsApp sender (e.g. `+15551234567`).
+
+#### General
+- `NEXT_PUBLIC_BASE_URL`: Public base URL used in links.
+
+Environment files:
+- `.env.local` for local development
+- `.env.production` for production builds
+
+Ensure CI/CD (Amplify) has these configured in its environment variables settings.
+
 ### Incident Response Quick Checklist
 1. Identify leaked value(s) and scope of exposure (which repos/commits).
 2. Rotate at provider dashboard; revoke or delete old keys.

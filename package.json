@@ -99,7 +99,8 @@
     "twilio": "^5.10.2",
     "vaul": "^0.9.9",
     "winston": "^3.17.0",
-    "zod": "^4.0.17"
+    "zod": "^4.0.17",
+    "@sendgrid/mail": "^8.1.6"
   },
   "devDependencies": {
     "@types/node": "^20.14.12",
