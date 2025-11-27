@@ -181,6 +181,7 @@ app/api/**/network-test/**
 # TheraStore (exclude from main project)
 app/therastore/**
 app/**/therastore/**
+app/api/therastore/**
 components/therastore/**
 lib/therastore/**
 
