@@ -693,7 +693,7 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
               <div className="space-y-2">
                 <Label className="text-sm font-semibold text-slate-700 flex items-center gap-2">
                   <User className="w-4 h-4 text-blue-600" />
-                  Full Name *
+                  Full Name (As per PAN card) *
                 </Label>
                 <Input
                   value={formData.fullName}
