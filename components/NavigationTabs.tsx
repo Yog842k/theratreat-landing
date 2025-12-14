@@ -136,7 +136,7 @@ export function NavigationTabs({ currentView, setCurrentView }: NavigationTabsPr
     <div className="bg-white border-b border-gray-100 shadow-sm flex justify-center items-center">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-4 w-full">
         {/* Desktop: Flex wrap layout */}
-        <div className="hidden sm:flex flex-wrap gap-2">
+        <div className="hidden sm:flex flex-wrap gap-3">
           {navigationTabs.map((tab) => {
             const IconComponent = tab.icon;
             return (
@@ -145,14 +145,14 @@ export function NavigationTabs({ currentView, setCurrentView }: NavigationTabsPr
                 variant={activeTab === tab.key ? "default" : "ghost"}
                 size="sm"
                 onClick={() => handleTabClick(tab)}
-                className={`flex items-center space-x-2 font-medium px-4 py-2 rounded-xl transition-all duration-300 ${
+                className={`flex items-center space-x-1.5 font-medium px-2 py-1 rounded-xl text-[12px] transition-all duration-300 ${
                   activeTab === tab.key 
                     ? "bg-blue-500 text-white shadow-md hover:bg-blue-600" 
                     : "text-gray-600 hover:bg-blue-50 hover:text-blue-600"
                 }`}
               >
-                <IconComponent className="w-4 h-4" />
-                <span>{tab.label}</span>
+                <IconComponent className="w-3.5 h-3.5" />
+                <span className="truncate max-w-[100px]">{tab.label}</span>
               </Button>
             );
           })}
@@ -175,7 +175,7 @@ export function NavigationTabs({ currentView, setCurrentView }: NavigationTabsPr
             className="overflow-x-auto scrollbar-hide scroll-smooth snap-x snap-mandatory no-scrollbar"
             style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
           >
-            <div className="flex gap-2 pb-1.5 px-2 min-w-max">
+            <div className="flex gap-2 pb-1 px-2 min-w-max">
               {navigationTabs.map((tab) => {
                 const IconComponent = tab.icon;
                 const shortLabel = COMPACT_LABEL_MAP[tab.label] || tab.label;
@@ -190,10 +190,10 @@ export function NavigationTabs({ currentView, setCurrentView }: NavigationTabsPr
                       activeTab === tab.key 
                         ? "bg-blue-500 border-blue-500 text-white shadow-sm hover:bg-blue-600" 
                         : "bg-white border-gray-200 text-gray-600 hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300"
-                    } ${compact ? 'px-3 py-2 text-[12px]' : 'px-4 py-2.5 text-sm'}`}
+                    } ${compact ? 'px-2 py-1 text-[11px]' : 'px-2.5 py-1.5 text-[12px]'}`}
                   >
-                    <IconComponent className="w-4 h-4 shrink-0" />
-                    <span className="font-medium leading-none">{compact ? shortLabel : tab.label}</span>
+                    <IconComponent className="w-3.5 h-3.5 shrink-0" />
+                    <span className="font-medium leading-none truncate max-w-[90px]">{compact ? shortLabel : tab.label}</span>
                   </Button>
                 );
               })}

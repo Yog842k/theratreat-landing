@@ -6,10 +6,10 @@ export default function TheraStoreLayout({
   children: React.ReactNode;
 }) {
   return (
-    <>
+    <div style={{ fontFamily: 'Helvetica, Arial, sans-serif' }}>
       <TheraStoreHeader />
       <main>{children}</main>
-    </>
+    </div>
   );
 }
 

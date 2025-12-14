@@ -1,5 +1,8 @@
 'use client';
 
+// NOTE: Removed stray redirect + second default export.
+// This page now properly renders the products listing without runtime import ordering issues.
+
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { 
@@ -19,142 +22,18 @@ import {
   Heart,
   ArrowUpDown
 } from 'lucide-react';
+import { therastoreCategories, therastoreFilters, therastoreSortOptions } from '@/constants/app-data';
 
-// Mock data for demo
-const mockProducts = [
-  {
-    _id: '1',
-    name: 'Professional Massage Table with Adjustable Height',
-    brand: 'TherapyPro',
-    price: 24999,
-    originalPrice: 32999,
-    rating: 4.8,
-    reviewCount: 234,
-    images: ['https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=600&h=600&fit=crop'],
-    category: 'Therapy Equipment',
-    condition: 'New',
-    stock: 15,
-    isFeatured: true,
-    fastDelivery: true
-  },
-  {
-    _id: '2',
-    name: 'Electric Therapy Stimulator Device',
-    brand: 'MediTech',
-    price: 8999,
-    originalPrice: 12999,
-    rating: 4.6,
-    reviewCount: 156,
-    images: ['https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=600&h=600&fit=crop'],
-    category: 'Medical Devices',
-    condition: 'New',
-    stock: 8,
-    isFeatured: true,
-    fastDelivery: true
-  },
-  {
-    _id: '3',
-    name: 'Premium Yoga Mat with Alignment Guide',
-    brand: 'WellnessHub',
-    price: 2499,
-    originalPrice: 3999,
-    rating: 4.9,
-    reviewCount: 445,
-    images: ['https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=600&h=600&fit=crop'],
-    category: 'Wellness',
-    condition: 'New',
-    stock: 50,
-    isFeatured: true,
-    fastDelivery: false
-  },
-  {
-    _id: '4',
-    name: 'Resistance Bands Professional Set',
-    brand: 'FitPro',
-    price: 1999,
-    rating: 4.7,
-    reviewCount: 289,
-    images: ['https://images.unsplash.com/photo-1598289431512-b97b0917affc?w=600&h=600&fit=crop'],
-    category: 'Exercise Tools',
-    condition: 'New',
-    stock: 30,
-    isFeatured: false,
-    fastDelivery: true
-  },
-  {
-    _id: '5',
-    name: 'Ergonomic Wheelchair with Premium Cushion',
-    brand: 'MobilityPlus',
-    price: 45999,
-    originalPrice: 59999,
-    rating: 4.8,
-    reviewCount: 167,
-    images: ['https://images.unsplash.com/photo-1582719471384-894fbb16e074?w=600&h=600&fit=crop'],
-    category: 'Mobility Aids',
-    condition: 'New',
-    stock: 5,
-    isFeatured: true,
-    fastDelivery: false
-  },
-  {
-    _id: '6',
-    name: 'Heat Therapy Pad with Auto Timer',
-    brand: 'TheraCare',
-    price: 3499,
-    originalPrice: 4999,
-    rating: 4.5,
-    reviewCount: 312,
-    images: ['https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=600&h=600&fit=crop'],
-    category: 'Therapy Equipment',
-    condition: 'New',
-    stock: 20,
-    isFeatured: true,
-    fastDelivery: true
-  },
-  {
-    _id: '7',
-    name: 'Digital Blood Pressure Monitor',
-    brand: 'MediTech',
-    price: 2999,
-    rating: 4.6,
-    reviewCount: 543,
-    images: ['https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=600&h=600&fit=crop'],
-    category: 'Medical Devices',
-    condition: 'New',
-    stock: 45,
-    isFeatured: false,
-    fastDelivery: true
-  },
-  {
-    _id: '8',
-    name: 'Foam Roller for Deep Tissue Massage',
-    brand: 'WellnessHub',
-    price: 1499,
-    rating: 4.7,
-    reviewCount: 678,
-    images: ['https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=600&h=600&fit=crop'],
-    category: 'Wellness',
-    condition: 'New',
-    stock: 100,
-    isFeatured: false,
-    fastDelivery: true
-  }
-];
+// Removed mockProducts: use API data only
+const mockProducts: any[] = [];
 
-const mockCategories = [
-  { name: 'Therapy Equipment', count: 45 },
-  { name: 'Medical Devices', count: 32 },
-  { name: 'Wellness', count: 28 },
-  { name: 'Exercise Tools', count: 56 },
-  { name: 'Mobility Aids', count: 38 },
-  { name: 'Rehabilitation', count: 41 }
-];
+const mockCategories: any[] = [];
 
 function ProductsPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [products, setProducts] = useState(mockProducts);
-  const [categories, setCategories] = useState(mockCategories);
+  const [products, setProducts] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState(searchParams?.get('search') || '');
   const [selectedCategory, setSelectedCategory] = useState(searchParams?.get('category') || 'all');
@@ -167,6 +46,46 @@ function ProductsPageInner() {
   const [showFilters, setShowFilters] = useState(false);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+
+  // Fetch products from API based on current filters
+  useEffect(() => {
+    const fetchProducts = async () => {
+      setLoading(true);
+      try {
+        const params = new URLSearchParams();
+        if (searchQuery) params.set('search', searchQuery);
+        if (selectedCategory && selectedCategory !== 'all') params.set('category', selectedCategory);
+        if (selectedBrand && selectedBrand !== 'all') params.set('brand', selectedBrand);
+        if (selectedCondition && selectedCondition !== 'all') params.set('condition', selectedCondition);
+        if (priceRange.min) params.set('minPrice', String(priceRange.min));
+        if (priceRange.max) params.set('maxPrice', String(priceRange.max));
+        if (sortBy) params.set('sortBy', sortBy);
+        if (sortOrder) params.set('sortOrder', sortOrder);
+        params.set('page', String(page));
+        params.set('limit', '20');
+
+        const res = await fetch(`/api/therastore/products?${params.toString()}`);
+        const data = await res.json();
+        if (data.success) {
+          setProducts(data.data || []);
+          const pg = data.pagination?.totalPages || 1;
+          setTotalPages(pg);
+          // Derive categories from current page results if none provided
+          const uniqueCats: string[] = Array.from(new Set(((data.data || []) as any[]).map((p: any) => p.category).filter((c: any) => typeof c === 'string')));
+          setCategories(uniqueCats.map((n) => ({ name: n })) as any);
+        } else {
+          setProducts([]);
+          setTotalPages(1);
+        }
+      } catch (e) {
+        setProducts([]);
+        setTotalPages(1);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProducts();
+  }, [searchQuery, selectedCategory, selectedBrand, selectedCondition, priceRange.min, priceRange.max, sortBy, sortOrder, page]);
 
   useEffect(() => {
     fetchCategories();
@@ -184,6 +103,9 @@ function ProductsPageInner() {
       }
     } catch (error) {
       console.error('Error fetching categories:', error);
+      // Fallback to static categories if API fails
+      const fallback = therastoreCategories.map(cat => ({ name: cat.label, count: 0 }));
+      setCategories(fallback);
     }
   };
 
@@ -335,9 +257,9 @@ function ProductsPageInner() {
                 className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500"
               >
                 <option value="all">All Conditions</option>
-                <option value="New">New</option>
-                <option value="Refurbished">Refurbished</option>
-                <option value="Used">Used</option>
+                {[...therastoreFilters.condition.values].map(v => (
+                  <option key={v} value={v}>{v[0].toUpperCase() + v.slice(1)}</option>
+                ))}
               </select>
 
               <input
@@ -435,11 +357,11 @@ function ProductsPageInner() {
                 }}
                 className="px-4 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 text-sm font-medium"
               >
-                <option value="createdAt">Newest First</option>
-                <option value="price-low">Price: Low to High</option>
-                <option value="price-high">Price: High to Low</option>
-                <option value="rating">Highest Rated</option>
-                <option value="name">Name A-Z</option>
+                {therastoreSortOptions.map(opt => (
+                  <option key={opt.key} value={opt.key === 'price-asc' ? 'price-low' : opt.key === 'price-desc' ? 'price-high' : opt.key === 'newest' ? 'createdAt' : opt.key}>
+                    {opt.label}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
@@ -537,7 +459,7 @@ function ProductCard({ product, viewMode }: { product: any; viewMode: 'grid' | '
     ? Math.round((1 - product.price / product.originalPrice) * 100) 
     : 0;
 
-  const handleAddToCart = (e?: React.MouseEvent) => {
+  const handleAddToCart = async (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     try {
       const cart = JSON.parse(localStorage.getItem('therastore_cart') || '[]');
@@ -550,6 +472,30 @@ function ProductCard({ product, viewMode }: { product: any; viewMode: 'grid' | '
       }
       
       localStorage.setItem('therastore_cart', JSON.stringify(cart));
+
+      // Sync to server cart (JWT-based)
+      try {
+        const token = localStorage.getItem('token')
+          || localStorage.getItem('authToken')
+          || localStorage.getItem('auth_token')
+          || localStorage.getItem('access_token');
+        if (token) {
+          const qty = (cart.find((i: any) => i._id === product._id)?.quantity) || 1;
+          await fetch('/api/therastore/cart', {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              productId: String(product._id),
+              name: product.name,
+              price: Number(product.price || 0),
+              quantity: Number(qty),
+            }),
+          });
+        }
+      } catch {}
     } catch (error) {
       console.error('Error adding to cart:', error);
     }

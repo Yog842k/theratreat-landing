@@ -31,8 +31,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loadFromStorage = useCallback(() => {
     try {
-      const storedToken = localStorage.getItem(STORAGE_TOKEN_KEY);
-      const storedUser = localStorage.getItem(STORAGE_USER_KEY);
+      // Prefer new keys, but support legacy keys used in older flows
+      const storedToken = localStorage.getItem(STORAGE_TOKEN_KEY) || localStorage.getItem('authToken');
+      const storedUser = localStorage.getItem(STORAGE_USER_KEY) || localStorage.getItem('user');
       if (storedToken && storedUser) {
         setToken(storedToken);
         try {
@@ -64,8 +65,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [loadFromStorage]);
 
   const login = (newToken: string, newUser: AuthUser) => {
+    // Write both new and legacy keys to keep all modules in sync
     localStorage.setItem(STORAGE_TOKEN_KEY, newToken);
+    localStorage.setItem('authToken', newToken);
     localStorage.setItem(STORAGE_USER_KEY, JSON.stringify(newUser));
+    localStorage.setItem('user', JSON.stringify(newUser));
     setToken(newToken);
     setUser(newUser);
   };
@@ -73,6 +77,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = () => {
     localStorage.removeItem(STORAGE_TOKEN_KEY);
     localStorage.removeItem(STORAGE_USER_KEY);
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('user');
     setToken(null);
     setUser(null);
   };

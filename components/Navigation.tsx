@@ -7,6 +7,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/components/auth/NewAuthContext';
 import { User, ChevronDown, LayoutDashboard, Building2, UserCheck } from 'lucide-react';
 import Logo from '../logo.png';
+import { navigationTabs } from '@/constants/app-data';
 // MobileSubHeader removed per request (hide sub bar on mobile)
 import dynamic from 'next/dynamic';
 const MobileMenu = dynamic(()=>import('./MobileMenu'), { ssr:false });
@@ -51,9 +52,9 @@ export function Navigation() {
 
   return (
     <div className="w-full sticky top-2 md:top-4 z-[1000] flex justify-center items-center">
-    <header className="w-[90%] rounded-full bg-gray-300/25 backdrop-blur-sm supports-[backdrop-filter]:bg-white/85 border-b border-slate-200 py-1.5 px-3 md:px-6 shadow-sm">
+    <header className="w-[92%] rounded-full bg-gray-300/25 backdrop-blur-sm supports-[backdrop-filter]:bg-white/85 border-b border-slate-200 py-1.5 px-3 md:px-6 shadow-sm mb-3 md:mb-6">
       <div className="max-w-7xl mx-auto relative">
-        <div className="flex items-center justify-between h-12 sm:h-14 px-1.5 sm:px-4">
+        <div className="flex items-center justify-between h-12 sm:h-14 px-1.5 sm:px-4 gap-3">
           {/* Brand */}
           <Link href="/" className="flex items-center gap-2 select-none" aria-label="TheraTreat Home">
             <Image
@@ -66,7 +67,32 @@ export function Navigation() {
             />
             <span className="text-base sm:text-xl text-[#2379b2] leading-none font-bold "><span className='text-[#112d45]'>Thera</span>Treat</span>
           </Link>
-          {/* (Nav links removed) */}
+          {/* Primary redirect tabs merged into main navigation (desktop) */}
+          <nav className="hidden lg:flex items-center gap-2 mx-3">
+            {navigationTabs
+              .filter(tab => tab.key !== 'therapists')
+              .map((tab) => {
+              const Icon = tab.icon as any;
+              const isActive = (() => {
+                if (!pathname) return false;
+                const url = tab.url || '/';
+                if (url === '/') return pathname === '/';
+                return pathname === url || pathname.startsWith(url + '/');
+              })();
+              return (
+                <button
+                  key={tab.key}
+                  onClick={() => router.push(tab.url || '/')}
+                  className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] md:text-xs font-medium transition-colors ${
+                    isActive ? 'bg-blue-500 text-white' : 'text-slate-700 hover:bg-blue-50 hover:text-blue-700'
+                  }`}
+                >
+                  {Icon && <Icon className="w-3 h-3 md:w-3.5 md:h-3.5" />}
+                  <span className="truncate max-w-[90px]">{tab.label}</span>
+                </button>
+              );
+            })}
+          </nav>
           {/* Auth / Profile */}
           <div className="flex items-center gap-1 sm:gap-3">
             {/* Mobile menu trigger (compact on <640px) */}
@@ -74,7 +100,7 @@ export function Navigation() {
               <MobileMenu />
             </div>
             {/* Auth / Join / Profile (hidden on very small screens to reduce crowding) */}
-            <div className="hidden sm:flex gap-2 items-center">
+            <div className="hidden sm:flex gap-3 items-center">
               {/* Join Us dropdown (desktop / tablet) */}
               <div className="relative" ref={joinRef}>
                 <NavButton onClick={() => { setJoinOpen(o => !o); setOpen(false); }}
@@ -109,8 +135,8 @@ export function Navigation() {
               {/* Show Login/Sign Up only when not authenticated */}
               {!authUser && (
                 <>
-                  <NavButton onClick={() => router.push('/auth/login')} className="text-slate-600 hover:text-slate-900 hover:bg-slate-100">Login</NavButton>
-                  <NavButton onClick={() => router.push('/auth/signup/account-type')} className="bg-blue-600 text-white hover:bg-blue-700 shadow">Sign Up</NavButton>
+                  <NavButton onClick={() => router.push('/auth/login')} className="text-slate-600 hover:text-slate-900 hover:bg-slate-100 px-4 py-2">Login</NavButton>
+                  <NavButton onClick={() => router.push('/auth/signup/account-type')} className="bg-blue-600 text-white hover:bg-blue-700 shadow px-4 py-2">Sign Up</NavButton>
                 </>
               )}
               {/* User profile menu when authenticated */}

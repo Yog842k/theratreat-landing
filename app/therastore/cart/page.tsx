@@ -1,5 +1,4 @@
-'use client';
-
+"use client";
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -32,15 +31,50 @@ export default function CartPage() {
   const router = useRouter();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
     loadCart();
   }, []);
 
-  const loadCart = () => {
+  const loadCart = async () => {
+    const uid = localStorage.getItem('user_id') || null;
+    setUserId(uid);
+    // Try server cart if userId exists
+    if (uid) {
+      try {
+        const res = await fetch(`/api/therastore/cart?userId=${encodeURIComponent(uid)}`, {
+          headers: { 'x-request-id': crypto.randomUUID() },
+          cache: 'no-store',
+        });
+        const data = await res.json();
+        const serverItems = (data?.data?.items || []).map((i: any) => i);
+        if (Array.isArray(serverItems) && serverItems.length > 0) {
+          // Merge minimal fields to expected shape if needed
+          const local = JSON.parse(localStorage.getItem('therastore_cart') || '[]');
+          const merged = serverItems.length ? serverItems : local;
+          setCartItems(merged);
+          setLoading(false);
+          return;
+        }
+      } catch (e) {
+        // Fall back to local
+      }
+    }
     const cart = JSON.parse(localStorage.getItem('therastore_cart') || '[]');
     setCartItems(cart);
     setLoading(false);
+  };
+
+  const syncServerCart = async (items: CartItem[]) => {
+    if (!userId) return;
+    try {
+      await fetch('/api/therastore/cart', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-request-id': crypto.randomUUID() },
+        body: JSON.stringify({ userId, items: items.map(i => ({ productId: i._id, quantity: i.quantity })) })
+      });
+    } catch {}
   };
 
   const updateQuantity = (id: string, newQuantity: number) => {
@@ -50,6 +84,7 @@ export default function CartPage() {
     );
     localStorage.setItem('therastore_cart', JSON.stringify(updatedCart));
     setCartItems(updatedCart);
+    syncServerCart(updatedCart);
   };
 
   const removeItem = (id: string) => {
@@ -57,6 +92,7 @@ export default function CartPage() {
     const updatedCart = cart.filter((item: CartItem) => item._id !== id);
     localStorage.setItem('therastore_cart', JSON.stringify(updatedCart));
     setCartItems(updatedCart);
+    syncServerCart(updatedCart);
   };
 
   const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);

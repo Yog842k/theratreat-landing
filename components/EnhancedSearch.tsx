@@ -98,6 +98,17 @@ export function EnhancedSearch({
     componentRestrictions: { country: "in" },
     types: ["(cities)"],
   });
+  // Show which Places client is active (new vs legacy) for debugging
+  const [placesClientKind, setPlacesClientKind] = useState<'new' | 'legacy' | 'none'>(
+    'none'
+  );
+  useEffect(() => {
+    const hasNew = (window as any)?.google?.maps?.places?.AutocompleteSuggestion;
+    const hasLegacy = (window as any)?.google?.maps?.places?.AutocompleteService;
+    if (hasNew) setPlacesClientKind('new');
+    else if (hasLegacy) setPlacesClientKind('legacy');
+    else setPlacesClientKind('none');
+  }, [isPlacesReady]);
   const { setFilterState, clearFilterState } = useTherapistSearch();
 
   // Mock data for search suggestions
@@ -397,6 +408,11 @@ export function EnhancedSearch({
           <div className="flex flex-col items-center text-center space-y-2">
             <h3 className="font-semibold tracking-tight text-gray-800 text-xl md:text-2xl">Find Your Perfect Therapist</h3>
             <p className="text-sm md:text-base text-gray-600 max-w-2xl">Search by specialty, condition, location or session format. Use filters to narrow results and start your healing journey.</p>
+            {placesClientKind !== 'none' && (
+              <Badge variant="outline" className="text-[10px] uppercase tracking-wider">
+                Google Places: {placesClientKind === 'new' ? 'New' : 'Legacy'}
+              </Badge>
+            )}
           </div>
         )}
 

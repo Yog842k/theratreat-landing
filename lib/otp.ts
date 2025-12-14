@@ -227,7 +227,9 @@ export async function requestOtp({ phone, purpose }: { phone: string; purpose: s
             purpose, 
             updatedAt: now, 
             lastSentAt: now, 
-            verified: false 
+            verified: false,
+            lastVerificationSid: verification?.sid || null,
+            lastStatus: verification?.status || null
           }, 
           $setOnInsert: { createdAt: now } 
         },

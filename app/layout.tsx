@@ -10,9 +10,9 @@ export const metadata: Metadata = {
   title: 'TheraTreat - Health & Wellness Platform',
   description: 'Your comprehensive health and wellness platform',
   icons: {
-    icon: '/logo.png',
-    shortcut: '/logo.png',
-    apple: '/logo.png'
+    icon: ['/favicon.ico', '/favicon.png', '/logo.png'],
+    shortcut: ['/favicon.ico', '/favicon.png', '/logo.png'],
+    apple: ['/apple-touch-icon.png', '/logo.png']
   }
 }
 

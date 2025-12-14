@@ -1,61 +1,60 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import database from '@/lib/database';
 import { ObjectId } from 'mongodb';
+import { ok, notFound, badRequest, serverError, withRequestHeaders } from '@/lib/api-helpers';
 
 // GET /api/therastore/products/[id] - Get single product
 export async function GET(
   request: NextRequest,
-  context: any
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     await database.connect();
     const collection = await database.getCollection('products');
     
-    const id = context?.params?.id;
-    if (!ObjectId.isValid(id)) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid product ID' },
-        { status: 400 }
-      );
-    }
+    const { id } = await context.params;
 
-    const product = await collection.findOne({ _id: new ObjectId(id) });
+    let product: any = null;
+    if (ObjectId.isValid(id)) {
+      product = await collection.findOne({ _id: new ObjectId(id) });
+    } else {
+      // Fallback: allow non-ObjectId identifiers like numeric IDs, SKU, or slug
+      const idNum = Number(id);
+      const numericQuery = Number.isFinite(idNum) ? [
+        { id: idNum },
+        { productId: idNum }
+      ] : [];
+      product = await collection.findOne({ $or: [
+        { id },
+        { sku: id },
+        { slug: id },
+        ...numericQuery
+      ]});
+    }
 
     if (!product) {
-      return NextResponse.json(
-        { success: false, error: 'Product not found' },
-        { status: 404 }
-      );
+      return notFound('Product not found');
     }
 
-    return NextResponse.json({
-      success: true,
-      data: product
-    });
+    return ok(product, { headers: Object.fromEntries(withRequestHeaders(request)) });
   } catch (error: any) {
     console.error('Error fetching product:', error);
-    return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
-    );
+    return serverError(error.message || 'Failed to fetch product');
   }
 }
 
 // PUT /api/therastore/products/[id] - Update product
 export async function PUT(
   request: NextRequest,
-  context: any
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     await database.connect();
     const body = await request.json();
 
-    const id = context?.params?.id;
+    const { id } = await context.params;
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid product ID' },
-        { status: 400 }
-      );
+      return badRequest('Invalid product ID');
     }
 
     const updateData: any = {
@@ -91,63 +90,42 @@ export async function PUT(
     );
 
     if (result.matchedCount === 0) {
-      return NextResponse.json(
-        { success: false, error: 'Product not found' },
-        { status: 404 }
-      );
+      return notFound('Product not found');
     }
 
     const updatedProduct = await collection.findOne({ _id: new ObjectId(id) });
 
-    return NextResponse.json({
-      success: true,
-      data: updatedProduct
-    });
+    return ok(updatedProduct, { headers: Object.fromEntries(withRequestHeaders(request)) });
   } catch (error: any) {
     console.error('Error updating product:', error);
-    return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
-    );
+    return serverError(error.message || 'Failed to update product');
   }
 }
 
 // DELETE /api/therastore/products/[id] - Delete product
 export async function DELETE(
   request: NextRequest,
-  context: any
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
     await database.connect();
 
-    const id = context?.params?.id;
+    const { id } = await context.params;
     if (!ObjectId.isValid(id)) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid product ID' },
-        { status: 400 }
-      );
+      return badRequest('Invalid product ID');
     }
 
     const collection = await database.getCollection('products');
     const result = await collection.deleteOne({ _id: new ObjectId(id) });
 
     if (result.deletedCount === 0) {
-      return NextResponse.json(
-        { success: false, error: 'Product not found' },
-        { status: 404 }
-      );
+      return notFound('Product not found');
     }
 
-    return NextResponse.json({
-      success: true,
-      message: 'Product deleted successfully'
-    });
+    return ok({ message: 'Product deleted successfully' });
   } catch (error: any) {
     console.error('Error deleting product:', error);
-    return NextResponse.json(
-      { success: false, error: error.message },
-      { status: 500 }
-    );
+    return serverError(error.message || 'Failed to delete product');
   }
 }
 

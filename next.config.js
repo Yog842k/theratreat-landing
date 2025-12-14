@@ -18,12 +18,19 @@ const nextConfig = {
         pathname: '/**',
       },
       {
+        protocol: 'https',
+        hostname: 'res.cloudinary.com',
+        pathname: '/**',
+      },
+      {
         protocol: 'http',
         hostname: 'localhost',
         pathname: '/**',
       },
     ],
   },
+  // Ensure middleware does not match asset requests
+  skipMiddlewareUrlNormalize: true,
   eslint: {
     // Allow build to succeed even if there are lint warnings/errors (temporarily)
     ignoreDuringBuilds: true,

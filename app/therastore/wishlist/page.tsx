@@ -32,24 +32,49 @@ export default function WishlistPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem('therastore_wishlist');
-      if (saved) {
-        const items = JSON.parse(saved);
-        setWishlist(items);
+    (async () => {
+      try {
+        const userId = localStorage.getItem('user_id');
+        if (userId) {
+          const res = await fetch(`/api/therastore/wishlist?userId=${encodeURIComponent(userId)}`, { credentials: 'include' });
+          const json = await res.json();
+          if (json?.data) {
+            const items = json.data.items || [];
+            setWishlist(items);
+            try { localStorage.setItem('therastore_wishlist', JSON.stringify(items)); } catch {}
+            setLoading(false);
+            return;
+          }
+        }
+        // Fallback to localStorage
+        const saved = localStorage.getItem('therastore_wishlist');
+        if (saved) setWishlist(JSON.parse(saved));
+      } catch (error) {
+        console.error('Error loading wishlist:', error);
+        try {
+          const saved = localStorage.getItem('therastore_wishlist');
+          if (saved) setWishlist(JSON.parse(saved));
+        } catch {}
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error('Error loading wishlist:', error);
-    } finally {
-      setLoading(false);
-    }
+    })();
   }, []);
 
-  const removeFromWishlist = (productId: string) => {
+  const removeFromWishlist = async (productId: string) => {
     try {
       const updated = wishlist.filter(item => item._id !== productId);
       setWishlist(updated);
       localStorage.setItem('therastore_wishlist', JSON.stringify(updated));
+      const userId = localStorage.getItem('user_id');
+      if (userId) {
+        await fetch('/api/therastore/wishlist', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ userId, action: 'remove', productId }),
+        });
+      }
     } catch (error) {
       console.error('Error removing from wishlist:', error);
     }
@@ -198,7 +223,7 @@ export default function WishlistPage() {
                       <span className="text-xs text-gray-600 font-medium">{product.stock} in stock</span>
                     </div>
 
-                    <div className="pt-3 border-t border-gray-100">
+                      <div className="pt-3 border-t border-gray-100">
                       <div className="flex items-end justify-between mb-3">
                         <div>
                           <div className="text-2xl font-extrabold text-emerald-600">
@@ -220,6 +245,7 @@ export default function WishlistPage() {
                         <ShoppingCart className="w-4 h-4" />
                         {product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
                       </button>
+                      <Link href={`/therastore/products/${product._id}`} className="block text-center mt-2 text-sm text-emerald-700 hover:underline">View Details</Link>
                     </div>
                   </div>
                 </div>

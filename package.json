@@ -6,7 +6,7 @@
     "node": "20.x"
   },
   "scripts": {
-    "dev": "cross-env NEXT_PRIVATE_OUTPUT_TRACE_WORKER=0 next dev",
+    "dev": "cross-env NEXT_PRIVATE_OUTPUT_TRACE_WORKER=0 NEXT_DIST_DIR=next-build next dev",
     "dev:legacy-tls": "cross-env NODE_OPTIONS=--openssl-legacy-provider next dev",
     "build": "next build",
     "start": "next start",
@@ -31,6 +31,7 @@
     "@aws-sdk/client-sns": "^3.899.0",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
+    "@google/genai": "^1.0.0",
     "@juggle/resize-observer": "^3.4.0",
     "@mui/material": "^7.3.4",
     "@mui/x-date-pickers": "^8.16.0",
@@ -63,6 +64,7 @@
     "@radix-ui/react-toggle": "^1.0.3",
     "@radix-ui/react-toggle-group": "^1.0.4",
     "@radix-ui/react-tooltip": "^1.0.6",
+    "@sendgrid/mail": "^8.1.6",
     "@types/bcryptjs": "^2.4.6",
     "@types/js-cookie": "^3.0.6",
     "@types/jsonwebtoken": "^9.0.10",
@@ -99,8 +101,7 @@
     "twilio": "^5.10.2",
     "vaul": "^0.9.9",
     "winston": "^3.17.0",
-    "zod": "^4.0.17",
-    "@sendgrid/mail": "^8.1.6"
+    "zod": "^4.0.17"
   },
   "devDependencies": {
     "@types/node": "^20.14.12",

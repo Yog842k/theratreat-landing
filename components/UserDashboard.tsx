@@ -474,105 +474,136 @@ export function UserDashboard() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h2 className="text-theraself-primary">My Self Tests</h2>
-        <Button className="bg-theraself-primary hover:bg-theraself-primary/90 text-theraself-primary-foreground">
+        <Button className="bg-theraself-primary hover:bg-theraself-primary/90 text-theraself-primary-foreground" onClick={() => router.push('/theraself/tests')}>
           <FileBarChart className="w-4 h-4 mr-2" />
           Take New Assessment
         </Button>
       </div>
 
-      <div className="grid gap-6">
-        <Card className="border-theraself-border">
-          <CardHeader className="bg-theraself-muted">
-            <CardTitle className="text-theraself-primary">Recent Assessments</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="p-4 border border-theraself-border rounded-lg">
-              <div className="flex items-start justify-between mb-3">
-                <div>
-                  <h4 className="font-medium">Anxiety Assessment (GAD-7)</h4>
-                  <p className="text-sm text-muted-foreground">Completed: Feb 8, 2025</p>
-                  <p className="text-sm text-green-600">Score: 12/21 (Moderate Anxiety)</p>
-                </div>
-                <Badge variant="outline" className="border-theraself-border text-theraself-primary">Latest</Badge>
-              </div>
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">
-                  <strong>Therapist Notes:</strong> "Patient showing improvement in anxiety management. 
-                  Continue with current coping strategies and mindfulness exercises."
-                </p>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" className="border-theraself-border text-theraself-primary hover:bg-theraself-secondary">
-                    <Eye className="w-4 h-4 mr-2" />
-                    View Results
-                  </Button>
-                  <Button size="sm" variant="outline" className="border-theraself-border text-theraself-primary hover:bg-theraself-secondary">
-                    <Download className="w-4 h-4 mr-2" />
-                    Download PDF
-                  </Button>
-                </div>
-              </div>
-            </div>
-
-            <div className="p-4 border border-theraself-border rounded-lg">
-              <div className="flex items-start justify-between mb-3">
-                <div>
-                  <h4 className="font-medium">Depression Screening (PHQ-9)</h4>
-                  <p className="text-sm text-muted-foreground">Completed: Jan 25, 2025</p>
-                  <p className="text-sm text-blue-600">Score: 8/27 (Mild Depression)</p>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground">
-                  <strong>Therapist Notes:</strong> "Baseline assessment completed. 
-                  Recommend regular therapy sessions and lifestyle modifications."
-                </p>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" className="border-theraself-border text-theraself-primary hover:bg-theraself-secondary">
-                    <Eye className="w-4 h-4 mr-2" />
-                    View Results
-                  </Button>
-                  <Button size="sm" variant="outline" className="border-theraself-border text-theraself-primary hover:bg-theraself-secondary">
-                    <Download className="w-4 h-4 mr-2" />
-                    Download PDF
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-theraself-border">
-          <CardHeader className="bg-theraself-muted">
-            <CardTitle className="text-theraself-primary">Progress Tracking</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div>
-                <div className="flex justify-between mb-2">
-                  <span className="text-sm">Anxiety Levels</span>
-                  <span className="text-sm text-muted-foreground">Improving ↓</span>
-                </div>
-                <Progress value={65} className="h-2 bg-theraself-secondary [&>div]:bg-theraself-primary" />
-                <p className="text-xs text-muted-foreground mt-1">
-                  35% reduction from initial assessment
-                </p>
-              </div>
-              <div>
-                <div className="flex justify-between mb-2">
-                  <span className="text-sm">Stress Management</span>
-                  <span className="text-sm text-muted-foreground">Stable →</span>
-                </div>
-                <Progress value={75} className="h-2 bg-theraself-secondary [&>div]:bg-theraself-primary" />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Maintaining good coping strategies
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      <SelfTestsList />
     </div>
   );
+
+  function SelfTestsList() {
+    const [items, setItems] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [err, setErr] = useState<string | null>(null);
+
+    useEffect(() => {
+      const load = async () => {
+        try {
+          setLoading(true);
+          setErr(null);
+          const token = (typeof window !== 'undefined') ? localStorage.getItem('token') : null;
+          const res = await fetch('/api/theraself/results', {
+            cache: 'no-store',
+            headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          });
+          const json = await res.json();
+          const list = Array.isArray(json) ? json : [];
+          list.sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+          setItems(list);
+        } catch (e: any) {
+          setErr(e.message || 'Failed to load assessments');
+        } finally {
+          setLoading(false);
+        }
+      };
+      load();
+    }, [user]);
+
+    if (loading) return (
+      <Card className="border-theraself-border">
+        <CardHeader className="bg-theraself-muted">
+          <CardTitle className="text-theraself-primary">Recent Assessments</CardTitle>
+        </CardHeader>
+        <CardContent><div className="text-sm text-muted-foreground">Loading…</div></CardContent>
+      </Card>
+    );
+    if (err) return (
+      <Card className="border-theraself-border">
+        <CardHeader className="bg-theraself-muted">
+          <CardTitle className="text-theraself-primary">Recent Assessments</CardTitle>
+        </CardHeader>
+        <CardContent><div className="text-sm text-red-600">{err}</div></CardContent>
+      </Card>
+    );
+
+    if (!items.length) return (
+      <Card className="border-theraself-border">
+        <CardHeader className="bg-theraself-muted">
+          <CardTitle className="text-theraself-primary">Recent Assessments</CardTitle>
+        </CardHeader>
+        <CardContent><div className="text-sm text-muted-foreground">No assessments yet.</div></CardContent>
+      </Card>
+    );
+
+    return (
+      <div className="grid gap-6">
+        {items.map((d: any, idx: number) => {
+          const id = String(d?._id?.$oid ?? d?._id ?? '');
+          const created = d.createdAt ? new Date(d.createdAt).toLocaleString() : '—';
+          const score = Math.round(Number(d.overallTheraScore || 0) * 10) / 10;
+          const level = d.level || 'low';
+          const child = d.childName || 'N/A';
+          const age = d.ageYears ?? 'N/A';
+          const answers = d.answers?.all || [];
+          const sections = d.answers?.counts || { inattention: 0, hyperactivity: 0, impulsivity: 0 };
+          const report = d.reportText || '';
+          return (
+            <Card key={id || idx} className="border-theraself-border">
+              <CardHeader className="bg-theraself-muted">
+                <CardTitle className="text-theraself-primary flex items-center justify-between">
+                  <span>Assessment • {created}</span>
+                  <Badge variant="outline" className="border-theraself-border text-theraself-primary">{level}</Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-sm text-muted-foreground">Child: <span className="text-foreground font-medium">{child}</span> · Age: <span className="text-foreground font-medium">{age}</span></p>
+                    <p className="text-sm text-emerald-700 mt-1">Overall TheraScore: <span className="font-semibold">{score}</span></p>
+                  </div>
+                  <div className="flex gap-2">
+                    {id && (
+                      <Button size="sm" variant="outline" className="border-theraself-border text-theraself-primary hover:bg-theraself-secondary" onClick={() => router.push(`/theraself/results/${id}`)}>
+                        <Eye className="w-4 h-4 mr-2" /> View Full Report
+                      </Button>
+                    )}
+                    <Button size="sm" variant="outline" className="border-theraself-border text-theraself-primary hover:bg-theraself-secondary" onClick={() => {
+                      const txt = String(report || '').trim();
+                      const blob = new Blob([txt], { type: 'text/plain' });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url; a.download = `TheraSelf_Report_${child || 'Child'}_${new Date().toISOString().slice(0,10)}.txt`;
+                      a.click(); URL.revokeObjectURL(url);
+                    }}>
+                      <Download className="w-4 h-4 mr-2" /> Download TXT
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="p-3 border border-theraself-border rounded-lg">
+                    <h4 className="font-medium mb-2">Answers</h4>
+                    <div className="text-sm text-muted-foreground">
+                      <div>Inattention ({sections.inattention}) • {answers.slice(0, sections.inattention).join(', ')}</div>
+                      <div>Hyperactivity ({sections.hyperactivity}) • {answers.slice(sections.inattention, sections.inattention + sections.hyperactivity).join(', ')}</div>
+                      <div>Impulsivity ({sections.impulsivity}) • {answers.slice(sections.inattention + sections.hyperactivity, sections.inattention + sections.hyperactivity + sections.impulsivity).join(', ')}</div>
+                    </div>
+                  </div>
+                  <div className="p-3 border border-theraself-border rounded-lg">
+                    <h4 className="font-medium mb-2">AI Report</h4>
+                    <div className="text-sm text-muted-foreground whitespace-pre-wrap">{report || 'No report saved yet.'}</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+    );
+  }
 
   const renderPaymentsSection = () => (
     <div className="space-y-6">

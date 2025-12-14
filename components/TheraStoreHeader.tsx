@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { useAuth } from '@/components/auth/NewAuthContext';
 import {
   Search,
   ShoppingCart,
@@ -28,6 +29,7 @@ import {
 export function TheraStoreHeader() {
   const pathname = usePathname();
   const router = useRouter();
+  const { user, isAuthenticated, logout } = useAuth();
   const [cartCount, setCartCount] = useState(0);
   const [wishlistCount, setWishlistCount] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
@@ -181,44 +183,104 @@ export function TheraStoreHeader() {
                 className="flex items-center gap-2 px-4 py-2.5 rounded-full font-semibold text-sm text-gray-700 hover:bg-emerald-50 hover:text-emerald-600 transition-all border border-transparent hover:border-emerald-200"
               >
                 <User className="w-4 h-4" />
-                <span className="hidden lg:inline">Account</span>
+                <span className="hidden lg:inline">
+                  {isAuthenticated ? (user?.name ? `Hi, ${user.name.split(' ')[0]}` : 'My Account') : 'Account'}
+                </span>
                 <ChevronDown className={`w-4 h-4 transition-transform ${accountMenuOpen ? 'rotate-180' : ''}`} />
               </button>
               {accountMenuOpen && (
-                <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-50">
-                  <Link
-                    href="/auth/login"
-                    onClick={() => setAccountMenuOpen(false)}
-                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-emerald-50 hover:text-emerald-600 transition-colors"
-                  >
-                    <LogIn className="w-4 h-4" />
-                    Login
-                  </Link>
-                  <Link
-                    href="/auth/signup"
-                    onClick={() => setAccountMenuOpen(false)}
-                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-emerald-50 hover:text-emerald-600 transition-colors"
-                  >
-                    <UserPlus className="w-4 h-4" />
-                    Register
-                  </Link>
-                  <div className="border-t border-gray-200 my-1"></div>
-                  <Link
-                    href="/therastore/vendor-register"
-                    onClick={() => setAccountMenuOpen(false)}
-                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-emerald-50 hover:text-emerald-600 transition-colors"
-                  >
-                    <Store className="w-4 h-4" />
-                    Become a Vendor
-                  </Link>
-                  <Link
-                    href="/therastore/vendor-login"
-                    onClick={() => setAccountMenuOpen(false)}
-                    className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-emerald-50 hover:text-emerald-600 transition-colors"
-                  >
-                    <Store className="w-4 h-4" />
-                    Vendor Login
-                  </Link>
+                <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-50">
+                  {isAuthenticated ? (
+                    <>
+                      {/* Role-specific quick links */}
+                      {user?.userType === 'vendor' && (
+                        <Link
+                          href="/therastore/vendor/dashboard"
+                          onClick={() => setAccountMenuOpen(false)}
+                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-emerald-50 hover:text-emerald-600 transition-colors"
+                        >
+                          <Store className="w-4 h-4" />
+                          Vendor Dashboard
+                        </Link>
+                      )}
+                      {user?.userType === 'seller' && (
+                        <Link
+                          href="/therastore/seller/dashboard"
+                          onClick={() => setAccountMenuOpen(false)}
+                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-emerald-50 hover:text-emerald-600 transition-colors"
+                        >
+                          <Store className="w-4 h-4" />
+                          Seller Dashboard
+                        </Link>
+                      )}
+                      <Link
+                        href="/dashboard"
+                        onClick={() => setAccountMenuOpen(false)}
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-emerald-50 hover:text-emerald-600 transition-colors"
+                      >
+                        <User className="w-4 h-4" />
+                        My Dashboard
+                      </Link>
+                      {accountLinks.map((link) => {
+                        const Icon = link.icon;
+                        return (
+                          <Link
+                            key={link.href}
+                            href={link.href}
+                            onClick={() => setAccountMenuOpen(false)}
+                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-emerald-50 hover:text-emerald-600 transition-colors"
+                          >
+                            <Icon className="w-4 h-4" />
+                            {link.label}
+                          </Link>
+                        );
+                      })}
+                      <div className="border-t border-gray-200 my-1"></div>
+                      <button
+                        onClick={() => { logout(); setAccountMenuOpen(false); }}
+                        className="w-full text-left flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors"
+                      >
+                        <X className="w-4 h-4" />
+                        Logout
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <Link
+                        href="/auth/login"
+                        onClick={() => setAccountMenuOpen(false)}
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-emerald-50 hover:text-emerald-600 transition-colors"
+                      >
+                        <LogIn className="w-4 h-4" />
+                        Login
+                      </Link>
+                      <Link
+                        href="/auth/signup"
+                        onClick={() => setAccountMenuOpen(false)}
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-emerald-50 hover:text-emerald-600 transition-colors"
+                      >
+                        <UserPlus className="w-4 h-4" />
+                        Register
+                      </Link>
+                      <div className="border-t border-gray-200 my-1"></div>
+                      <Link
+                        href="/therastore/vendor-register"
+                        onClick={() => setAccountMenuOpen(false)}
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-emerald-50 hover:text-emerald-600 transition-colors"
+                      >
+                        <Store className="w-4 h-4" />
+                        Become a Vendor
+                      </Link>
+                      <Link
+                        href="/therastore/vendor-login"
+                        onClick={() => setAccountMenuOpen(false)}
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-emerald-50 hover:text-emerald-600 transition-colors"
+                      >
+                        <Store className="w-4 h-4" />
+                        Vendor Login
+                      </Link>
+                    </>
+                  )}
                 </div>
               )}
             </div>
@@ -274,38 +336,99 @@ export function TheraStoreHeader() {
 
               <div className="pt-4 border-t border-gray-200 mt-4">
                 <p className="px-4 py-2 text-xs font-bold text-gray-500 uppercase mb-2">Account</p>
-                <Link
-                  href="/auth/login"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all text-gray-700 hover:bg-emerald-50 hover:text-emerald-600"
-                >
-                  <LogIn className="w-5 h-5" />
-                  Login
-                </Link>
-                <Link
-                  href="/auth/signup"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all text-gray-700 hover:bg-emerald-50 hover:text-emerald-600"
-                >
-                  <UserPlus className="w-5 h-5" />
-                  Register
-                </Link>
-                <Link
-                  href="/therastore/vendor-register"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all text-gray-700 hover:bg-emerald-50 hover:text-emerald-600"
-                >
-                  <Store className="w-5 h-5" />
-                  Become a Vendor
-                </Link>
-                <Link
-                  href="/therastore/vendor-login"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all text-gray-700 hover:bg-emerald-50 hover:text-emerald-600"
-                >
-                  <Store className="w-5 h-5" />
-                  Vendor Login
-                </Link>
+                {isAuthenticated ? (
+                  <>
+                    {user?.userType === 'vendor' && (
+                      <Link
+                        href="/therastore/vendor/dashboard"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all text-gray-700 hover:bg-emerald-50 hover:text-emerald-600"
+                      >
+                        <Store className="w-5 h-5" />
+                        Vendor Dashboard
+                      </Link>
+                    )}
+                    {user?.userType === 'seller' && (
+                      <Link
+                        href="/therastore/seller/dashboard"
+                        onClick={() => setMobileMenuOpen(false)}
+                        className="flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all text-gray-700 hover:bg-emerald-50 hover:text-emerald-600"
+                      >
+                        <Store className="w-5 h-5" />
+                        Seller Dashboard
+                      </Link>
+                    )}
+                    <Link
+                      href="/dashboard"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all text-gray-700 hover:bg-emerald-50 hover:text-emerald-600"
+                    >
+                      <User className="w-5 h-5" />
+                      My Dashboard
+                    </Link>
+                    {accountLinks.map((link) => {
+                      const Icon = link.icon;
+                      const isActive = pathname === link.href || (pathname?.startsWith(link.href) || false);
+                      return (
+                        <Link
+                          key={link.href}
+                          href={link.href}
+                          onClick={() => setMobileMenuOpen(false)}
+                          className={`flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all ${
+                            isActive
+                              ? 'bg-emerald-600 text-white'
+                              : 'text-gray-700 hover:bg-emerald-50 hover:text-emerald-600'
+                          }`}
+                        >
+                          <Icon className="w-5 h-5" />
+                          {link.label}
+                        </Link>
+                      );
+                    })}
+                    <button
+                      onClick={() => { logout(); setMobileMenuOpen(false); }}
+                      className="mt-2 w-full text-left flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all text-red-600 hover:bg-red-50 hover:text-red-700"
+                    >
+                      <X className="w-5 h-5" />
+                      Logout
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <Link
+                      href="/auth/login"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all text-gray-700 hover:bg-emerald-50 hover:text-emerald-600"
+                    >
+                      <LogIn className="w-5 h-5" />
+                      Login
+                    </Link>
+                    <Link
+                      href="/auth/signup"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all text-gray-700 hover:bg-emerald-50 hover:text-emerald-600"
+                    >
+                      <UserPlus className="w-5 h-5" />
+                      Register
+                    </Link>
+                    <Link
+                      href="/therastore/vendor-register"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all text-gray-700 hover:bg-emerald-50 hover:text-emerald-600"
+                    >
+                      <Store className="w-5 h-5" />
+                      Become a Vendor
+                    </Link>
+                    <Link
+                      href="/therastore/vendor-login"
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-3 px-4 py-3 rounded-xl font-semibold transition-all text-gray-700 hover:bg-emerald-50 hover:text-emerald-600"
+                    >
+                      <Store className="w-5 h-5" />
+                      Vendor Login
+                    </Link>
+                  </>
+                )}
                 {accountLinks.map((link) => {
                   const Icon = link.icon;
                   const isActive = pathname === link.href || (pathname?.startsWith(link.href) || false);

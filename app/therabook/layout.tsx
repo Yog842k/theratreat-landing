@@ -1,5 +1,4 @@
 'use client'
-import { NavigationTabs } from "@/components/NavigationTabs";
 
 export default function TheraBookLayout({
   children,
@@ -8,8 +7,7 @@ export default function TheraBookLayout({
 }) {
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Navigation is already included in root layout, removed duplicate */}
-      <NavigationTabs currentView="book" setCurrentView={() => {}} />
+      {/* Navigation tabs merged into main Navigation; removed duplicate */}
       <main className="flex-1">
         {children}
       </main>

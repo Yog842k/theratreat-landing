@@ -20,7 +20,11 @@ export const navigationTabs = [
   { key: "store", label: "TheraStore", url: "/therastore", icon: ShoppingCart },
   { key: "learn", label: "TheraLearn", url: "/theralearn", icon: BookOpen },
   { key: "therapists", label: "Therapists", url: "/therapists", icon: Stethoscope },
-  { key: "blog", label: "TheraBlogs", url: "/blog", icon: FileText }
+  { key: "blog", label: "TheraBlogs", url: "/blog", icon: FileText },
+  // Optionally show Admin in navigation via env flag
+  ...(process.env.NEXT_PUBLIC_SHOW_ADMIN === "true"
+    ? [{ key: "admin", label: "Admin", url: "/admin", icon: LayoutDashboard }]
+    : [])
 ];
 
 export const coreModules = [
@@ -156,3 +160,157 @@ export type ViewType =
   | "patient-register"
   | "register"
   | "blog";
+
+// TheraStore Category System
+export type TherastoreCategory = {
+  key: string;
+  label: string;
+  subcategories: { key: string; label: string }[];
+};
+
+export const therastoreCategories: TherastoreCategory[] = [
+  {
+    key: "physiotherapy-equipment",
+    label: "Physiotherapy Equipment",
+    subcategories: [
+      { key: "knee-back-joint-supports", label: "Knee, Back & Joint Supports" },
+      { key: "elastic-bands-strength", label: "Elastic Bands & Strength Training" },
+      { key: "therapy-balls-balance", label: "Therapy Balls & Balance Tools" },
+      { key: "electrotherapy-devices", label: "Electrotherapy Devices (TENS/IFC/US)" },
+      { key: "hot-cold-therapy", label: "Hot & Cold Therapy" },
+      { key: "pain-relief-tools", label: "Pain Relief Tools" },
+      { key: "traction-mobility", label: "Traction & Mobility Solutions" },
+      { key: "massage-tools", label: "Massage Tools" },
+      { key: "physio-consumables", label: "Physio Consumables (tapes, gel, pads)" }
+    ]
+  },
+  {
+    key: "occupational-therapy",
+    label: "Occupational Therapy (OT)",
+    subcategories: [
+      { key: "sensory-tools", label: "Sensory Tools (Tactile/Proprioceptive)" },
+      { key: "fine-motor-tools", label: "Fine Motor Tools" },
+      { key: "pencil-grips-handwriting", label: "Pencil Grips & Handwriting Tools" },
+      { key: "weighted-therapy-products", label: "Weighted Therapy Products" },
+      { key: "fidget-tools", label: "Fidget Tools" },
+      { key: "visual-auditory-sensory", label: "Visual/Auditory Sensory Tools" },
+      { key: "adl-tools", label: "ADL (Daily Living) Tools" },
+      { key: "seating-posture-tools", label: "Seating & Posture Tools" }
+    ]
+  },
+  {
+    key: "pediatric-therapy-special-needs",
+    label: "Pediatric Therapy & Special Needs",
+    subcategories: [
+      { key: "sensory-kits", label: "Sensory Kits" },
+      { key: "chewy-tubes-oral-motor", label: "Chewy Tubes / Oral Motor Tools" },
+      { key: "pediatric-balance-toys", label: "Pediatric Balance Toys" },
+      { key: "swings-hammocks", label: "Swings / Hammocks (Certified only)" },
+      { key: "ot-toys", label: "OT Toys (Blocks, Peg Boards, Stacking)" },
+      { key: "special-needs-feeding", label: "Special Needs Feeding Tools" },
+      { key: "social-skill-tools", label: "Social Skill Tools" },
+      { key: "learning-cognitive-tools", label: "Learning & Cognitive Tools" }
+    ]
+  },
+  {
+    key: "mobility-assistive-devices",
+    label: "Mobility & Assistive Devices",
+    subcategories: [
+      { key: "walkers", label: "Walkers" },
+      { key: "rollators", label: "Rollators" },
+      { key: "crutches-canes", label: "Crutches & Canes" },
+      { key: "wheelchairs", label: "Wheelchairs" },
+      { key: "mobility-safety-aids", label: "Mobility Safety Aids" },
+      { key: "transfer-aids", label: "Transfer Aids" },
+      { key: "bathroom-safety-aids", label: "Bathroom Safety Aids" },
+      { key: "bed-safety-supports", label: "Bed Safety & Supports" }
+    ]
+  },
+  {
+    key: "rehab-clinical-equipment",
+    label: "Rehab & Clinical Equipment",
+    subcategories: [
+      { key: "splints-braces", label: "Splints & Braces (Regulated items only)" },
+      { key: "cpm-machines", label: "CPM Machines" },
+      { key: "gait-training-equipment", label: "Gait Training Equipment" },
+      { key: "clinic-essentials", label: "Clinic Essentials (stethoscope, BP, pulse ox)" },
+      { key: "treatment-tables-stools", label: "Treatment Tables & Stools" },
+      { key: "exercise-rehab-machines", label: "Exercise & Rehab Machines" },
+      { key: "clinic-sanitizing-safety", label: "Clinic Sanitizing / Safety" },
+      { key: "weighing-measurement-tools", label: "Weighing & Measurement Tools" }
+    ]
+  },
+  {
+    key: "wellness-home-recovery",
+    label: "Wellness & Home Recovery",
+    subcategories: [
+      { key: "posture-correctors", label: "Posture Correctors" },
+      { key: "yoga-mats-blocks", label: "Yoga Mats & Blocks" },
+      { key: "heat-therapy", label: "Heat Therapy" },
+      { key: "recovery-relaxation", label: "Recovery & Relaxation" },
+      { key: "sleep-stress-tools", label: "Sleep & Stress Tools" },
+      { key: "daily-health-devices", label: "Daily Health Devices (BP, glucometer, thermometers)" }
+    ]
+  },
+  {
+    key: "brands",
+    label: "Brands",
+    subcategories: [
+      { key: "accusure", label: "AccuSure" },
+      { key: "easycare", label: "EasyCare" },
+      { key: "tynor", label: "Tynor" },
+      { key: "pedigree-ot-tools", label: "Pedigree OT Tools" },
+      { key: "sensory-wise", label: "Sensory Wise" },
+      { key: "flamingo", label: "Flamingo" },
+      { key: "mediva", label: "Mediva" },
+      { key: "theraball", label: "TheraBall" },
+      { key: "theraband", label: "Theraband" },
+      { key: "comfo-aid", label: "Comfo Aid" },
+      { key: "local-verified", label: "Local verified manufacturers" }
+    ]
+  },
+  {
+    key: "collections",
+    label: "Collections",
+    subcategories: [
+      { key: "trending-physio", label: "Trending in Physio" },
+      { key: "new-launches", label: "New Launches" },
+      { key: "clinic-starter-pack", label: "Clinic Starter Pack" },
+      { key: "pediatric-ot-essentials", label: "Pediatric OT Essentials" },
+      { key: "affordable-therapy-tools", label: "Affordable Therapy Tools" },
+      { key: "bestsellers-ot", label: "Bestsellers in OT" },
+      { key: "back-pain-relief", label: "Back Pain Relief Tools" },
+      { key: "under-500", label: "Therapy Under ₹500" },
+      { key: "under-999", label: "Therapy Under ₹999" },
+      { key: "sensory-kits-collection", label: "Sensory Kits" },
+      { key: "recovery-rehab-combos", label: "Recovery + Rehab Combo Packs" }
+    ]
+  }
+];
+
+// Global Filters for TheraStore
+export const therastoreFilters = {
+  priceRange: { key: "price", label: "Price Range" },
+  category: { key: "category", label: "Category" },
+  subcategory: { key: "subcategory", label: "Sub-category" },
+  brand: { key: "brand", label: "Brand" },
+  condition: { key: "condition", label: "Condition", values: ["new"] },
+  material: { key: "material", label: "Material" },
+  size: { key: "size", label: "Size / Variant" },
+  ageGroup: { key: "ageGroup", label: "Age Group" },
+  therapyType: { key: "therapyType", label: "Therapy Type" },
+  rating: { key: "rating", label: "Rating" },
+  offers: { key: "offers", label: "Offers/Discounts" }
+} as const;
+
+// Sort System v1.0
+export const therastoreSortOptions = [
+  { key: "price-asc", label: "Price — Low to High" },
+  { key: "price-desc", label: "Price — High to Low" },
+  { key: "newest", label: "Newest First" },
+  { key: "bestsellers", label: "Bestsellers" },
+  { key: "rating", label: "Customer Rating" },
+  // Phase 2 / optional
+  { key: "recommended", label: "Recommended for You" },
+  { key: "therapist-recommended", label: "Therapist Recommended" }
+];

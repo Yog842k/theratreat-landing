@@ -2,7 +2,6 @@
 
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { NavigationTabs } from "@/components/NavigationTabs";
 import { HomePage } from "@/components/HomePage";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle } from "lucide-react";
@@ -69,7 +68,7 @@ export default function HomeRootClient() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <NavigationTabs currentView={currentView} setCurrentView={handleViewChange} />
+      {/* Navigation tabs are merged into main Navigation; removed duplicate here */}
       {showSuccessMessage && (
         <div className="max-w-7xl mx-auto px-6 pt-4">
           <Alert className="border-green-200 bg-green-50">

@@ -1,87 +1,26 @@
+"use client";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Star, MapPin, Clock, Award, Shield, Calendar } from "lucide-react";
 
-interface Therapist {
-  id: string;
-  name: string;
+interface TherapistApiItem {
+  _id: string;
+  displayName: string;
   title: string;
-  specialties: string[];
-  rating: number;
-  reviewCount: number;
-  image: string;
-  department: string;
-  location: string;
-  experience: string;
-  availability: string;
-  verified: boolean;
-  insurance: boolean;
+  specializations: string[];
+  rating?: number;
+  reviewCount?: number;
+  image?: string;
+  location?: string;
+  experience?: number;
+  sessionTypes?: string[];
+  consultationFee?: number;
+  isVerified?: boolean;
+  isActive?: boolean;
 }
-
-const featuredTherapists: Therapist[] = [
-  {
-    id: "1",
-    name: "Dr. Sarah Johnson",
-    title: "Licensed Clinical Psychologist",
-    specialties: ["Anxiety & Depression", "Trauma Therapy", "Sleep Disorders"],
-    rating: 4.9,
-    reviewCount: 127,
-    image: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=150&h=150&fit=crop&crop=face",
-    department: "Mental Health",
-    location: "New York, NY",
-    experience: "12+ years",
-    availability: "Available Today",
-    verified: true,
-    insurance: true
-  },
-  {
-    id: "2",
-    name: "Michael Chen, PT",
-    title: "Physical Therapist",
-    specialties: ["Sports Injury", "Back Pain", "Post-Surgery Rehab"],
-    rating: 4.8,
-    reviewCount: 89,
-    image: "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=150&h=150&fit=crop&crop=face",
-    department: "Physical Therapy",
-    location: "Los Angeles, CA",
-    experience: "8+ years",
-    availability: "Next Available: Tomorrow",
-    verified: true,
-    insurance: true
-  },
-  {
-    id: "3",
-    name: "Dr. Emily Rodriguez",
-    title: "Child Development Specialist",
-    specialties: ["ADHD", "Learning Disabilities", "Behavioral Therapy"],
-    rating: 4.9,
-    reviewCount: 156,
-    image: "https://images.unsplash.com/photo-1594824388875-fb4d2b3d7518?w=150&h=150&fit=crop&crop=face",
-    department: "Pediatric Care",
-    location: "Chicago, IL",
-    experience: "15+ years",
-    availability: "Available This Week",
-    verified: true,
-    insurance: true
-  },
-  {
-    id: "4",
-    name: "Dr. David Thompson",
-    title: "Cardiovascular Therapist",
-    specialties: ["Heart Health", "Cardiac Rehab", "Exercise Therapy"],
-    rating: 4.7,
-    reviewCount: 94,
-    image: "https://images.unsplash.com/photo-1582750433449-648ed127bb54?w=150&h=150&fit=crop&crop=face",
-    department: "Cardiovascular",
-    location: "Houston, TX",
-    experience: "10+ years",
-    availability: "Available Next Week",
-    verified: true,
-    insurance: true
-  }
-];
 
 const departments = [
   "All Departments",
@@ -94,6 +33,38 @@ const departments = [
 ];
 
 export function FeaturedTherapists() {
+  const [therapists, setTherapists] = useState<TherapistApiItem[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchTherapists = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const res = await fetch(`/api/therapists?limit=4&sortBy=fee&sortOrder=asc`, { cache: "no-store" });
+        const json = await res.json();
+        const list: TherapistApiItem[] = json?.data?.therapists || [];
+        setTherapists(list);
+      } catch (e: any) {
+        setError(e?.message || "Failed to load therapists");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchTherapists();
+  }, []);
+
+  const departments = useMemo(() => [
+    "All Departments",
+    "Mental Health",
+    "Physical Therapy",
+    "Pediatric Care",
+    "Cardiovascular",
+    "Sleep Medicine",
+    "Nutrition"
+  ], []);
+
   return (
     <div className="w-full max-w-7xl mx-auto space-y-8">
       {/* Header */}
@@ -162,23 +133,23 @@ export function FeaturedTherapists() {
 
       {/* Therapists Grid */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2">
-        {featuredTherapists.map((therapist) => (
+        {(loading ? Array.from({ length: 4 }).map((_, i) => ({ _id: String(i) })) : therapists).map((therapist: any) => (
           <Card key={therapist.id} className="hover:shadow-lg transition-all border-2 hover:border-blue-200">
             <CardHeader className="pb-4">
               <div className="flex items-start space-x-4">
                 <Avatar className="w-20 h-20">
-                  <AvatarImage src={therapist.image} alt={therapist.name} />
-                  <AvatarFallback>{therapist.name.split(' ').map(n => n[0]).join('')}</AvatarFallback>
+                  <AvatarImage src={therapist.image || ""} alt={therapist.displayName || ""} />
+                  <AvatarFallback>{(therapist.displayName || "").split(' ').map((n: string) => n[0]).join('')}</AvatarFallback>
                 </Avatar>
                 
                 <div className="flex-1 space-y-2">
                   <div className="flex items-start justify-between">
                     <div>
-                      <h3 className="font-semibold text-lg">{therapist.name}</h3>
-                      <p className="text-muted-foreground">{therapist.title}</p>
+                      <h3 className="font-semibold text-lg">{therapist.displayName || "Loading..."}</h3>
+                      <p className="text-muted-foreground">{therapist.title || ""}</p>
                     </div>
                     <div className="flex space-x-1">
-                      {therapist.verified && (
+                      {therapist.isVerified && (
                         <Badge variant="secondary" className="bg-green-100 text-green-800">
                           <Shield className="w-3 h-3 mr-1" />
                           Verified
@@ -190,19 +161,31 @@ export function FeaturedTherapists() {
                   <div className="flex items-center space-x-4 text-sm text-muted-foreground">
                     <div className="flex items-center space-x-1">
                       <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-                      <span>{therapist.rating}</span>
-                      <span>({therapist.reviewCount} reviews)</span>
+                      <span>{typeof therapist.rating === 'number' ? therapist.rating.toFixed(1) : '-'}</span>
+                      <span>({therapist.reviewCount || 0} reviews)</span>
                     </div>
                   </div>
                   
                   <div className="flex items-center space-x-4 text-sm text-muted-foreground">
                     <div className="flex items-center space-x-1">
                       <MapPin className="w-4 h-4" />
-                      <span>{therapist.location}</span>
+                      <span>{therapist.location || ""}</span>
                     </div>
                     <div className="flex items-center space-x-1">
                       <Clock className="w-4 h-4" />
-                      <span>{therapist.experience}</span>
+                      {(() => {
+                        const raw: any = (therapist as any).experience ?? (therapist as any).yearsExperience ?? (therapist as any).yearsOfExperience ?? (therapist as any).expYears;
+                        let label = '';
+                        if (typeof raw === 'number') {
+                          if (raw > 0) label = `${raw}+ years`;
+                        } else if (typeof raw === 'string') {
+                          const s = raw.trim();
+                          const m = s.match(/(\d+)(?:\s*\+?)?/);
+                          if (m && Number(m[1]) > 0) label = `${Number(m[1])}+ years`;
+                          else if (s.length) label = s.replace(/years?/i, 'years');
+                        }
+                        return <span>{label}</span>;
+                      })()}
                     </div>
                   </div>
                 </div>
@@ -211,11 +194,8 @@ export function FeaturedTherapists() {
             
             <CardContent className="space-y-4">
               <div>
-                <Badge variant="outline" className="mb-2 bg-blue-50 text-blue-700 border-blue-200">
-                  {therapist.department}
-                </Badge>
                 <div className="flex flex-wrap gap-1">
-                  {therapist.specialties.map((specialty, index) => (
+                  {(therapist.specializations || []).slice(0, 3).map((specialty: string, index: number) => (
                     <Badge key={index} variant="secondary" className="text-xs">
                       {specialty}
                     </Badge>
@@ -225,10 +205,20 @@ export function FeaturedTherapists() {
               
               <div className="flex items-center justify-between">
                 <div className="text-sm">
-                  <span className="text-green-600 font-medium">{therapist.availability}</span>
-                  {therapist.insurance && (
-                    <p className="text-muted-foreground">Insurance accepted</p>
-                  )}
+                  <span className="text-green-600 font-medium">{(therapist.sessionTypes && therapist.sessionTypes.length) ? `Offers ${therapist.sessionTypes.join(', ')}` : ''}</span>
+                  {(() => {
+                    // Compute cheapest visible price
+                    const fee = Number(therapist.consultationFee || 0);
+                    const types: string[] = Array.isArray(therapist.sessionTypes) ? therapist.sessionTypes.map((t: string) => String(t).toLowerCase()) : [];
+                    const defaults: Record<string, number> = { video: 999, audio: 499, "in-clinic": 699, clinic: 699, home: 1299, "home-visit": 1299 };
+                    const availableTypePrices = types.map((t) => defaults[t]).filter((v) => typeof v === 'number' && v > 0);
+                    const candidates = [fee > 0 ? fee : Infinity, ...(availableTypePrices.length ? availableTypePrices : [])];
+                    const minPrice = Math.min(...(candidates.length ? candidates : [Infinity]));
+                    if (minPrice !== Infinity && minPrice > 0) {
+                      return <p className="text-muted-foreground">From ₹{minPrice.toLocaleString()}</p>;
+                    }
+                    return null; // Hide price when nothing valid
+                  })()}
                 </div>
                 <div className="space-x-2">
                   <Button variant="outline" size="sm">

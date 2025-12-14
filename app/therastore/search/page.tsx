@@ -251,9 +251,11 @@ function SearchPageInner() {
                       <span className="inline-block px-3 py-1 bg-emerald-50 text-emerald-700 text-xs font-semibold rounded-full mb-3">
                         {product.category}
                       </span>
-                      <h3 className="font-bold text-gray-900 text-lg mb-2 line-clamp-2 min-h-[3.5rem] group-hover:text-emerald-600 transition-colors">
-                        {product.name}
-                      </h3>
+                      <Link href={`/therastore/products/${product._id}`} className="block">
+                        <h3 className="font-bold text-gray-900 text-lg mb-2 line-clamp-2 min-h-[3.5rem] group-hover:text-emerald-600 transition-colors">
+                          {product.name}
+                        </h3>
+                      </Link>
                       <p className="text-sm text-gray-600 font-medium">{product.brand}</p>
                     </div>
 

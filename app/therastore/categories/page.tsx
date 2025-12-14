@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ArrowRight, Package } from 'lucide-react';
+import { therastoreCategories } from '@/constants/app-data';
 
 interface Category {
   name: string;
@@ -17,6 +18,7 @@ export default function CategoriesPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Fetch categories directly from DB-backed API
     fetchCategories();
   }, []);
 
@@ -24,11 +26,14 @@ export default function CategoriesPage() {
     try {
       const res = await fetch('/api/therastore/categories');
       const data = await res.json();
-      if (data.success) {
-        setCategories(data.data);
+      if (data.success && Array.isArray(data.data)) {
+        setCategories(data.data as Category[]);
+      } else {
+        setCategories([]);
       }
     } catch (error) {
       console.error('Error fetching categories:', error);
+      setCategories([]);
     } finally {
       setLoading(false);
     }
@@ -82,39 +87,66 @@ export default function CategoriesPage() {
             <CardContent className="p-12 text-center">
               <Package className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-xl font-semibold mb-2">No categories found</h3>
-              <p className="text-muted-foreground">Categories will appear here once products are added</p>
+              <p className="text-muted-foreground">Once categories are added in Admin, they will appear here.</p>
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {categories.map((category, idx) => (
-              <Link 
-                key={category.name} 
-                href={`/therastore/products?category=${category.name}`}
-                className="animate-in fade-in slide-in-from-bottom-4"
-                style={{ animationDelay: `${idx * 0.1}s` }}
-              >
-                <Card className="group hover:shadow-2xl transition-all duration-300 border-0 overflow-hidden cursor-pointer h-full hover:scale-105">
-                  <div className="relative aspect-[4/3]">
-                    <Image
-                      src={categoryImages[idx % categoryImages.length]}
-                      alt={category.name}
-                      fill
-                      className="object-cover group-hover:scale-110 transition-transform duration-500"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent group-hover:from-black/90 transition-colors"></div>
-                    <div className="absolute inset-0 bg-emerald-600/0 group-hover:bg-emerald-600/20 transition-colors duration-300"></div>
-                    <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
-                      <h3 className="font-bold text-2xl mb-2 group-hover:translate-y-[-4px] transition-transform">{category.name}</h3>
-                      <div className="flex items-center justify-between">
-                        <p className="text-white/90">{category.count} products</p>
-                        <ArrowRight className="w-5 h-5 group-hover:translate-x-2 transition-transform" />
+          <div className="space-y-6">
+            {categories.map((category, idx) => {
+              const staticMatch = therastoreCategories.find(c => c.label === category.name);
+              const subcats = staticMatch?.subcategories || [];
+              return (
+                <div key={category.name} className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+                  <button className="w-full text-left">
+                    <div className="relative">
+                      <div className="relative aspect-[4/1]">
+                        <Image
+                          src={categoryImages[idx % categoryImages.length]}
+                          alt={category.name}
+                          fill
+                          className="object-cover"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-black/30 to-transparent"></div>
+                      </div>
+                      <div className="absolute inset-0 flex items-center px-6">
+                        <div className="flex items-center justify-between w-full">
+                          <div>
+                            <h3 className="text-white font-extrabold text-2xl">{category.name}</h3>
+                            <p className="text-white/80 text-sm">{category.count} products</p>
+                          </div>
+                          <ArrowRight className="w-6 h-6 text-white" />
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </Card>
-              </Link>
-            ))}
+                  </button>
+
+                  {/* Accordion content: subcategory cards */}
+                  {subcats.length > 0 && (
+                    <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {subcats.map((s, sIdx) => (
+                        <Link
+                          key={s.key}
+                          href={`/therastore/products?category=${encodeURIComponent(category.name)}&subcategory=${encodeURIComponent(s.label)}`}
+                          className="group"
+                        >
+                          <Card className="border border-gray-100 hover:border-emerald-300 hover:shadow-lg transition-all">
+                            <CardContent className="p-5">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <div className="text-sm text-gray-500">Sub-category</div>
+                                  <div className="font-semibold text-gray-900 group-hover:text-emerald-700">{s.label}</div>
+                                </div>
+                                <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200">Explore</Badge>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </Link>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

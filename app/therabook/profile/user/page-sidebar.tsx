@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -823,35 +824,156 @@ export default function UserProfilePage() {
   );
   };
 
-  const SelfTestsContent = () => (
-    <div className="space-y-6">
-      <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm rounded-2xl overflow-hidden">
-        <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50 border-b">
-          <CardTitle className="flex items-center text-gray-800 text-2xl">
-            <div className="p-2 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg mr-3">
-              <Activity className="w-6 h-6 text-white" />
-            </div>
+  const SelfTestsContent = () => {
+    const [items, setItems] = React.useState<any[]>([]);
+    const [loading, setLoading] = React.useState(true);
+    const [err, setErr] = React.useState<string | null>(null);
+
+    React.useEffect(() => {
+      const load = async () => {
+        try {
+          setLoading(true);
+          setErr(null);
+          const token = (typeof window !== 'undefined') ? localStorage.getItem('token') : null;
+          const res = await fetch('/api/theraself/results', {
+            cache: 'no-store',
+            headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+          });
+          const json = await res.json();
+          const list = Array.isArray(json) ? json : [];
+          // Show all assessments to ensure visibility (DB confirmed saved)
+          list.sort((a: any, b: any) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+          setItems(list);
+        } catch (e: any) {
+          setErr(e.message || 'Failed to load assessments');
+        } finally {
+          setLoading(false);
+        }
+      };
+      load();
+    }, [user]);
+
+    const Header = (
+      <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50 border-b">
+        <CardTitle className="flex items-center text-gray-800 text-2xl">
+          <div className="p-2 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg mr-3">
+            <Activity className="w-6 h-6 text-white" />
+          </div>
           My Self Tests
         </CardTitle>
       </CardHeader>
-        <CardContent className="p-8">
-          <div className="text-center py-12">
-            <div className="w-24 h-24 bg-gradient-to-br from-purple-100 to-pink-100 rounded-full flex items-center justify-center mx-auto mb-6">
-              <Activity className="w-12 h-12 text-purple-500" />
-            </div>
-            <h3 className="text-xl font-bold text-gray-800 mb-2">No Self Tests Yet</h3>
-            <p className="text-gray-600 mb-6 max-w-md mx-auto">
-              Take self-assessment tests to better understand your mental health and track your progress over time.
-            </p>
-            <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-lg">
-              <Activity className="w-4 h-4 mr-2" />
-              Explore Self Tests
-            </Button>
-          </div>
-      </CardContent>
-    </Card>
-    </div>
-  );
+    );
+
+    if (loading) {
+      return (
+        <div className="space-y-6">
+          <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm rounded-2xl overflow-hidden">
+            {Header}
+            <CardContent className="p-8">
+              <div className="text-center text-gray-600">Loading…</div>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+    if (err) {
+      return (
+        <div className="space-y-6">
+          <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm rounded-2xl overflow-hidden">
+            {Header}
+            <CardContent className="p-8">
+              <div className="text-center text-red-600">{err}</div>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+
+    if (!items.length) {
+      return (
+        <div className="space-y-6">
+          <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm rounded-2xl overflow-hidden">
+            {Header}
+            <CardContent className="p-8">
+              <div className="text-center py-12">
+                <div className="w-24 h-24 bg-gradient-to-br from-purple-100 to-pink-100 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <Activity className="w-12 h-12 text-purple-500" />
+                </div>
+                <h3 className="text-xl font-bold text-gray-800 mb-2">No Self Tests Yet</h3>
+                <p className="text-gray-600 mb-6 max-w-md mx-auto">
+                  Take a self-assessment to understand and track progress.
+                </p>
+                <Link href="/theraself/tests">
+                  <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-lg">
+                    <Activity className="w-4 h-4 mr-2" />
+                    Explore Self Tests
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-6">
+        {items.map((d: any, idx: number) => {
+          const id = String(d?._id?.$oid ?? d?._id ?? '');
+          const created = d.createdAt ? new Date(d.createdAt).toLocaleString() : '—';
+          const score = Math.round(Number(d.overallTheraScore || 0) * 10) / 10;
+          const level = d.level || 'low';
+          const child = d.childName || 'N/A';
+          const age = d.ageYears ?? 'N/A';
+          const answers = d.answers?.all || [];
+          const sections = d.answers?.counts || { inattention: 0, hyperactivity: 0, impulsivity: 0 };
+          const report = d.reportText || '';
+          return (
+            <Card key={id || idx} className="border-0 shadow-xl bg-white/80 backdrop-blur-sm rounded-2xl overflow-hidden">
+              {Header}
+              <CardContent className="p-8 space-y-4">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600">Child: <span className="text-gray-900 font-medium">{child}</span> · Age: <span className="text-gray-900 font-medium">{age}</span></p>
+                    <p className="text-sm text-emerald-700 mt-1">Overall TheraScore: <span className="font-semibold">{score}</span> • Level: {level}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" className="border-gray-300 text-gray-700 hover:bg-gray-50" onClick={() => {
+                      const txt = String(report || '').trim();
+                      const blob = new Blob([txt], { type: 'text/plain' });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement('a');
+                      a.href = url; a.download = `TheraSelf_Report_${child || 'Child'}_${new Date().toISOString().slice(0,10)}.txt`;
+                      a.click(); URL.revokeObjectURL(url);
+                    }}>
+                      Download Report
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="p-3 rounded-lg border border-purple-200 bg-purple-50">
+                    <h4 className="font-medium mb-2 text-purple-800">Answers</h4>
+                    <div className="text-sm text-purple-900">
+                      <div>Inattention ({sections.inattention}) • {answers.slice(0, sections.inattention).join(', ')}</div>
+                      <div>Hyperactivity ({sections.hyperactivity}) • {answers.slice(sections.inattention, sections.inattention + sections.hyperactivity).join(', ')}</div>
+                      <div>Impulsivity ({sections.impulsivity}) • {answers.slice(sections.inattention + sections.hyperactivity, sections.inattention + sections.hyperactivity + sections.impulsivity).join(', ')}</div>
+                    </div>
+                  </div>
+                  <div className="p-3 rounded-lg border border-purple-200 bg-purple-50">
+                    <h4 className="font-medium mb-2 text-purple-800">AI Report</h4>
+                    <div className="text-sm text-purple-900 whitespace-pre-wrap">{report || 'No report saved yet.'}</div>
+                  </div>
+                </div>
+
+                <div className="text-xs text-gray-500">Saved {created}</div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+    );
+  };
 
   const PaymentsContent = () => (
     <div className="space-y-6">
@@ -1369,20 +1491,20 @@ export default function UserProfilePage() {
         )}
 
         {/* Main Content with Sidebar */}
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Enhanced Sidebar Navigation */}
+        <div className="flex flex-col lg:flex-row gap-6">
+          {/* Sidebar Navigation - collapses to top bar on mobile */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.1 }}
-            className="lg:col-span-1"
+            className="w-full lg:w-1/4 mb-4 lg:mb-0"
           >
-            <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm sticky top-6 rounded-2xl overflow-hidden">
+            <Card className="border-0 shadow-xl bg-white/80 backdrop-blur-sm rounded-2xl overflow-hidden sticky top-4 z-20">
               <CardHeader className="pb-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-b">
-                <CardTitle className="text-xl font-bold text-gray-800">Navigation</CardTitle>
+                <CardTitle className="text-xl font-bold text-gray-800 text-center lg:text-left">Navigation</CardTitle>
               </CardHeader>
               <CardContent className="p-2">
-                <div className="space-y-1">
+                <div className="flex flex-row lg:flex-col flex-wrap gap-2 lg:gap-1 justify-center lg:justify-start">
                   {sidebarItems.map((item, index) => {
                     const Icon = item.icon;
                     const isActive = activeTab === item.key;
@@ -1393,13 +1515,14 @@ export default function UserProfilePage() {
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: 0.1 + index * 0.05 }}
                         onClick={() => setActiveTab(item.key)}
-                        className={`w-full flex items-center px-4 py-3.5 text-left transition-all duration-300 rounded-xl group ${
+                        className={`flex items-center px-3 py-2 text-left transition-all duration-300 rounded-xl group relative w-full lg:w-auto min-w-[120px] justify-center lg:justify-start ${
                           isActive
                             ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg scale-[1.02]'
                             : 'text-gray-700 hover:bg-gradient-to-r hover:from-blue-50 hover:to-indigo-50 hover:text-blue-600 hover:shadow-md'
                         }`}
+                        style={{ minWidth: 0 }}
                       >
-                        <Icon className={`w-5 h-5 mr-3 transition-transform duration-300 ${
+                        <Icon className={`w-5 h-5 mr-2 transition-transform duration-300 ${
                           isActive ? 'text-white scale-110' : 'text-blue-500 group-hover:scale-110'
                         }`} />
                         <span className={`font-medium ${isActive ? 'text-white' : 'text-gray-700 group-hover:text-blue-600'}`}>
@@ -1408,7 +1531,7 @@ export default function UserProfilePage() {
                         {isActive && (
                           <motion.div
                             layoutId="activeTab"
-                            className="absolute right-2 w-2 h-2 bg-white rounded-full"
+                            className="absolute right-2 w-2 h-2 bg-white rounded-full hidden lg:block"
                             transition={{ type: "spring", stiffness: 500, damping: 30 }}
                           />
                         )}
@@ -1425,7 +1548,7 @@ export default function UserProfilePage() {
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.2 }}
-            className="lg:col-span-3"
+            className="flex-1 min-w-0"
           >
             {activeTab === "profile" && <ProfileContent />}
             {activeTab === "appointments" && <AppointmentsContent />}
