@@ -166,6 +166,12 @@ app/**/100ms-test/**
 app/**/notifications-test/**
 app/**/notifications-email-test/**
 app/**/razorpay-test/**
+# Explicit test/demo pages
+app/shiprocket-test/**
+app/fake-booking/**
+app/fake-meeting/**
+app/delhivery-test/**
+app/shiprocket-test/**
 
 # Debug pages
 app/debug/**
@@ -178,12 +184,7 @@ app/api/debug/**
 app/api/**/email-test/**
 app/api/**/network-test/**
 
-# TheraStore (exclude from main project)
-app/therastore/**
-app/**/therastore/**
-app/api/therastore/**
-components/therastore/**
-lib/therastore/**
+
 
 # Additional test pages to ignore
 app/test-*/**

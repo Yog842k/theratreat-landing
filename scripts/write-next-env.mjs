@@ -21,6 +21,9 @@ let SERVER_VARS = [
   'IDFY_MODE','IDFY_DEBUG','IDFY_FALLBACK_TO_MOCK','NEXT_PUBLIC_GOOGLE_MAPS_API_KEY',
 
   'ADMIN_EMAIL','ADMIN_PASSWORD'
+  ,
+  // Shipping / AI
+  'SHIPROCKET_EMAIL','SHIPROCKET_PASSWORD','GEMINI_API_KEY'
 ];
 
 // Any key beginning with these prefixes will also be written.
