@@ -151,6 +151,9 @@ cypress.config.*
 **/cypress/screenshots/
 **/cypress/videos/
 
+# Keep app/theraself/tests tracked
+!app/theraself/tests/**
+
 # If you want to keep a sample test template tracked, negate it below (example):
 # !tests/sample.test.ts
 
@@ -186,6 +189,3 @@ app/api/**/network-test/**
 
 
 
-# Additional test pages to ignore
-app/test-*/**
-app/**/test-*/**
