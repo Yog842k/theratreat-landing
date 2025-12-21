@@ -6,7 +6,7 @@
     "node": "20.x"
   },
   "scripts": {
-    "dev": "cross-env NEXT_PRIVATE_OUTPUT_TRACE_WORKER=0 NEXT_DIST_DIR=next-build next dev",
+    "dev": "set NODE_OPTIONS=--dns-result-order=ipv4first && cross-env NEXT_PRIVATE_OUTPUT_TRACE_WORKER=0 NEXT_DIST_DIR=.next next dev",
     "dev:legacy-tls": "cross-env NODE_OPTIONS=--openssl-legacy-provider next dev",
     "build": "next build",
     "start": "next start",
@@ -96,6 +96,7 @@
     "react-select": "^5.10.2",
     "recharts": "^2.8.0",
     "sonner": "^1.4.0",
+    "swr": "^2.3.7",
     "tailwind-merge": "^1.14.0",
     "tailwindcss-animate": "^1.0.7",
     "twilio": "^5.10.2",

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import database from '@/lib/database'
-import { signToken } from '@/lib/authUtils'
+import { generateToken } from '@/lib/authUtils'
 
 type Vendor = {
-  _id?: string
+  // _id is omitted to let MongoDB handle it
   email: string
   password: string
   name?: string
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
       if (existing) return NextResponse.json({ error: 'Email already registered' }, { status: 400 })
       const doc: Vendor = { email, password, name, phone, pickupAddress, createdAt: new Date().toISOString() }
       const res = await col.insertOne(doc)
-      const token = signToken({ userId: String(res.insertedId), role: 'vendor' })
+      const token = generateToken({ userId: String(res.insertedId), role: 'vendor' })
       return NextResponse.json({ ok: true, token })
     } else if (action === 'login') {
       const v = await col.findOne({ email })
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
       const bcrypt = require('bcryptjs')
       const match = v.password?.startsWith('$2') ? await bcrypt.compare(password, v.password) : v.password === password
       if (!match) return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
-      const token = signToken({ userId: String(v._id), role: 'vendor' })
+      const token = generateToken({ userId: String(v._id), role: 'vendor' })
       return NextResponse.json({ ok: true, token })
     }
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 })

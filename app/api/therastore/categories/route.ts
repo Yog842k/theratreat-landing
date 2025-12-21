@@ -16,7 +16,7 @@ export async function GET() {
         ? cursor
         : [];
     if (existing && existing.length > 0) {
-      return ok(existing.map(c => ({ name: c.name, count: c.count || 0 })));
+      return ok(existing.map((c: any) => ({ name: c.name, count: c.count || 0 })));
     }
 
     // Fallback: derive from products aggregation
@@ -70,7 +70,8 @@ export async function POST(request: Request) {
       );
     }
 
-    const saved = await categories.find({}).project({ _id: 0, name: 1, key: 1, count: 1 }).toArray();
+    const savedRaw = await categories.find({}).toArray();
+    const saved = savedRaw.map((c: any) => ({ name: c.name, key: c.key, count: c.count }));
     return ok({ message: 'Categories upserted', categories: saved });
   } catch (error: any) {
     console.error('Error seeding categories:', error);

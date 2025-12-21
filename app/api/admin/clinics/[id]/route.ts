@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import db from "@/lib/database.js";
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const col = await db.getCollection("clinics");
     const oid = db.toObjectId(id);
     const doc = await col.findOne({ _id: oid });

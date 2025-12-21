@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import db from "@/lib/database.js";
 
-export async function POST(_req: Request, { params }: { params: { id: string } }) {
+export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const col = await db.getCollection("therapists");
     const oid = db.toObjectId(id);
     await col.updateOne(

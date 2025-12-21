@@ -1,84 +1,183 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import database from '@/lib/database'
+import { requireUser } from '@/lib/api-auth'
+import { createShiprocketOrder, generateShiprocketAwb, CreateOrderPayload } from '@/lib/shiprocket'
 
-const SHIPROCKET_EMAIL = process.env.SHIPROCKET_EMAIL
-const SHIPROCKET_PASSWORD = process.env.SHIPROCKET_PASSWORD
-const SHIPROCKET_TOKEN = process.env.SHIPROCKET_TOKEN
-const SHIPROCKET_AUTH_HEADER = process.env.SHIPROCKET_AUTH_HEADER // e.g. "Bearer <jwt>" or "Token <api_key>"
+export const dynamic = 'force-dynamic'
 
-function buildAuthHeaderFromEnv(): string | null {
-  const raw = (SHIPROCKET_AUTH_HEADER || SHIPROCKET_TOKEN || '').trim()
-  if (!raw) return null
-  // If value already contains a scheme (e.g., "Bearer ..." or "Token ..."), use as-is
-  if (/^(Bearer|Token)\s+/i.test(raw)) return raw
-  // Default to Bearer when scheme omitted
-  return `Bearer ${raw}`
+const fallbackDims = {
+  length: Number(process.env.SHIPROCKET_PARCEL_LENGTH) || 10,
+  breadth: Number(process.env.SHIPROCKET_PARCEL_BREADTH) || 10,
+  height: Number(process.env.SHIPROCKET_PARCEL_HEIGHT) || 5,
+  weight: Number(process.env.SHIPROCKET_PARCEL_WEIGHT) || 0.5,
 }
 
-async function shiprocketAuthHeader(): Promise<string> {
-  const fromEnv = buildAuthHeaderFromEnv()
-  if (fromEnv) return fromEnv
-  // Fallback to login when no token is provided via env
-  const res = await fetch('https://apiv2.shiprocket.in/v1/external/auth/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: SHIPROCKET_EMAIL, password: SHIPROCKET_PASSWORD }),
-  })
-  if (!res.ok) throw new Error('Shiprocket auth failed')
-  const data = await res.json()
-  const token = String(data.token || '').trim()
-  return /^(Bearer|Token)\s+/i.test(token) ? token : `Bearer ${token}`
+const asNumericString = (v: any) => {
+  if (v === undefined || v === null) return ''
+  const digits = `${v}`.replace(/\D+/g, '')
+  return digits
 }
 
-export async function POST(req: Request) {
+const normalizePhone = (value: any) => {
+  const digits = asNumericString(value)
+  if (!digits) return { phone: null, error: 'Phone is empty' }
+  if (digits.length === 11 && digits.startsWith('0')) return { phone: digits.slice(-10) }
+  if (digits.length === 12 && digits.startsWith('91')) return { phone: digits.slice(-10) }
+  if (digits.length > 10) return { phone: digits.slice(-10) }
+  if (digits.length === 10) return { phone: digits }
+  return { phone: null, error: 'Phone must have 10 digits after removing country code and symbols' }
+}
+
+const normalizePincode = (value: any) => {
+  const digits = asNumericString(value)
+  if (digits.length === 6) return { pincode: digits }
+  if (digits.length > 6) return { pincode: digits.slice(-6) }
+  return { pincode: null, error: 'Pincode must have 6 digits' }
+}
+
+const deriveLastName = (fullName: string | undefined | null) => {
+  if (!fullName) return 'NA'
+  const parts = fullName.trim().split(/\s+/)
+  if (parts.length === 1) return 'NA'
+  return parts.slice(-1)[0] || 'NA'
+}
+
+const allSameDigit = (value: string | null | undefined) => !!value && /^([0-9])\1{9}$/.test(value)
+
+const extractShipmentId = (resp: any) => resp?.shipment_id ?? resp?.data?.shipment_id
+const extractAwbCode = (resp: any) => resp?.awb_code ?? resp?.response?.data?.awb_code ?? resp?.data?.awb_code
+
+export async function POST(req: NextRequest) {
   try {
-    const body = await req.json()
-    const { orderId } = body
-    if (!orderId) return NextResponse.json({ error: 'orderId required' }, { status: 400 })
+    const { userId } = requireUser(req)
+    const email = process.env.SHIPROCKET_EMAIL?.trim()
+    const password = process.env.SHIPROCKET_PASSWORD?.trim()
+    if (!email || !password) {
+      return NextResponse.json({ error: 'Server misconfigured: SHIPROCKET_EMAIL or SHIPROCKET_PASSWORD missing' }, { status: 500 })
+    }
 
-    const col = await database.getCollection('orders')
-    const order = await col.findOne({ _id: database.toObjectId(orderId) })
+    const body = await req.json().catch(() => null)
+    const orderId = body?.orderId
+    const force = !!body?.force
+    const autoAwb = body?.generateAwb !== undefined ? !!body.generateAwb : true
+    const pickupLocation = (body?.pickupLocation || process.env.SHIPROCKET_PICKUP_LOCATION || 'Default').toString().trim()
+    const courierId = body?.courierId
+
+    if (!orderId) return NextResponse.json({ error: 'orderId is required' }, { status: 400 })
+
+    const orders = await database.getCollection('orders')
+    const order = await orders.findOne({ _id: database.toObjectId(orderId) })
     if (!order) return NextResponse.json({ error: 'Order not found' }, { status: 404 })
-    if (!order.shipping) return NextResponse.json({ error: 'Shipping info required' }, { status: 400 })
+    if (String(order.userId) !== String(userId)) return NextResponse.json({ error: 'Unauthorized for this order' }, { status: 403 })
 
-    const authHeader = await shiprocketAuthHeader()
-    const payload = {
-      order_id: orderId,
-      order_date: new Date().toISOString(),
-      pickup_location: 'Primary',
-      channel_id: '',
-      billing_customer_name: order.shipping.name,
-      billing_last_name: '',
-      billing_address: order.shipping.address,
-      billing_city: order.shipping.city,
-      billing_pincode: order.shipping.pincode,
-      billing_state: order.shipping.state,
-      billing_country: 'India',
-      billing_email: '',
-      billing_phone: order.shipping.phone,
+    if (order.shiprocket?.order_id && !force) {
+      return NextResponse.json({ ok: true, alreadyExists: true, shiprocket: order.shiprocket })
+    }
+
+    const shipping = order.shipping || body?.shipping
+    if (!shipping) return NextResponse.json({ error: 'Shipping details missing on order' }, { status: 400 })
+
+    const requiredFields = ['name', 'phone', 'address', 'city', 'state', 'pincode'] as const
+    const missing = requiredFields.filter((k) => !shipping[k] || `${shipping[k]}`.trim() === '')
+    if (missing.length) return NextResponse.json({ error: `Missing shipping fields: ${missing.join(', ')}` }, { status: 400 })
+
+    const items = Array.isArray(order.items) ? order.items : []
+    if (!items.length) return NextResponse.json({ error: 'Order has no items to ship' }, { status: 400 })
+
+    const { phone: cleanPhone, error: phoneError } = normalizePhone(shipping.phone)
+    if (!cleanPhone) return NextResponse.json({ error: phoneError }, { status: 400 })
+    if (allSameDigit(cleanPhone)) return NextResponse.json({ error: 'Phone cannot be all the same digit (e.g., 9999999999)' }, { status: 400 })
+
+    const { pincode: cleanPincode, error: pincodeError } = normalizePincode(shipping.pincode)
+    if (!cleanPincode) return NextResponse.json({ error: pincodeError }, { status: 400 })
+
+    const billingLastName = deriveLastName(shipping.name)
+    const subTotal = items.reduce((s: number, it: any) => s + (Number(it.price) || 0) * (Number(it.quantity) || 0), 0)
+
+    const payload: CreateOrderPayload = {
+      order_id: (body?.shiprocketOrderId || `THERA-${orderId}`).toString(),
+      order_date: new Date().toISOString().slice(0, 19).replace('T', ' '),
+      pickup_location: pickupLocation,
+      billing_customer_name: shipping.name,
+      billing_last_name: billingLastName,
+      billing_address: shipping.address,
+      billing_address_2: shipping.address2 || shipping.addressLine2,
+      billing_city: shipping.city,
+      billing_state: shipping.state,
+      billing_country: shipping.country || 'India',
+      billing_pincode: cleanPincode,
+      billing_phone: cleanPhone,
+      billing_email: shipping.email,
       shipping_is_billing: true,
-      order_items: order.items.map((it: any) => ({ name: it.name, sku: it.productId, units: it.quantity, selling_price: it.price })),
+      shipping_customer_name: shipping.name,
+      shipping_last_name: billingLastName,
+      shipping_address: shipping.address,
+      shipping_address_2: shipping.address2 || shipping.addressLine2,
+      shipping_city: shipping.city,
+      shipping_state: shipping.state,
+      shipping_country: shipping.country || 'India',
+      shipping_pincode: cleanPincode,
+      shipping_phone: cleanPhone,
+      shipping_email: shipping.email,
+      order_items: items.map((it: any, idx: number) => ({
+        name: it.name || `Item ${idx + 1}`,
+        sku: it.productId || it.sku || `SKU-${idx + 1}`,
+        units: Number(it.quantity) || 1,
+        selling_price: Number(it.price) || 0,
+        tax: typeof it.gstPercent === 'number' ? Number(it.gstPercent) : undefined,
+      })),
       payment_method: order.paymentMethod === 'cod' ? 'COD' : 'Prepaid',
-      sub_total: order.subtotal,
-      length: 10,
-      breadth: 10,
-      height: 10,
-      weight: 0.5,
+      sub_total: subTotal,
+      length: Number(body?.length) || fallbackDims.length,
+      breadth: Number(body?.breadth) || fallbackDims.breadth,
+      height: Number(body?.height) || fallbackDims.height,
+      weight: Number(body?.weight) || fallbackDims.weight,
     }
 
-    const res = await fetch('https://apiv2.shiprocket.in/v1/external/orders/create/adhoc', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: authHeader },
-      body: JSON.stringify(payload),
-    })
-    if (!res.ok) {
-      const err = await res.text()
-      return NextResponse.json({ error: 'Shiprocket order create failed', details: err }, { status: 500 })
+    console.log('[shiprocket][order] start', { orderId: payload.order_id, userId, items: items.length })
+
+    const createResponse = await createShiprocketOrder({ email, password, payload })
+    const shipmentId = extractShipmentId(createResponse)
+
+    let awbResponse: any = null
+    let awbCode: string | undefined
+    if (autoAwb && shipmentId) {
+      try {
+        awbResponse = await generateShiprocketAwb({ email, password, shipmentId, courierId })
+        awbCode = extractAwbCode(awbResponse)
+      } catch (awbErr: any) {
+        awbResponse = { error: awbErr?.message || 'Shiprocket AWB generation failed', upstream: awbErr?.upstream }
+      }
     }
-    const data = await res.json()
-    await col.updateOne({ _id: database.toObjectId(orderId) }, { $set: { shiprocket: { order_id: data.order_id, shipment_id: data.shipment_id, awb: data.awb } } })
-    return NextResponse.json({ shiprocket: data })
+
+    const shiprocketData = {
+      order_id: payload.order_id,
+      shipment_id: shipmentId,
+      awb: awbCode,
+      courier_company_id: createResponse?.courier_company_id || awbResponse?.courier_company_id,
+      status: createResponse?.status || createResponse?.message,
+      updatedAt: new Date().toISOString(),
+    }
+
+    await orders.updateOne(
+      { _id: database.toObjectId(orderId) },
+      {
+        $set: {
+          shiprocket: shiprocketData,
+        },
+      }
+    )
+
+    console.log('[shiprocket][order] success', { orderId: payload.order_id, shipmentId, awb: awbCode })
+    return NextResponse.json({ ok: true, shiprocket: shiprocketData, createResponse, awbResponse })
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message || 'Shiprocket error' }, { status: 500 })
+    const message = e?.message || 'Shiprocket order failed'
+    const isAuth = /login failed|403|401|unauthorized/i.test(message)
+    if (e?.upstream) {
+      console.error('[shiprocket][order] upstream error', { message, upstream: e.upstream })
+      return NextResponse.json({ error: message, upstream: e.upstream }, { status: isAuth ? 401 : 400 })
+    }
+    console.error('[shiprocket][order] error', message)
+    return NextResponse.json({ error: message }, { status: isAuth ? 401 : 400 })
   }
 }

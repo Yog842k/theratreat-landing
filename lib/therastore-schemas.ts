@@ -31,7 +31,7 @@ export const ProductCreateSchema = z.object({
   sku: z.string().optional(),
   condition: z.string().optional().default('New'),
   features: z.array(z.string()).optional().default([]),
-  specifications: z.record(z.any()).optional().default({}),
+  specifications: z.record(z.string(), z.any()).optional().default({}),
   tags: z.array(z.string()).optional().default([]),
   isActive: z.boolean().optional().default(true),
   isFeatured: z.boolean().optional().default(false),

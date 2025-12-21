@@ -10,10 +10,11 @@ import {
   Scale,
 } from "lucide-react";
 
+import type { LucideIcon } from "lucide-react";
 type IconOption = {
   key: string;
   label: string;
-  Icon: React.ComponentType<{ size?: number; className?: string }>;
+  Icon: LucideIcon;
 };
 
 const ICONS: IconOption[] = [

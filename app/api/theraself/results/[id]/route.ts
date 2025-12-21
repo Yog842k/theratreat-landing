@@ -8,10 +8,9 @@ try {
   MongoObjectId = require("mongodb").ObjectId;
 } catch {}
 
-export async function GET(_req: Request, { params }: { params: { id: string } } | { params: Promise<{ id: string }> }) {
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const p: any = params as any;
-    const id: string = p?.then ? (await p).id : p.id;
+    const { id } = await params;
     const col = await db.getCollection("theraself_results");
     let objId: ObjectId | null = null;
     try {
@@ -38,13 +37,12 @@ export async function GET(_req: Request, { params }: { params: { id: string } } 
   }
 }
 
-export async function PUT(req: Request, { params }: { params: { id: string } } | { params: Promise<{ id: string }> }) {
+export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const body = await req.json();
     const { reportText, childName, ageYears, heuristics } = body || {};
     const col = await db.getCollection("theraself_results");
-    const p: any = params as any;
-    const id: string = p?.then ? (await p).id : p.id;
+    const { id } = await params;
     let objId: any = null;
     try {
       objId = await (db as any).toObjectId?.(id);

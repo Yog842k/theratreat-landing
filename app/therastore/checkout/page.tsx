@@ -93,21 +93,63 @@ export default function CheckoutPage() {
       }
       setOrderId(data.orderId)
 
+      // Helper to save order to localStorage for My Orders page
+      const saveOrderToLocal = (order: any) => {
+        try {
+          const prev = JSON.parse(localStorage.getItem('therastore_orders') || '[]');
+          prev.push(order);
+          localStorage.setItem('therastore_orders', JSON.stringify(prev));
+        } catch {}
+      };
+
       const finalizeOrder = async () => {
-         // Common completion logic
-         setStatus('Order confirmed')
+         setStatus('Confirming order...')
          await fetch('/api/therastore/orders', {
            method: 'PATCH',
            headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
            body: JSON.stringify({ id: data.orderId, update: { paymentStatus: paymentMethod === 'razorpay' ? 'paid' : 'pending', status: 'processing' } }),
          })
-         await fetch('/api/shiprocket/order', {
-           method: 'POST',
-           headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-           body: JSON.stringify({ orderId: data.orderId }),
-         })
+
+         let shiprocketNote = ''
+         try {
+           setStatus('Creating shipment...')
+           const srRes = await fetch('/api/shiprocket/order', {
+             method: 'POST',
+             headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+             body: JSON.stringify({ orderId: data.orderId }),
+           })
+           const srData = await srRes.json().catch(() => ({}))
+           if (!srRes.ok || srData?.error) {
+             shiprocketNote = srData?.error || 'Shiprocket request failed'
+           } else if (srData?.shiprocket?.awb) {
+             shiprocketNote = `AWB ${srData.shiprocket.awb}`
+           } else if (srData?.shiprocket?.shipment_id) {
+             shiprocketNote = `Shipment ${srData.shiprocket.shipment_id}`
+           }
+         } catch (srErr: any) {
+           shiprocketNote = srErr?.message || 'Shiprocket request failed'
+         }
+
          await fetch('/api/therastore/cart', { method: 'DELETE', headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) } })
-         router.push('/user/orders')
+
+         // Save order to localStorage for My Orders page
+         saveOrderToLocal({
+           items: items.map(it => ({
+             _id: it.productId,
+             name: it.name,
+             price: it.price,
+             quantity: it.quantity
+           })),
+           shipping,
+           total: items.reduce((s, it) => s + it.price * it.quantity, 0) + items.reduce((s, it) => s + ((it.gstPercent || 0) * it.price * it.quantity) / 100, 0),
+           paymentMethod,
+           orderDate: new Date().toISOString(),
+           status: 'pending',
+           shiprocket: shiprocketNote,
+         });
+
+         setStatus(shiprocketNote ? `Order confirmed. ${shiprocketNote}` : 'Order confirmed')
+         router.push('/therastore/orders');
       }
 
       if (data.next === 'razorpay') {
