@@ -181,12 +181,7 @@ app/shiprocket-test/**
 app/debug/**
 app/**/debug/**
 
-# API test and debug routes
-app/api/**/*test*/**/*.ts
-app/api/**/*test*/**/*.js
-app/api/debug/**
-app/api/**/email-test/**
-app/api/**/network-test/**
+
 
 
 # Re-include theraself test pages (must be after patterns above)
