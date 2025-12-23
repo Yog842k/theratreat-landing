@@ -127,59 +127,6 @@ scripts/local/
 
 # End extended ignores
 
-# --- Test file patterns (added) ---
-# Ignore all common test spec files
-
-**/*.spec.js
-**/*.spec.jsx
-**/*.spec.ts
-**/*.spec.tsx
-**/__tests__/
-**/__mocks__/
-**/tests/
-**/test-output/
-jest.config.js
-jest.config.cjs
-vitest.config.ts
-playwright.config.*
-cypress.config.*
-**/cypress/fixtures/
-**/cypress/downloads/
-**/cypress/screenshots/
-**/cypress/videos/
-
-# Keep app/theraself/tests tracked
-!app/theraself/tests/
-!app/theraself/tests/**
-
-# If you want to keep a sample test template tracked, negate it below (example):
-# !tests/sample.test.ts
-
-# Test and Debug Pages (exclude from main project)
-# Test pages
-
-app/**/payments-test/**
-app/**/cloudinary-test/**
-app/**/100ms-test/**
-app/**/notifications-test/**
-app/**/notifications-email-test/**
-app/**/razorpay-test/**
-# Explicit test/demo pages
-app/shiprocket-test/**
-app/fake-booking/**
-app/fake-meeting/**
-app/delhivery-test/**
-app/shiprocket-test/**
-
-# Debug pages
-app/debug/**
-app/**/debug/**
-
-
-
-
-# Re-include theraself test pages (must be after patterns above)
-!app/theraself/tests/**
 
 
 
