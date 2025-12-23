@@ -21,7 +21,7 @@ export default function MobileMenu(){
   const legal = footerSections.legal.slice(0,4);
 
   return (
-    <div className="md:hidden">
+    <div className="md:hidden relative z-[70]">
       <button
         aria-label={open ? 'Close menu' : 'Open menu'}
         aria-expanded={open}
@@ -32,7 +32,7 @@ export default function MobileMenu(){
         <span className="text-xs font-semibold">Menu</span>
       </button>
       {open && (
-        <div className="absolute left-0 right-0 top-full mt-2 mx-1 sm:mx-2 rounded-xl border border-slate-200 bg-white shadow-lg z-[60] animate-in fade-in slide-in-from-top-2">
+        <div className="fixed inset-x-2 sm:inset-x-3 top-[72px] mt-0 rounded-xl border border-slate-200 bg-white shadow-lg z-[80] animate-in fade-in slide-in-from-top-2">
           <div className="px-4 pt-3 pb-2 border-b border-slate-100 flex items-center justify-between">
             <span className="text-[11px] uppercase tracking-wide font-semibold text-slate-500">Menu</span>
             <button
