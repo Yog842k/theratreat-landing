@@ -103,11 +103,19 @@ export default function TheraBookHome() {
       try {
         setTherapistsLoading(true)
         setTherapistsError(null)
-        const res = await fetch('/api/therapists?limit=8&sortBy=rating&sortOrder=desc')
+        const res = await fetch('/api/therapists?featured=true&limit=8&sortBy=featuredOrder&sortOrder=asc')
         if (!res.ok) throw new Error('Failed to load therapists')
         const json = await res.json()
         const items: FeaturedTherapistItem[] = json?.data?.therapists || []
-        items.sort((a, b) => (Number(b.isVerified) - Number(a.isVerified)) || (b.rating || 0) - (a.rating || 0))
+        if (items.length === 0) {
+          // Fallback: fetch top-rated if no curated list found
+          const resFallback = await fetch('/api/therapists?limit=8&sortBy=rating&sortOrder=desc')
+          if (resFallback.ok) {
+            const jsonFb = await resFallback.json()
+            setFeaturedTherapists((jsonFb?.data?.therapists || []).slice(0,4))
+            return
+          }
+        }
         setFeaturedTherapists(items.slice(0,4))
       } catch (e: any) {
         setTherapistsError(e.message || 'Error fetching therapists')

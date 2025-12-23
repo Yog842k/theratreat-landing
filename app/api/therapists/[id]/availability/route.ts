@@ -1,172 +1,94 @@
 import { NextRequest, NextResponse } from 'next/server';
 const database = require('@/lib/database');
+const AuthMiddleware = require('@/lib/middleware');
 const { ObjectId } = require('mongodb');
+const { getAvailabilityForDate, upsertWeeklyAvailability, blockSlot } = require('@/lib/availability');
+
+const toObjectId = (v: string) => {
+  try { return new ObjectId(v); } catch { return v; }
+};
 
 /**
  * GET /api/therapists/[id]/availability
- * Returns available time slots for a therapist on a specific date
- * Only blocks slots when:
- * 1. Therapist is not available (based on their schedule)
- * 2. Another booking already exists at that time
+ * Query params: date=YYYY-MM-DD (required)
+ * Returns merged availability (weekly schedule - bookings - busy blocks)
  */
-export async function GET(
-  request: NextRequest,
-  context: { params: Promise<{ id: string }> }
-) {
+export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
     const { searchParams } = new URL(request.url);
     const dateParam = searchParams.get('date');
 
     if (!dateParam) {
-      return NextResponse.json(
-        { success: false, message: 'Date parameter is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, message: 'Date parameter is required' }, { status: 400 });
     }
 
-    // Parse the date
     const requestedDate = new Date(dateParam);
-    if (isNaN(requestedDate.getTime())) {
-      return NextResponse.json(
-        { success: false, message: 'Invalid date format' },
-        { status: 400 }
-      );
+    if (Number.isNaN(requestedDate.getTime())) {
+      return NextResponse.json({ success: false, message: 'Invalid date format' }, { status: 400 });
     }
 
-    // Get day of week (0 = Sunday, 1 = Monday, etc.)
-    const dayOfWeek = requestedDate.getDay();
-    const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-    const dayName = dayNames[dayOfWeek];
-
-    // Find therapist by ID (try both therapistProfileId and userId)
-    let therapist = null;
-    try {
-      // Try to find in therapists collection first
-      therapist = await database.findOne('therapists', { _id: new ObjectId(id) });
-      
-      // If not found, try to find by userId
-      if (!therapist) {
-        const user = await database.findOne('users', { _id: new ObjectId(id) });
-        if (user && user.userType === 'therapist') {
-          therapist = await database.findOne('therapists', { userId: new ObjectId(id) });
-        }
-      }
-    } catch (e) {
-      console.error('[availability] Error finding therapist:', e);
-    }
+    // Verify therapist exists (accept both therapist _id and userId)
+    const therapist = await database.findOne('therapists', { _id: toObjectId(id) })
+      || await database.findOne('therapists', { userId: toObjectId(id) });
 
     if (!therapist) {
-      return NextResponse.json(
-        { success: false, message: 'Therapist not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ success: false, message: 'Therapist not found' }, { status: 404 });
     }
 
-    // Get therapist's availability schedule for this day
-    const therapistAvailability = therapist.availability || [];
-    const daySchedule = therapistAvailability.find((avail: any) => 
-      avail.day?.toLowerCase() === dayName
-    );
-
-    // Default time slots if no schedule is set (9 AM to 6 PM, hourly)
-    const defaultSlots = [
-      '09:00', '10:00', '11:00', '12:00',
-      '13:00', '14:00', '15:00', '16:00', '17:00', '18:00'
-    ];
-
-    let availableTimeSlots: string[] = [];
-
-    if (daySchedule && daySchedule.slots && daySchedule.slots.length > 0) {
-      // Use therapist's schedule
-      availableTimeSlots = daySchedule.slots
-        .filter((slot: any) => slot.isAvailable !== false)
-        .map((slot: any) => slot.startTime)
-        .filter(Boolean);
-    } else {
-      // No schedule set, use default slots (assume therapist is available)
-      availableTimeSlots = defaultSlots;
-    }
-
-    // Get existing bookings for this therapist on this date
-    // Handle both Date objects and date strings in the database
-    const dateStart = new Date(requestedDate);
-    dateStart.setHours(0, 0, 0, 0);
-    const dateEnd = new Date(requestedDate);
-    dateEnd.setHours(23, 59, 59, 999);
-    
-    // Also create date string for exact match (YYYY-MM-DD format)
-    const dateString = requestedDate.toISOString().split('T')[0];
-
-    // Query for existing bookings - check therapist ID and date
-    const existingBookings = await database.findMany('bookings', {
-      $and: [
-        {
-          $or: [
-            { therapistId: new ObjectId(id) },
-            { therapistProfileId: new ObjectId(id) }
-          ]
-        },
-        {
-          $or: [
-            { appointmentDate: { $gte: dateStart, $lte: dateEnd } },
-            { appointmentDate: dateString },
-            { date: dateString } // Legacy field name
-          ]
-        },
-        {
-          status: { $in: ['pending', 'confirmed'] } // Only count active bookings
-        }
-      ]
-    });
-
-    // Extract booked time slots
-    const bookedTimeSlots = new Set(
-      existingBookings
-        .map((booking: any) => booking.appointmentTime)
-        .filter(Boolean)
-    );
-
-    // Generate availability response
-    const availability = availableTimeSlots.map((time: string) => {
-      // Block slot only if:
-      // 1. It's in the booked slots (another session exists)
-      // 2. Therapist schedule explicitly marks it as unavailable (already filtered above)
-      const isBooked = bookedTimeSlots.has(time);
-      
-      return {
-        time,
-        available: !isBooked
-      };
-    });
-
-    // Sort by time
-    availability.sort((a, b) => a.time.localeCompare(b.time));
-
-    console.log('[availability] Generated availability:', {
-      therapistId: id,
-      date: dateParam,
-      dayName,
-      totalSlots: availability.length,
-      availableCount: availability.filter(a => a.available).length,
-      bookedCount: bookedTimeSlots.size
-    });
+    const scheduleOwnerId = therapist._id?.toString() || id;
+    const result = await getAvailabilityForDate(scheduleOwnerId, dateParam);
 
     return NextResponse.json({
       success: true,
       data: {
-        availability,
-        date: dateParam,
-        therapistId: id
+        availability: result.availability,
+        nextAvailable: result.nextAvailable,
+        date: result.date,
+        therapistId: scheduleOwnerId,
       }
     });
-
   } catch (error: any) {
     console.error('[availability] Error:', error);
-    return NextResponse.json(
-      { success: false, message: 'Failed to fetch availability', error: error.message },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, message: 'Failed to fetch availability', error: error?.message }, { status: 500 });
+  }
+}
+
+/**
+ * POST /api/therapists/[id]/availability
+ * Body: { weekly: [{ day, start, end, enabled }], timezone?, blocks?: [{ date, time, note }] }
+ * Auth: therapist only (owner of the profile)
+ */
+export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
+  try {
+    const { id } = await context.params;
+    const user = await AuthMiddleware.requireRole(request, ['therapist']);
+    const body = await request.json();
+    const weekly = Array.isArray(body.weekly) ? body.weekly : [];
+    const timezone = body.timezone || 'Asia/Kolkata';
+    const blocks = Array.isArray(body.blocks) ? body.blocks : [];
+
+    // Ensure the authenticated therapist is updating their own schedule
+    const ownedTherapist = await database.findOne('therapists', { $or: [{ _id: toObjectId(id) }, { userId: toObjectId(user._id) }] });
+    if (!ownedTherapist) {
+      return NextResponse.json({ success: false, message: 'You can only update your own availability' }, { status: 403 });
+    }
+
+    await upsertWeeklyAvailability(ownedTherapist._id, weekly, timezone, { updatedBy: user._id });
+
+    // Optional manual blocks (outside therapy commitments)
+    for (const block of blocks) {
+      if (!block?.date || !block?.time) continue;
+      await blockSlot({ therapistId: ownedTherapist._id, date: block.date, time: block.time, source: 'manual', note: block.note || '' });
+    }
+
+    const refreshed = await getAvailabilityForDate(ownedTherapist._id, blocks?.[0]?.date || weekly?.[0]?.day || new Date());
+
+    return NextResponse.json({ success: true, data: { availability: refreshed.availability, timezone } });
+  } catch (error: any) {
+    console.error('[availability][POST] Error:', error);
+    const status = /permission/i.test(error?.message || '') ? 403 : 500;
+    return NextResponse.json({ success: false, message: 'Failed to update availability', error: error?.message }, { status });
   }
 }
 

@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
@@ -6,6 +7,7 @@ import { ModernHero } from "./ModernHero";
 import {  coreModules } from "../constants/app-data"; // removed platformStats per request
 import { ViewType } from "../constants/app-data";
 import { motion} from "framer-motion";
+import { getIconByKey } from "./ui/IconSelector";
 
 import { 
   Calendar,
@@ -50,6 +52,113 @@ interface HomePageProps {
 }
 
 export function HomePage({ setCurrentView }: HomePageProps) {
+  type FeaturedTherapist = {
+    _id?: string;
+    displayName: string;
+    name?: string;
+    title?: string;
+    rating?: number;
+    image?: string;
+    specializations?: string[];
+  };
+
+  type TheraSelfTest = {
+    _id?: string;
+    title?: string;
+    name?: string;
+    icon?: string;
+    questions?: string[];
+    questionSets?: Array<{ name: string; questions: Array<{ text: string; options: string[] }> }>;
+  };
+
+  const [featuredTherapists, setFeaturedTherapists] = useState<FeaturedTherapist[]>([]);
+  const [featuredLoading, setFeaturedLoading] = useState(false);
+  const [theraSelfTests, setTheraSelfTests] = useState<TheraSelfTest[]>([]);
+  const [, setTheraSelfLoading] = useState(false);
+
+  useEffect(() => {
+    const loadFeatured = async () => {
+      setFeaturedLoading(true);
+      try {
+        const res = await fetch('/api/therapists?featured=true&limit=6&sortBy=featuredOrder&sortOrder=asc', { cache: 'no-store' });
+        if (res.ok) {
+          const json = await res.json().catch(() => null);
+          const list: FeaturedTherapist[] = json?.data?.therapists || [];
+          if (list.length) {
+            setFeaturedTherapists(list);
+            setFeaturedLoading(false);
+            return;
+          }
+        }
+        const resTop = await fetch('/api/therapists?limit=6&sortBy=rating&sortOrder=desc', { cache: 'no-store' });
+        if (resTop.ok) {
+          const jsonTop = await resTop.json().catch(() => null);
+          const listTop: FeaturedTherapist[] = jsonTop?.data?.therapists || [];
+          if (listTop.length) setFeaturedTherapists(listTop);
+        }
+      } catch (_) {
+      } finally {
+        setFeaturedLoading(false);
+      }
+    };
+
+    const loadTheraSelfTests = async () => {
+      setTheraSelfLoading(true);
+      try {
+        const res = await fetch('/api/theraself/tests', { cache: 'no-store' });
+        if (res.ok) {
+          const json = await res.json().catch(() => []);
+          const list: TheraSelfTest[] = Array.isArray(json) ? json : [];
+          setTheraSelfTests(list.slice(0, 3));
+        }
+      } catch (_) {
+      } finally {
+        setTheraSelfLoading(false);
+      }
+    };
+
+    loadFeatured();
+    loadTheraSelfTests();
+  }, []);
+
+  const fallbackFeatured: FeaturedTherapist[] = [
+    { displayName: "Dr. Sarah Johnson", title: "Clinical Psychology", rating: 4.9, image: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=120&h=120&fit=crop&crop=face" },
+    { displayName: "Dr. Michael Chen", title: "Physical Therapy", rating: 4.8, image: "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=120&h=120&fit=crop&crop=face" },
+    { displayName: "Dr. Emily Rodriguez", title: "Speech Therapy", rating: 4.9, image: "https://images.unsplash.com/photo-1594824388875-fb4d2b3d7518?w=120&h=120&fit=crop&crop=face" }
+  ];
+
+  const fallbackAssessments = [
+    { title: "Depression Assessment", questionsCount: 21, duration: "10 min", icon: Brain },
+    { title: "Anxiety Scale", questionsCount: 18, duration: "8 min", icon: Heart },
+    { title: "Stress Evaluation", questionsCount: 25, duration: "12 min", icon: Activity }
+  ];
+
+  const getAssessmentIcon = (test: TheraSelfTest | (typeof fallbackAssessments)[number]) => {
+    if (typeof (test as any).icon === "string") {
+      const IconComp = getIconByKey((test as any).icon);
+      return IconComp || Brain;
+    }
+    return (test as any).icon || Brain;
+  };
+
+  const getAssessmentQuestions = (test: TheraSelfTest | (typeof fallbackAssessments)[number]) => {
+    if (typeof (test as any).questionsCount === "number") return (test as any).questionsCount;
+    if (Array.isArray((test as TheraSelfTest).questionSets) && (test as TheraSelfTest).questionSets!.length) {
+      return (test as TheraSelfTest).questionSets!.reduce((sum, set) => sum + (Array.isArray(set.questions) ? set.questions.length : 0), 0);
+    }
+    if (Array.isArray((test as TheraSelfTest).questions)) return (test as TheraSelfTest).questions!.length;
+    return undefined;
+  };
+
+  const getAssessmentDuration = (test: TheraSelfTest | (typeof fallbackAssessments)[number], count?: number) => {
+    if ((test as any).duration) return (test as any).duration as string;
+    if (typeof count === "number" && count > 0) {
+      const minutes = Math.max(5, Math.round(count * 0.6));
+      return `${minutes} min`;
+    }
+    return "Quick check";
+  };
+
   // Why TheraTreat highlights
   const whyTheraTreatHighlights = [
     {
@@ -393,27 +502,23 @@ export function HomePage({ setCurrentView }: HomePageProps) {
                         </div>
                         <Carousel className="w-full">
                           <CarouselContent>
-                            {[
-                              { name: "Dr. Sarah Johnson", specialty: "Clinical Psychology", rating: 4.9, image: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=120&h=120&fit=crop&crop=face" },
-                              { name: "Dr. Michael Chen", specialty: "Physical Therapy", rating: 4.8, image: "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=120&h=120&fit=crop&crop=face" },
-                              { name: "Dr. Emily Rodriguez", specialty: "Speech Therapy", rating: 4.9, image: "https://images.unsplash.com/photo-1594824388875-fb4d2b3d7518?w=120&h=120&fit=crop&crop=face" }
-                            ].map((therapist, idx) => (
+                            {(featuredTherapists.length ? featuredTherapists : fallbackFeatured).map((therapist, idx) => (
                               <CarouselItem key={idx}>
                                 <div className="text-center space-y-2 p-2 sm:p-4">
                                   <div className="relative inline-block">
                                     <img
-                                      src={therapist.image}
-                                      alt={therapist.name}
+                                      src={therapist.image || 'https://via.placeholder.com/120x120.png?text=Therapist'}
+                                      alt={therapist.displayName || 'Therapist'}
                                       className="w-16 h-16 sm:w-20 sm:h-20 rounded-full mx-auto object-cover border-4 border-blue-100 shadow-lg"
                                     />
                                     <div className="absolute -bottom-1 -right-1 w-5 h-5 sm:w-6 sm:h-6 bg-green-500 rounded-full border-2 border-white"></div>
                                   </div>
                                   <div>
-                                    <h4 className="font-bold text-sm sm:text-base text-blue-600">{therapist.name}</h4>
-                                    <p className="text-xs sm:text-sm text-slate-600">{therapist.specialty}</p>
+                                    <h4 className="font-bold text-sm sm:text-base text-blue-600">{therapist.displayName || therapist.name}</h4>
+                                    <p className="text-xs sm:text-sm text-slate-600">{(therapist.specializations && therapist.specializations[0]) || therapist.title || (therapist as any).specialty}</p>
                                     <div className="flex items-center justify-center space-x-1 mt-2">
                                       <Star className="w-3 h-3 sm:w-4 sm:h-4 fill-yellow-400 text-yellow-400" />
-                                      <span className="text-xs sm:text-sm font-semibold text-slate-700">{therapist.rating}</span>
+                                      <span className="text-xs sm:text-sm font-semibold text-slate-700">{therapist.rating?.toFixed?.(1) ?? therapist.rating ?? '4.9'}</span>
                                     </div>
                                   </div>
                                 </div>
@@ -447,27 +552,29 @@ export function HomePage({ setCurrentView }: HomePageProps) {
                         </div>
                         <Carousel className="w-full">
                           <CarouselContent>
-                            {[
-                              { name: "Depression Assessment", questions: 21, duration: "10 min", icon: Brain },
-                              { name: "Anxiety Scale", questions: 18, duration: "8 min", icon: Heart },
-                              { name: "Stress Evaluation", questions: 25, duration: "12 min", icon: Activity }
-                            ].map((assessment, idx) => (
-                              <CarouselItem key={idx}>
+                            {(theraSelfTests.length ? theraSelfTests.slice(0, 3) : fallbackAssessments.slice(0, 3)).map((assessment, idx) => {
+                              const IconComp = getAssessmentIcon(assessment);
+                              const questionCount = getAssessmentQuestions(assessment);
+                              const duration = getAssessmentDuration(assessment, questionCount);
+                              const title = (assessment as any).title || (assessment as any).name || 'Assessment';
+                              const key = String((assessment as any)._id || (assessment as any).slug || idx);
+                              return (
+                              <CarouselItem key={key}>
                                 <div className="text-center space-y-2 p-2 sm:p-4">
                                   <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl bg-gradient-to-br from-purple-100 to-purple-50 p-3 sm:p-4 mx-auto shadow-md border border-purple-200">
-                                    <assessment.icon className="w-6 h-6 sm:w-8 sm:h-8 text-purple-600" />
+                                    <IconComp className="w-6 h-6 sm:w-8 sm:h-8 text-purple-600" />
                                   </div>
                                   <div>
-                                    <h4 className="font-bold text-sm sm:text-base text-purple-600">{assessment.name}</h4>
-                                    <p className="text-xs sm:text-sm text-slate-600">{assessment.questions} questions</p>
-                                    <div className="flex items-center justify-center space-x-1 mt-2 bg-purple-50 rounded-full px-2 sm:px-3 py-1 inline-flex">
+                                    <h4 className="font-bold text-sm sm:text-base text-purple-600">{title}</h4>
+                                    <p className="text-xs sm:text-sm text-slate-600">{questionCount ? `${questionCount} questions` : 'Assessment'}</p>
+                                    <div className="inline-flex items-center justify-center space-x-1 mt-2 bg-purple-50 rounded-full px-2 sm:px-3 py-1">
                                       <Clock className="w-3 h-3 text-purple-600" />
-                                      <span className="text-xs sm:text-sm text-purple-600 font-medium">{assessment.duration}</span>
+                                      <span className="text-xs sm:text-sm text-purple-600 font-medium">{duration}</span>
                                     </div>
                                   </div>
                                 </div>
                               </CarouselItem>
-                            ))}
+                            );})}
                           </CarouselContent>
                           <CarouselPrevious className="left-1 sm:left-2 h-6 w-6 sm:h-8 sm:w-8" />
                           <CarouselNext className="right-1 sm:right-2 h-6 w-6 sm:h-8 sm:w-8" />

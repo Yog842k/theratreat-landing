@@ -7,8 +7,10 @@ export async function POST(request) {
     const body = await request.json();
     const { email, password } = body;
 
+    const passwordTrimmed = (password || '').trim();
+
     // Validate input
-    if (!email || !password) {
+    if (!email || !passwordTrimmed) {
       return ResponseUtils.badRequest('Email and password are required');
     }
 
@@ -18,12 +20,17 @@ export async function POST(request) {
 
     // For demo purposes, if database is not available, allow demo login
     try {
-      const emailLower = email.toLowerCase();
+      const emailLower = email.toLowerCase().trim();
+
+      // Regex fallback to handle case/whitespace mismatches from legacy inserts
+      const escapeRegex = (v) => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const emailRegex = new RegExp(`^${escapeRegex(emailLower)}$`, 'i');
       
-      // Find user
-      const user = await database.findOne('users', { 
-        email: emailLower 
-      });
+      // Find user (exact, then case-insensitive)
+      let user = await database.findOne('users', { email: emailLower });
+      if (!user) {
+        user = await database.findOne('users', { email: emailRegex });
+      }
 
       if (!user) {
         console.warn('[LOGIN] User not found for email:', emailLower);
@@ -46,7 +53,16 @@ export async function POST(request) {
         return ResponseUtils.unauthorized('Invalid email or password');
       }
 
-      const isPasswordValid = await AuthUtils.comparePassword(password, user.password);
+      // Prefer trimmed password to avoid trailing-space entry issues
+      let isPasswordValid = await AuthUtils.comparePassword(passwordTrimmed, user.password);
+      if (!isPasswordValid && password !== passwordTrimmed) {
+        // Fallback: try raw password if user actually has intentional leading/trailing spaces
+        isPasswordValid = await AuthUtils.comparePassword(password, user.password);
+      }
+      if (!isPasswordValid && typeof user.password === 'string' && !user.password.startsWith('$2')) {
+        // Legacy plain-text storage (should not happen, but guard for existing docs)
+        isPasswordValid = passwordTrimmed === user.password || password === user.password;
+      }
       console.log('[LOGIN] Password verification result:', {
         userId: user._id.toString(),
         isValid: isPasswordValid

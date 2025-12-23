@@ -1,6 +1,8 @@
 const database = require('@/lib/database');
 const AuthMiddleware = require('@/lib/middleware');
 const { ValidationUtils, ResponseUtils } = require('@/lib/utils');
+const { sendBookingConfirmation, notificationsEnabled } = require('@/lib/notifications');
+const { blockSlot } = require('@/lib/availability');
 const { ObjectId } = require('mongodb');
 
 export async function GET(request) {
@@ -202,13 +204,16 @@ export async function POST(request) {
       console.warn('pricing module unavailable, using consultationFee', e?.message || e);
     }
 
+    const dateKey = apptDate.toISOString().split('T')[0];
+    const targetTherapistId = therapistProfileId || therapistUser._id;
+
     // Check for existing booking at the same time
     // Only block if there's an actual conflict with another booking
     // IMPORTANT: Also check userId to prevent same user from booking same slot twice
     const existingBooking = await database.findOne('bookings', {
       $or: [
-        { therapistId: therapistUser._id },
-        { therapistProfileId: therapistProfileId || therapistUser._id }
+        { therapistId: targetTherapistId },
+        { therapistProfileId: targetTherapistId }
       ],
       appointmentDate: apptDate,
       appointmentTime,
@@ -240,13 +245,30 @@ export async function POST(request) {
       
       console.log('[bookings/route] Time slot conflict detected:', {
         existingBookingId: existingBooking._id,
-        therapistId: therapistUser._id,
+        therapistId: targetTherapistId,
         date: apptDate,
         time: appointmentTime,
         existingUserId,
         currentUserId
       });
       return ResponseUtils.badRequest('Time slot is already booked');
+    }
+
+    // Hard block if therapist marked the slot as busy (outside therapies / manual blocks)
+    const existingBusy = await database.findOne('therapist_busy', {
+      therapistId: targetTherapistId,
+      dateKey,
+      time: appointmentTime
+    });
+
+    if (existingBusy) {
+      console.log('[bookings/route] Busy block conflict detected:', {
+        therapistId: targetTherapistId,
+        date: dateKey,
+        time: appointmentTime,
+        source: existingBusy.source
+      });
+      return ResponseUtils.badRequest('Therapist is unavailable for the selected slot');
     }
 
     // Additional check: Verify therapist is available at this time (if schedule exists)
@@ -278,7 +300,7 @@ export async function POST(request) {
     // Create booking first to get unique ID
     const booking = {
       userId: new ObjectId(user._id),
-      therapistId: therapistProfileId || therapistUser._id, // always prefer therapistProfileId for therapistId
+      therapistId: targetTherapistId, // always prefer therapistProfileId for therapistId
       therapistProfileId: therapistProfileId, // may be null for legacy
       appointmentDate: apptDate,
       appointmentTime,
@@ -460,9 +482,80 @@ export async function POST(request) {
       });
     }
 
-    // Calendar sync removed - using email notifications only
+    // Block the slot immediately to avoid race conditions with concurrent bookings
+    try {
+      await blockSlot({
+        therapistId: targetTherapistId,
+        date: dateKey,
+        time: appointmentTime,
+        source: 'booking',
+        refId: booking._id,
+        note: `Booking ${booking._id?.toString?.() || ''}`
+      });
+    } catch (busyErr) {
+      console.warn('[bookings/route] Failed to block slot after booking create:', busyErr?.message || busyErr);
+    }
 
-    // Email notifications removed - booking confirmation only via API response
+    // Fire-and-forget notifications to patient and therapist (if configured)
+    if (notificationsEnabled()) {
+      queueMicrotask(async () => {
+        try {
+          const [patientDoc, therapistDoc] = await Promise.all([
+            database.findOne('users', { _id: new ObjectId(user._id) }, { projection: { name: 1, email: 1, phone: 1 } }),
+            database.findOne('users', { _id: therapistUser._id }, { projection: { name: 1, email: 1, phone: 1 } })
+          ]);
+
+          const therapistDisplay = (therapistProfile && (therapistProfile.displayName || therapistProfile.name)) || therapistDoc?.name || therapistUser?.name || 'Therapist';
+          const therapistSpeciality = Array.isArray(therapistProfile?.specializations) && therapistProfile.specializations.length
+            ? therapistProfile.specializations[0]
+            : (therapistProfile?.primaryConditions?.[0] || therapistProfile?.title || undefined);
+          const meetingUrlForNotif = booking.meetingUrl || null;
+
+          // Patient notification
+          await sendBookingConfirmation({
+            bookingId: booking._id.toString(),
+            userEmail: patientDoc?.email,
+            userName: patientDoc?.name,
+            userPhone: patientDoc?.phone,
+            therapistName: therapistDisplay,
+            therapistSpeciality,
+            sessionType,
+            date: booking.appointmentDate?.toISOString?.(),
+            timeSlot: booking.appointmentTime,
+            roomCode: booking.roomCode,
+            meetingUrl: meetingUrlForNotif,
+            shortLink: meetingUrlForNotif || undefined,
+            recipientType: 'patient'
+          });
+
+          // Therapist notification (if contact available)
+          const therapistPhone = therapistProfile?.phone || therapistDoc?.phone;
+          const therapistEmail = therapistProfile?.email || therapistDoc?.email;
+          if (therapistPhone || therapistEmail) {
+            await sendBookingConfirmation({
+              bookingId: booking._id.toString(),
+              userEmail: therapistEmail,
+              userName: therapistDisplay,
+              userPhone: therapistPhone,
+              therapistName: patientDoc?.name || 'Patient',
+              therapistSpeciality,
+              clientName: patientDoc?.name,
+              sessionType,
+              date: booking.appointmentDate?.toISOString?.(),
+              timeSlot: booking.appointmentTime,
+              roomCode: booking.roomCode,
+              meetingUrl: meetingUrlForNotif,
+              shortLink: meetingUrlForNotif || undefined,
+              recipientType: 'therapist'
+            });
+          }
+        } catch (notifyErr) {
+          console.error('[bookings/route] notification error', notifyErr);
+        }
+      });
+    } else {
+      console.log('[bookings/route] Notifications disabled or not configured');
+    }
 
     return ResponseUtils.success({
       bookingId: result.insertedId,

@@ -129,10 +129,7 @@ scripts/local/
 
 # --- Test file patterns (added) ---
 # Ignore all common test spec files
-**/*.test.js
-**/*.test.jsx
-**/*.test.ts
-**/*.test.tsx
+
 **/*.spec.js
 **/*.spec.jsx
 **/*.spec.ts
@@ -160,10 +157,7 @@ cypress.config.*
 
 # Test and Debug Pages (exclude from main project)
 # Test pages
-app/**/*test*/**/*.tsx
-app/**/*test*/**/*.ts
-app/**/*test*/**/*.jsx
-app/**/*test*/**/*.js
+
 app/**/payments-test/**
 app/**/cloudinary-test/**
 app/**/100ms-test/**

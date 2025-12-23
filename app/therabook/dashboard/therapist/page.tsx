@@ -15,22 +15,20 @@ import { Switch } from '@/components/ui/switch';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import TextField from '@mui/material/TextField';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { 
-  User, Settings, Calendar as CalendarIcon, Clock, DollarSign, GraduationCap,
-  HelpCircle, FileText, Video, Phone, MapPin, Home, Star, CheckCircle, XCircle,
-  AlertTriangle, Upload, Download, Edit, Save, Bell, Shield, BarChart3, TrendingUp,
-  Users, MessageCircle, LogOut, UserCog, PlusCircle,
-  Eye, RefreshCw, Mail, Loader2, AlertCircle, Filter, X, ChevronRight, MoreHorizontal
+  User, Settings, Calendar as CalendarIcon, Clock, DollarSign,
+  HelpCircle, FileText, Video, MapPin, Star, CheckCircle, 
+  AlertTriangle, Upload, Edit, Bell, Shield, 
+  Users, LogOut, UserCog,
+  RefreshCw, Mail, Loader2, AlertCircle, Filter, ChevronRight
 } from 'lucide-react';
-import { PRIMARY_FILTERS, CATEGORY_FILTERS, THERAPY_TYPES } from '@/constants/therabook-filters';
+import { PRIMARY_FILTERS } from '@/constants/therabook-filters';
 
-// --- Interfaces (Kept identical to preserve logic) ---
+// --- Interfaces ---
 interface TherapistData {
   profile: {
     name: string;
@@ -52,13 +50,13 @@ interface TherapistData {
     license: string;
     overall: string;
   };
-  services: {
-    modes: string[];
-    sessionTypes: string[];
-    pricing: number;
-    duration: number;
-    platforms: string[];
-  };
+    services: {
+        modes: string[];
+        sessionTypes: string[];
+        pricing: { video: number; audio: number; home: number };
+        duration: number;
+        platforms: string[];
+    };
   earnings: {
     thisMonth: number;
     lastMonth: number;
@@ -115,27 +113,78 @@ interface ScheduledSession {
 }
 
 export default function TherapistDashboardPage() {
-  // --- State Logic (Identical to original) ---
-  const [serviceTypes, setServiceTypes] = useState<string[]>([]);
-  const [pricing, setPricing] = useState<number>(0);
+  // --- State Logic ---
+    const [serviceTypes, setServiceTypes] = useState<string[]>([]);
+    const [pricing, setPricing] = useState<{ video: number; audio: number; home: number }>({ video: 0, audio: 0, home: 0 });
   const [duration, setDuration] = useState<number>(50);
   const [emailNotifications, setEmailNotifications] = useState<boolean>(true);
   const [smsNotifications, setSmsNotifications] = useState<boolean>(true);
   const [publicProfile, setPublicProfile] = useState<boolean>(true);
   const weekDays = ["Monday","Tuesday","Wednesday","Thursday","Friday"];
-  const [weeklySlots, setWeeklySlots] = useState(() =>
-    weekDays.map(day => ({ day, start: "09:00", end: "17:00", enabled: true }))
-  );
+    const [weeklySlots, setWeeklySlots] = useState(() =>
+        weekDays.map(day => ({ day, start: "09:00", end: "17:00", enabled: true }))
+    );
+    const [unavailability, setUnavailability] = useState<Array<{ id: string; startDate: string; endDate: string; time: string; note: string; allDay: boolean }>>([]);
+    const [blockStartDate, setBlockStartDate] = useState('');
+    const [blockEndDate, setBlockEndDate] = useState('');
+    const [blockTime, setBlockTime] = useState('');
+    const [blockNote, setBlockNote] = useState('');
+    const [blockAllDay, setBlockAllDay] = useState(true);
 
   const handleServiceTypesChange = (value: string[]) => { setServiceTypes(value); };
   const handleWeeklySlotChange = (day: string, field: 'start' | 'end' | 'enabled', value: string | boolean) => {
     setWeeklySlots(prev => prev.map(slot => (slot.day === day ? { ...slot, [field]: value } : slot)));
   };
-  const handleUpdateServiceOptions = () => {
-    setTherapistData(prev => ({ ...prev, services: { ...prev.services, sessionTypes: serviceTypes, pricing, duration } }));
-  };
-  const handleUpdateAvailability = () => { console.log('Saving availability slots', weeklySlots); };
+    const handleUpdateServiceOptions = () => {
+        setTherapistData(prev => ({ ...prev, services: { ...prev.services, sessionTypes: serviceTypes, modes: serviceTypes, pricing, duration } }));
+    };
+        const handleUpdateAvailability = async () => {
+        if (!resolvedTherapistId && !user?._id) { setError('Therapist ID not found'); return; }
+        try {
+            setError(null);
+                        const expandRanges = () => {
+                            const out: Array<{ date: string; time: string; note?: string }> = [];
+                            for (const r of unavailability) {
+                                if (!r.startDate || !r.endDate) continue;
+                                const start = new Date(r.startDate);
+                                const end = new Date(r.endDate);
+                                if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) continue;
+                                for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+                                    const dateKey = d.toISOString().split('T')[0];
+                                    out.push({ date: dateKey, time: r.allDay ? 'ALL_DAY' : (r.time || '00:00'), note: r.note });
+                                }
+                            }
+                            return out;
+                        };
+            const payload = {
+                weekly: weeklySlots.map(s => ({ day: s.day.toLowerCase(), start: s.start, end: s.end, enabled: s.enabled })),
+                timezone: 'Asia/Kolkata',
+                blocks: expandRanges()
+            };
+            const targetId = resolvedTherapistId || user?._id;
+            const res = await fetch(`/api/therapists/${targetId}/availability`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
+                body: JSON.stringify(payload)
+            });
+            const json = await res.json().catch(() => ({}));
+            if (!res.ok || !json?.success) {
+                throw new Error(json?.message || 'Failed to save availability');
+            }
+            console.log('[dashboard] availability saved', json?.data);
+            // Clear block inputs on success
+            setBlockStartDate('');
+            setBlockEndDate('');
+            setBlockTime('');
+            setBlockNote('');
+            setBlockAllDay(true);
+        } catch (e: any) {
+            console.error('Error saving availability:', e);
+            setError(e?.message || 'Failed to save availability');
+        }
+    };
   const handleUpdatePrivacySettings = () => { };
+  
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isEditingFilters, setIsEditingFilters] = useState(false);
   const [filterFields, setFilterFields] = useState({ therapyTypes: [] as string[], primaryFilters: [] as string[], conditions: [] as string[] });
@@ -148,7 +197,7 @@ export default function TherapistDashboardPage() {
   const [therapistData, setTherapistData] = useState<TherapistData>({
     profile: { name: '', gender: '', bio: '', languages: [], degrees: [], certifications: [], experience: '', specializations: [], clinicAddress: '', avatar: '' },
     verification: { kyc: "Pending", degree: "Pending", license: "Pending", overall: "Pending" },
-    services: { modes: [], sessionTypes: [], pricing: 0, duration: 50, platforms: ["TheraBook Video"] },
+    services: { modes: [], sessionTypes: [], pricing: { video: 0, audio: 0, home: 0 }, duration: 50, platforms: ["TheraBook Video"] },
     earnings: { thisMonth: 4800, lastMonth: 5200, totalEarnings: 48000, pendingWithdrawal: 1200, sessionsThisMonth: 40 },
     appointments: { upcoming: [], total: 0, rating: 0, reviews: 0 }
   });
@@ -156,7 +205,7 @@ export default function TherapistDashboardPage() {
     totalSessions: 0, thisMonthSessions: 0, averageRating: 0, totalReviews: 0, thisMonthEarnings: 0, lastMonthEarnings: 0, totalEarnings: 0, pendingWithdrawal: 0, verificationPercentage: 0
   });
   const [todaySessions, setTodaySessions] = useState<TodaySession[]>([]);
-    const [scheduledSessions, setScheduledSessions] = useState<ScheduledSession[]>([]);
+  const [scheduledSessions, setScheduledSessions] = useState<ScheduledSession[]>([]);
 
   useEffect(() => {
     if (isEditingProfile) {
@@ -177,8 +226,20 @@ export default function TherapistDashboardPage() {
   const formatFixed = (v: unknown, digits = 1): string => toNumber(v, 0).toFixed(digits);
   const formatCurrency = (v: unknown): string => `₹${toNumber(v, 0).toLocaleString('en-IN')}`;
   const API_BASE = process.env.NEXT_PUBLIC_API_URL || '';
+    const DISPLAY_TZ = 'Asia/Kolkata';
+    const formatDate = (value?: Date | string | number): string => {
+        const d = value instanceof Date ? value : new Date(value ?? Date.now());
+        if (Number.isNaN(d.getTime())) return '';
+        return new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric', timeZone: DISPLAY_TZ }).format(d);
+    };
+    const formatTime = (value?: Date | string | number): string => {
+        if (typeof value === 'string' && /^\d{1,2}:\d{2}/.test(value)) return value; // already a clock string like 09:00
+        const d = value instanceof Date ? value : new Date(value ?? Date.now());
+        if (Number.isNaN(d.getTime())) return '';
+        return new Intl.DateTimeFormat('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: DISPLAY_TZ }).format(d);
+    };
 
-    // --- API Handlers (Connected to backend) ---
+    // --- API Handlers ---
     const handleSaveProfile = async () => {
         if (!resolvedTherapistId) { setError('Therapist ID not found'); return; }
         try {
@@ -257,6 +318,7 @@ export default function TherapistDashboardPage() {
                 services: { ...prev.services, modes, sessionTypes, pricing: pricingVal, duration: durationVal },
                 appointments: { ...prev.appointments, rating: t.rating ?? 0, reviews: t.reviewCount ?? 0 }
             }));
+            setServiceTypes(sessionTypes.length ? sessionTypes : modes);
         } catch (e: any) {
             console.error('Error loading fullProfile:', e);
             const errorMsg = e?.message || String(e);
@@ -377,8 +439,8 @@ export default function TherapistDashboardPage() {
                         upcoming: result.data.slice(0, 5).map((booking: any, index: number) => ({
                             id: booking._id || index + 1,
                             patient: booking.userId?.name || booking.clientId?.name || `Patient ${index + 1}`,
-                            time: booking.timeSlot || booking.sessionTime?.startTime || new Date(booking.date || booking.sessionDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                            date: new Date(booking.date || booking.sessionDate).toLocaleDateString(),
+                            time: booking.timeSlot || booking.sessionTime?.startTime || formatTime(booking.date || booking.sessionDate),
+                            date: formatDate(booking.date || booking.sessionDate),
                             type: (booking.sessionType || 'video').replace('-', ' ')
                         }))
                     }
@@ -403,7 +465,6 @@ export default function TherapistDashboardPage() {
         try {
             const idQuery = resolvedTherapistId ? `therapistId=${resolvedTherapistId}` : (user?._id ? `userId=${user._id}` : '');
             const day = date || selectedDate || new Date();
-            // Many APIs expect a date-only string; prefer YYYY-MM-DD
             const yyyyMmDd = (() => {
                 const d = new Date(day);
                 const y = d.getFullYear();
@@ -418,14 +479,12 @@ export default function TherapistDashboardPage() {
             const result = await response.json().catch(() => ({}));
             if (!response.ok) {
                 console.warn('Scheduled sessions API non-OK:', { url, status: response.status, result });
-                // Soft-fail: keep UI usable without noisy errors on empty payloads
                 if (result?.error && !result.error.includes('MongoDB') && !result.error.includes('connect')) {
                     setError('Unable to load scheduled sessions. Please try again later.');
                 }
                 setScheduledSessions([]);
                 return;
             }
-            // Handle different payload shapes: {sessions}, {data}, direct array
             const payload = Array.isArray(result)
                 ? result
                 : (Array.isArray(result.sessions) ? result.sessions : (Array.isArray(result.data) ? result.data : []));
@@ -501,7 +560,7 @@ export default function TherapistDashboardPage() {
                 ]);
                 results.forEach((result, index) => {
                     if (result.status === 'rejected') {
-                        const apiNames = ['Stats', 'Today Sessions', 'Bookings', 'Profile'];
+                        const apiNames = ['Stats', 'Today Sessions', 'Scheduled', 'Bookings', 'Profile'];
                         console.error(`Error loading ${apiNames[index]}:`, result.reason);
                     }
                 });
@@ -517,6 +576,7 @@ export default function TherapistDashboardPage() {
         };
 
         (async () => { await ensureTherapistId(); await loadAll(); })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isAuthenticated, token, user?._id, resolvedTherapistId]);
 
     const refreshData = async () => {
@@ -524,19 +584,13 @@ export default function TherapistDashboardPage() {
         setIsLoadingData(true);
         setError(null);
         try {
-            const results = await Promise.allSettled([
+            await Promise.allSettled([
                 fetchDashboardStats(),
                 fetchTodaySessions(),
                 fetchScheduledSessions(selectedDate),
                 fetchTherapistBookings(),
                 fetchTherapistFullProfile()
             ]);
-            results.forEach((result, index) => {
-                if (result.status === 'rejected') {
-                    const apiNames = ['Stats', 'Today Sessions', 'Bookings', 'Profile'];
-                    console.error(`Error refreshing ${apiNames[index]}:`, result.reason);
-                }
-            });
         } catch (error: any) {
             console.error('Error refreshing data:', error);
             const errorMsg = error?.message || String(error);
@@ -548,6 +602,7 @@ export default function TherapistDashboardPage() {
         }
     };
 
+    // Refetch schedule when date changes
     useEffect(() => {
         if (!isAuthenticated || !token || !user?._id) return;
         (async () => {
@@ -556,111 +611,118 @@ export default function TherapistDashboardPage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedDate]);
 
-  // --- UI Render ---
 
   if (isLoading) {
     return (
       <div className='min-h-screen flex flex-col items-center justify-center bg-slate-50'>
         <Loader2 className='w-12 h-12 animate-spin text-blue-600 mb-4' />
-        <p className='text-slate-500 font-medium'>Preparing your dashboard...</p>
+        <p className='text-slate-500 font-medium'>Preparing workspace...</p>
       </div>
     );
   }
 
   if (!isAuthenticated || user?.userType !== 'therapist') {
-    // Handling unauth/wrong user type (Keep simpler for this view)
     return null; 
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-20">
-      {/* Top Navigation / Header */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+    <div className="min-h-screen bg-slate-50 pb-20 font-sans text-slate-900 selection:bg-blue-100 selection:text-blue-900">
+      
+      {/* --- Sticky Header --- */}
+      <header className="bg-white/80 backdrop-blur-md border-b border-slate-100 sticky top-0 z-40 supports-[backdrop-filter]:bg-white/60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16 sm:h-20">
-            {/* Left: User Info */}
-            <div className="flex items-center gap-4">
-              <Avatar className="w-10 h-10 sm:w-12 sm:h-12 border-2 border-blue-100 ring-2 ring-blue-50">
-                <AvatarImage src={therapistData.profile.avatar} className="object-cover" />
-                <AvatarFallback className="bg-blue-600 text-white font-bold">
-                  {user?.name?.charAt(0) || 'T'}
-                </AvatarFallback>
-              </Avatar>
-              <div className="hidden sm:block">
-                <h1 className="text-lg font-bold text-slate-900 leading-tight">
-                  {therapistData.profile.name || user?.name}
-                </h1>
-                <p className="text-sm text-slate-500">Therapist Dashboard</p>
-              </div>
+          <div className="flex justify-between items-center h-16">
+            
+            {/* Brand / User */}
+            <div className="flex items-center gap-3">
+               <div className="relative">
+                  <Avatar className="w-9 h-9 sm:w-10 sm:h-10 border-2 border-white ring-2 ring-blue-50 shadow-sm transition-transform hover:scale-105">
+                    <AvatarImage src={therapistData.profile.avatar} className="object-cover" />
+                    <AvatarFallback className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white font-bold text-xs sm:text-sm">
+                      {user?.name?.charAt(0) || 'T'}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-white rounded-full"></span>
+               </div>
+               <div className="hidden sm:block">
+                  <h1 className="text-sm font-bold text-slate-800 leading-tight">
+                    {therapistData.profile.name || user?.name}
+                  </h1>
+                  <p className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold">Therapist Panel</p>
+               </div>
             </div>
 
-            {/* Right: Actions */}
-            <div className="flex items-center gap-2 sm:gap-3">
-              <Button variant="ghost" size="icon" onClick={refreshData} className="text-slate-500 hover:text-blue-600 hover:bg-blue-50">
-                <RefreshCw className={`w-5 h-5 ${isLoadingData ? 'animate-spin' : ''}`} />
+            {/* Actions */}
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="icon" onClick={refreshData} className="text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-colors">
+                <RefreshCw className={`w-4 h-4 ${isLoadingData ? 'animate-spin' : ''}`} />
               </Button>
               
-              <div className="h-6 w-px bg-slate-200 mx-1 hidden sm:block" />
-
               <Button 
                 variant="outline" 
                 size="sm"
-                className="hidden sm:flex border-blue-200 text-blue-700 hover:bg-blue-50"
+                className="hidden sm:flex border-slate-200 text-slate-600 hover:border-blue-200 hover:text-blue-600 hover:bg-blue-50 rounded-full h-8 text-xs font-medium"
                 onClick={() => router.push('/therabook/dashboard/patient')}
               >
-                <UserCog className="w-4 h-4 mr-2" />
+                <UserCog className="w-3 h-3 mr-1.5" />
                 Patient View
               </Button>
+
+              <div className="h-6 w-px bg-slate-200 mx-1 hidden sm:block" />
 
               <Button 
                  variant="ghost" 
                  size="icon"
-                 className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                 className="text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-full"
                  onClick={() => { logout(); router.push('/'); }}
               >
-                <LogOut className="w-5 h-5" />
+                <LogOut className="w-4 h-4" />
               </Button>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         
         {/* Error Alert */}
         {error && !error.includes('MongoDB') && (
-          <Alert variant="destructive" className="bg-red-50 border-red-200 text-red-800">
+          <Alert variant="destructive" className="bg-red-50 border-red-100 text-red-800 rounded-2xl">
             <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Error</AlertTitle>
+            <AlertTitle>System Alert</AlertTitle>
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
 
-        {/* Quick Stats Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+        {/* Stats Grid - Mobile Optimized */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
             <StatsCard 
-                title="Today's Sessions" 
+                title="Sessions" 
+                subtitle="This Month"
                 value={dashboardStats.thisMonthSessions} 
                 icon={Users} 
                 color="blue" 
                 loading={isLoadingData} 
             />
             <StatsCard 
-                title="Average Rating" 
+                title="Rating" 
+                subtitle="Average"
                 value={formatFixed(dashboardStats.averageRating, 1)} 
                 icon={Star} 
                 color="yellow" 
                 loading={isLoadingData} 
             />
             <StatsCard 
-                title="Month Earnings" 
+                title="Earnings" 
+                subtitle="Last 30 Days"
                 value={formatCurrency(dashboardStats.thisMonthEarnings)} 
                 icon={DollarSign} 
                 color="green" 
                 loading={isLoadingData} 
             />
             <StatsCard 
-                title="Verification" 
+                title="Profile" 
+                subtitle="Completion"
                 value={`${toNumber(dashboardStats.verificationPercentage, 0)}%`} 
                 icon={Shield} 
                 color="indigo" 
@@ -668,101 +730,108 @@ export default function TherapistDashboardPage() {
             />
         </div>
 
-        {/* Main Content Tabs */}
+        {/* Main Tabs Navigation */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           
-          {/* Scrollable Tab List for Mobile */}
-          <div className="sticky top-16 z-20 bg-slate-50 pt-2 pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 overflow-x-auto no-scrollbar">
-            <TabsList className="h-auto p-1 bg-white border border-slate-200 shadow-sm rounded-xl inline-flex w-auto min-w-full sm:min-w-0">
-                <TabItem value="profile" icon={User} label="Profile" />
-                <TabItem value="settings" icon={Settings} label="Settings" />
-                <TabItem value="appointments" icon={CalendarIcon} label="Schedule" />
-                <TabItem value="verification" icon={Shield} label="Verify" />
-                <TabItem value="earnings" icon={DollarSign} label="Wallet" />
-                <TabItem value="support" icon={HelpCircle} label="Support" />
-            </TabsList>
+          {/* Scrollable Tab List (Pills Style) */}
+          <div className="sticky top-[64px] z-30 bg-slate-50 pt-2 pb-2 -mx-4 px-4 sm:mx-0 sm:px-0">
+            <div className="overflow-x-auto no-scrollbar snap-x">
+                <TabsList className="h-auto p-1 bg-white border border-slate-200/60 shadow-sm rounded-full inline-flex w-auto min-w-full sm:min-w-0">
+                    <TabItem value="profile" icon={User} label="Profile" />
+                    <TabItem value="settings" icon={Settings} label="Settings" />
+                    <TabItem value="appointments" icon={CalendarIcon} label="Schedule" />
+                    <TabItem value="verification" icon={Shield} label="Verify" />
+                    <TabItem value="support" icon={HelpCircle} label="Support" />
+                </TabsList>
+            </div>
           </div>
 
           {/* --- Tab: Profile --- */}
-          <TabsContent value="profile" className="space-y-6 animate-in fade-in-50 duration-300">
-             <div className="flex flex-col md:flex-row gap-6">
+          <TabsContent value="profile" className="space-y-6 animate-in fade-in-50 slide-in-from-bottom-2 duration-500">
+             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 
-                {/* Left Column: Avatar & Basic Info */}
-                <Card className="md:w-1/3 h-fit border-slate-200 shadow-sm">
-                    <CardContent className="pt-6 flex flex-col items-center text-center">
-                        <div className="relative mb-4 group">
-                            <Avatar className="w-32 h-32 border-4 border-white shadow-xl ring-1 ring-slate-100">
+                {/* Avatar & Key Info Card */}
+                <Card className="lg:col-span-4 border-slate-100 shadow-sm rounded-2xl overflow-hidden h-fit">
+                    <div className="h-24 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-slate-100"></div>
+                    <CardContent className="pt-0 relative flex flex-col items-center text-center px-6 pb-8">
+                        <div className="relative -mt-12 mb-4 group">
+                            <Avatar className="w-28 h-28 border-4 border-white shadow-xl bg-white">
                                 <AvatarImage src={therapistData.profile.avatar} className="object-cover" />
-                                <AvatarFallback className="bg-slate-100 text-slate-400 text-4xl font-bold">
+                                <AvatarFallback className="bg-slate-100 text-slate-400 text-3xl font-bold">
                                     {user?.name?.charAt(0)}
                                 </AvatarFallback>
                             </Avatar>
                             {isEditingProfile && (
-                                <Button size="icon" className="absolute bottom-0 right-0 rounded-full shadow-lg bg-blue-600 hover:bg-blue-700 text-white">
-                                    <Upload className="w-4 h-4" />
+                                <Button size="icon" className="absolute bottom-1 right-1 h-8 w-8 rounded-full shadow-md bg-blue-600 hover:bg-blue-700 text-white border-2 border-white">
+                                    <Upload className="w-3.5 h-3.5" />
                                 </Button>
                             )}
                         </div>
                         
                         <h2 className="text-xl font-bold text-slate-900">{therapistData.profile.name}</h2>
-                        <div className="mt-2 flex flex-wrap justify-center gap-2">
+                        <p className="text-slate-500 text-sm mb-4">{therapistData.profile.experience || '0'} Years Experience</p>
+
+                        <div className="flex flex-wrap justify-center gap-2 w-full">
                             {toNumber(dashboardStats.verificationPercentage,0) >= 100 ? (
-                                <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-green-200">
-                                    <CheckCircle className="w-3 h-3 mr-1" /> Verified
+                                <Badge className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-100 px-3 py-1 rounded-full">
+                                    <CheckCircle className="w-3.5 h-3.5 mr-1.5" /> Verified
                                 </Badge>
                             ) : (
-                                <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50">
-                                    <AlertTriangle className="w-3 h-3 mr-1" /> Pending
+                                <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50 px-3 py-1 rounded-full">
+                                    <AlertTriangle className="w-3.5 h-3.5 mr-1.5" /> Pending Verification
                                 </Badge>
                             )}
-                            <Badge variant="outline" className="text-slate-600 border-slate-200">
-                                {therapistData.profile.experience || '0'} Years Exp.
-                            </Badge>
                         </div>
                         
-                        <Separator className="my-6" />
+                        <Separator className="my-6 bg-slate-100" />
                         
                         <div className="w-full space-y-4 text-left">
-                           <div className="space-y-1">
-                               <Label className="text-xs uppercase tracking-wider text-slate-500 font-semibold">Address</Label>
-                               {isEditingProfile ? (
-                                   <Textarea 
-                                     value={editProfileFields.clinicAddress} 
-                                     onChange={e => setEditProfileFields({...editProfileFields, clinicAddress: e.target.value})}
-                                     className="bg-slate-50 resize-none"
-                                   />
-                               ) : (
-                                   <p className="text-sm text-slate-700 font-medium">{therapistData.profile.clinicAddress || 'No address set'}</p>
-                               )}
-                           </div>
-                           <div className="space-y-1">
-                               <Label className="text-xs uppercase tracking-wider text-slate-500 font-semibold">Bio</Label>
+                           <div className="space-y-1.5">
+                               <Label className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Bio</Label>
                                {isEditingProfile ? (
                                    <Textarea 
                                      value={editProfileFields.bio} 
                                      onChange={e => setEditProfileFields({...editProfileFields, bio: e.target.value})}
-                                     className="bg-slate-50 min-h-[100px]"
+                                     className="bg-slate-50 border-slate-200 min-h-[120px] text-sm focus:bg-white transition-colors rounded-xl"
                                    />
                                ) : (
-                                   <p className="text-sm text-slate-600 leading-relaxed line-clamp-6">{therapistData.profile.bio || 'No bio available'}</p>
+                                   <p className="text-sm text-slate-600 leading-relaxed">{therapistData.profile.bio || 'No bio available'}</p>
+                               )}
+                           </div>
+                           <div className="space-y-1.5">
+                               <Label className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">Clinic Address</Label>
+                               {isEditingProfile ? (
+                                   <Textarea 
+                                     value={editProfileFields.clinicAddress} 
+                                     onChange={e => setEditProfileFields({...editProfileFields, clinicAddress: e.target.value})}
+                                     className="bg-slate-50 border-slate-200 resize-none text-sm rounded-xl"
+                                   />
+                               ) : (
+                                   <div className="flex items-start gap-2 text-sm text-slate-700">
+                                      <MapPin className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+                                      {therapistData.profile.clinicAddress || 'No address set'}
+                                   </div>
                                )}
                            </div>
                         </div>
                     </CardContent>
                 </Card>
 
-                {/* Right Column: Details & Edit */}
-                <Card className="flex-1 border-slate-200 shadow-sm">
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 border-b border-slate-100">
-                        <CardTitle className="text-lg font-bold text-slate-800">Professional Details</CardTitle>
+                {/* Details Form */}
+                <Card className="lg:col-span-8 border-slate-100 shadow-sm rounded-2xl h-fit">
+                    <CardHeader className="flex flex-row items-center justify-between pb-6 border-b border-slate-50">
+                        <div>
+                           <CardTitle className="text-lg font-bold text-slate-800">Professional Details</CardTitle>
+                           <CardDescription>Manage your public profile information</CardDescription>
+                        </div>
                         {isEditingProfile ? (
                             <div className="flex gap-2">
-                                <Button variant="outline" size="sm" onClick={() => setIsEditingProfile(false)}>Cancel</Button>
-                                <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={handleSaveProfile}>Save</Button>
+                                <Button variant="ghost" size="sm" onClick={() => setIsEditingProfile(false)} className="text-slate-500 rounded-full">Cancel</Button>
+                                <Button size="sm" className="bg-blue-600 hover:bg-blue-700 rounded-full shadow-md shadow-blue-200" onClick={handleSaveProfile}>Save Changes</Button>
                             </div>
                         ) : (
-                            <Button variant="ghost" size="sm" className="text-blue-600 hover:bg-blue-50" onClick={() => setIsEditingProfile(true)}>
-                                <Edit className="w-4 h-4 mr-2" /> Edit
+                            <Button variant="outline" size="sm" className="text-blue-600 border-blue-100 hover:bg-blue-50 rounded-full" onClick={() => setIsEditingProfile(true)}>
+                                <Edit className="w-3.5 h-3.5 mr-2" /> Edit
                             </Button>
                         )}
                     </CardHeader>
@@ -783,13 +852,13 @@ export default function TherapistDashboardPage() {
                                 options={["Male", "Female", "Other", "Prefer not to say"]}
                             />
                             <ProfileField 
-                                label="Experience (Years)" 
+                                label="Years of Experience" 
                                 value={isEditingProfile ? editProfileFields.experience : therapistData.profile.experience} 
                                 isEditing={isEditingProfile}
                                 onChange={(val: string) => setEditProfileFields({...editProfileFields, experience: val})}
                             />
                             <ProfileField 
-                                label="Languages" 
+                                label="Languages Spoken" 
                                 value={isEditingProfile ? editProfileFields.languages : therapistData.profile.languages.join(', ')} 
                                 isEditing={isEditingProfile}
                                 onChange={(val: string) => setEditProfileFields({...editProfileFields, languages: val})}
@@ -797,53 +866,46 @@ export default function TherapistDashboardPage() {
                             />
                         </div>
 
-                        <div>
-                            <Label className="text-sm font-semibold text-slate-700 mb-2 block">Service Modes</Label>
-                            <div className="flex flex-wrap gap-2">
-                                {therapistData.services.modes.length > 0 ? therapistData.services.modes.map(mode => (
-                                    <Badge key={mode} variant="secondary" className="bg-blue-50 text-blue-700 border-blue-100 px-3 py-1">
-                                        {mode}
-                                    </Badge>
-                                )) : <span className="text-sm text-slate-400">No modes selected</span>}
-                            </div>
-                        </div>
-
-                        {/* Filter Settings Block */}
-                        <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 mt-2">
+                        <div className="bg-slate-50/50 rounded-xl p-5 border border-slate-100 mt-2">
                             <div className="flex justify-between items-center mb-4">
                                 <div>
-                                    <h4 className="font-semibold text-slate-900">Search Filters</h4>
-                                    <p className="text-xs text-slate-500">How patients find you</p>
+                                    <h4 className="font-semibold text-slate-900 text-sm">Search Visibility</h4>
+                                    <p className="text-xs text-slate-500 mt-0.5">Control how patients find you</p>
                                 </div>
-                                <Button variant="outline" size="sm" className="h-8 text-xs bg-white" onClick={() => setIsEditingFilters(!isEditingFilters)}>
-                                    <Filter className="w-3 h-3 mr-2" /> {isEditingFilters ? 'Done' : 'Manage'}
+                                <Button variant="outline" size="sm" className="h-8 text-xs bg-white border-slate-200 rounded-full" onClick={() => setIsEditingFilters(!isEditingFilters)}>
+                                    <Filter className="w-3 h-3 mr-2" /> {isEditingFilters ? 'Done' : 'Manage Filters'}
                                 </Button>
                             </div>
                             
                             {isEditingFilters && (
-                                <div className="space-y-4 mb-4 animate-in slide-in-from-top-2">
-                                     <div className="grid grid-cols-2 gap-2">
-                                        {PRIMARY_FILTERS.map(f => (
-                                            <div key={f.id} 
-                                                onClick={() => {
-                                                    const newFilters = filterFields.primaryFilters.includes(f.id) 
-                                                        ? filterFields.primaryFilters.filter(id => id !== f.id) 
-                                                        : [...filterFields.primaryFilters, f.id];
-                                                    setFilterFields({...filterFields, primaryFilters: newFilters});
-                                                }}
-                                                className={`cursor-pointer p-2 rounded-lg border text-xs font-medium transition-all flex items-center gap-2 ${filterFields.primaryFilters.includes(f.id) ? 'bg-blue-600 text-white border-blue-600' : 'bg-white border-slate-200 text-slate-600'}`}
-                                            >
-                                                <span>{f.icon}</span> {f.label}
-                                            </div>
-                                        ))}
-                                     </div>
+                                <div className="space-y-4 mb-4 animate-in fade-in slide-in-from-top-1">
+                                     <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                                         {PRIMARY_FILTERS.map(f => (
+                                             <div key={f.id} 
+                                                 onClick={() => {
+                                                     const newFilters = filterFields.primaryFilters.includes(f.id) 
+                                                         ? filterFields.primaryFilters.filter(id => id !== f.id) 
+                                                         : [...filterFields.primaryFilters, f.id];
+                                                     setFilterFields({...filterFields, primaryFilters: newFilters});
+                                                 }}
+                                                 className={`cursor-pointer p-2.5 rounded-xl border text-xs font-medium transition-all flex items-center gap-2 ${filterFields.primaryFilters.includes(f.id) ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-white border-slate-200 text-slate-600 hover:border-blue-200'}`}
+                                             >
+                                                 <span>{f.icon}</span> {f.label}
+                                             </div>
+                                         ))}
+                                      </div>
                                 </div>
                             )}
 
-                            <div className="flex flex-wrap gap-1.5">
-                                {filterFields.therapyTypes.map(t => <Badge key={t} className="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 border-transparent text-[10px]">{t}</Badge>)}
-                                {filterFields.conditions.map(c => <Badge key={c} className="bg-slate-200 text-slate-700 hover:bg-slate-300 border-transparent text-[10px]">{c}</Badge>)}
-                                {filterFields.therapyTypes.length === 0 && !isEditingFilters && <span className="text-xs text-slate-400 italic">No filters active</span>}
+                            <div className="flex flex-wrap gap-2">
+                                {filterFields.primaryFilters.length > 0 ? (
+                                    filterFields.primaryFilters.map(id => {
+                                        const label = PRIMARY_FILTERS.find(f => f.id === id)?.label || id;
+                                        return <Badge key={id} className="bg-white text-slate-700 border border-slate-200 shadow-sm px-2.5 py-1 rounded-md">{label}</Badge>
+                                    })
+                                ) : (
+                                    !isEditingFilters && <span className="text-xs text-slate-400 italic">No filters active</span>
+                                )}
                             </div>
                         </div>
                     </CardContent>
@@ -852,103 +914,185 @@ export default function TherapistDashboardPage() {
           </TabsContent>
 
           {/* --- Tab: Settings --- */}
-          <TabsContent value="settings" className="space-y-6">
+          <TabsContent value="settings" className="space-y-6 animate-in fade-in-50 duration-500">
              <div className="grid md:grid-cols-3 gap-6">
                 
-                {/* Availability Column */}
+                {/* Availability */}
                 <div className="md:col-span-2 space-y-6">
-                    <Card className="border-slate-200 shadow-sm">
-                        <CardHeader className="border-b border-slate-100 pb-4">
+                    <Card className="border-slate-100 shadow-sm rounded-2xl">
+                        <CardHeader className="border-b border-slate-50 pb-4">
                             <CardTitle className="text-lg flex items-center gap-2">
-                                <CalendarIcon className="w-5 h-5 text-blue-600" /> Availability
+                                <Clock className="w-5 h-5 text-blue-600" /> Weekly Availability
                             </CardTitle>
                         </CardHeader>
-                        <CardContent className="pt-6 space-y-4">
+                        <CardContent className="pt-6 space-y-3">
                              {weeklySlots.map((slot) => (
-                                <div key={slot.day} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">
-                                    <div className="flex items-center gap-3">
-                                        <Switch checked={slot.enabled} onCheckedChange={(c) => handleWeeklySlotChange(slot.day, 'enabled', c)} />
-                                        <span className={`text-sm font-medium ${slot.enabled ? 'text-slate-900' : 'text-slate-400'}`}>{slot.day}</span>
+                                <div key={slot.day} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-white rounded-xl border border-slate-100 hover:border-slate-200 transition-colors gap-3">
+                                    <div className="flex items-center justify-between sm:justify-start gap-4 w-full sm:w-auto">
+                                        <div className="flex items-center gap-3">
+                                            <Switch checked={slot.enabled} onCheckedChange={(c) => handleWeeklySlotChange(slot.day, 'enabled', c)} />
+                                            <span className={`text-sm font-medium ${slot.enabled ? 'text-slate-900' : 'text-slate-400'}`}>{slot.day}</span>
+                                        </div>
                                     </div>
+                                    
                                     {slot.enabled && (
-                                        <div className="flex items-center gap-2">
-                                            <Input 
-                                                type="time" 
-                                                value={slot.start} 
-                                                onChange={(e) => handleWeeklySlotChange(slot.day, 'start', e.target.value)}
-                                                className="w-24 h-8 text-xs bg-white"
-                                            />
-                                            <span className="text-slate-400 text-xs">-</span>
-                                            <Input 
-                                                type="time" 
-                                                value={slot.end} 
-                                                onChange={(e) => handleWeeklySlotChange(slot.day, 'end', e.target.value)}
-                                                className="w-24 h-8 text-xs bg-white"
-                                            />
+                                        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                                            <div className="relative">
+                                                <Input 
+                                                    type="time" 
+                                                    value={slot.start} 
+                                                    onChange={(e) => handleWeeklySlotChange(slot.day, 'start', e.target.value)}
+                                                    className="w-28 h-9 text-xs bg-slate-50 border-slate-200 rounded-lg"
+                                                />
+                                            </div>
+                                            <span className="text-slate-300 text-xs">to</span>
+                                            <div className="relative">
+                                                <Input 
+                                                    type="time" 
+                                                    value={slot.end} 
+                                                    onChange={(e) => handleWeeklySlotChange(slot.day, 'end', e.target.value)}
+                                                    className="w-28 h-9 text-xs bg-slate-50 border-slate-200 rounded-lg"
+                                                />
+                                            </div>
                                         </div>
                                     )}
                                 </div>
                              ))}
-                             <Button className="w-full mt-4 bg-blue-600 hover:bg-blue-700" onClick={handleUpdateAvailability}>Save Availability</Button>
+                                                         <div className="mt-4 p-3 bg-blue-50 rounded-xl border border-blue-100 space-y-3">
+                                                                <div className="flex items-center justify-between gap-2 flex-wrap">
+                                                                    <p className="text-sm font-semibold text-slate-800">Unavailability / Vacation</p>
+                                                                    <Button type="button" size="sm" variant="outline" className="h-8 text-xs" onClick={() => {
+                                                                        if (!blockStartDate || !blockEndDate) return;
+                                                                        const id = `${Date.now()}`;
+                                                                        setUnavailability(prev => [...prev, { id, startDate: blockStartDate, endDate: blockEndDate, time: blockAllDay ? 'ALL_DAY' : (blockTime || '09:00'), note: blockNote, allDay: blockAllDay }]);
+                                                                        setBlockStartDate(''); setBlockEndDate(''); setBlockTime(''); setBlockNote(''); setBlockAllDay(true);
+                                                                    }}>Add</Button>
+                                                                </div>
+                                                                <div className="flex gap-2 flex-wrap mb-3">
+                                                                    <Button type="button" size="sm" variant="secondary" className="h-7 text-xs" onClick={() => {
+                                                                        const today = new Date().toISOString().split('T')[0];
+                                                                        setBlockStartDate(today);
+                                                                        setBlockEndDate(today);
+                                                                        setBlockAllDay(false);
+                                                                        setBlockTime('14:00');
+                                                                        setBlockNote('');
+                                                                    }}>Quick: 1 hour today</Button>
+                                                                    <Button type="button" size="sm" variant="secondary" className="h-7 text-xs" onClick={() => {
+                                                                        const today = new Date().toISOString().split('T')[0];
+                                                                        setBlockStartDate(today);
+                                                                        setBlockEndDate(today);
+                                                                        setBlockAllDay(true);
+                                                                        setBlockTime('');
+                                                                        setBlockNote('');
+                                                                    }}>Quick: Full day today</Button>
+                                                                </div>
+                                                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                                                                    <Input type="date" value={blockStartDate} onChange={(e) => setBlockStartDate(e.target.value)} className="h-9 text-sm border-blue-100" placeholder="Start date" />
+                                                                    <Input type="date" value={blockEndDate} onChange={(e) => setBlockEndDate(e.target.value)} className="h-9 text-sm border-blue-100" placeholder="End date" />
+                                                                    <div className="flex items-center gap-2">
+                                                                        <Switch checked={blockAllDay} onCheckedChange={setBlockAllDay} />
+                                                                        <span className="text-xs text-slate-600">All day</span>
+                                                                    </div>
+                                                                    {!blockAllDay && (
+                                                                        <Input type="time" value={blockTime} onChange={(e) => setBlockTime(e.target.value)} className="h-9 text-sm border-blue-100" placeholder="Time slot" />
+                                                                    )}
+                                                                    <Input placeholder="Note (optional)" value={blockNote} onChange={(e) => setBlockNote(e.target.value)} className="h-9 text-sm border-blue-100 sm:col-span-2 lg:col-span-4" />
+                                                                </div>
+                                                                <div className="space-y-2 max-h-40 overflow-auto">
+                                                                    {unavailability.length === 0 && <p className="text-xs text-slate-500">No blocks added. Use quick buttons or manually set dates above.</p>}
+                                                                    {unavailability.map(item => (
+                                                                        <div key={item.id} className="flex items-center justify-between text-xs bg-white border border-blue-100 rounded-lg px-3 py-2">
+                                                                            <div>
+                                                                                <div className="font-semibold text-slate-800">{item.startDate} → {item.endDate}</div>
+                                                                                <div className="text-slate-500">{item.allDay ? 'All day' : item.time} {item.note ? `• ${item.note}` : ''}</div>
+                                                                            </div>
+                                                                            <Button size="sm" variant="ghost" className="h-7 text-xs text-red-600 hover:bg-red-50" onClick={() => setUnavailability(prev => prev.filter(u => u.id !== item.id))}>Remove</Button>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                                <p className="text-xs text-slate-500">💡 Tip: Click "Remove" to reverse any block before saving. For single hour: set same start/end date, turn off "All day", and pick a time.</p>
+                                                         </div>
+                             <Button className="w-full mt-4 bg-slate-900 hover:bg-slate-800 rounded-xl py-6" onClick={handleUpdateAvailability}>Save Availability Schedule</Button>
                         </CardContent>
                     </Card>
                 </div>
 
-                {/* Side Options */}
+                {/* Sidebar Options */}
                 <div className="space-y-6">
-                    <Card className="border-slate-200 shadow-sm">
-                        <CardHeader className="border-b border-slate-100 pb-4">
-                             <CardTitle className="text-lg flex items-center gap-2">
-                                <DollarSign className="w-5 h-5 text-green-600" /> Service Rates
+                    <Card className="border-slate-100 shadow-sm rounded-2xl">
+                        <CardHeader className="pb-4">
+                             <CardTitle className="text-base font-semibold flex items-center gap-2">
+                                <Video className="w-4 h-4 text-blue-600" /> Service Modes
                             </CardTitle>
                         </CardHeader>
-                        <CardContent className="pt-6 space-y-4">
-                            <div className="space-y-2">
-                                <Label>Standard Fee (₹)</Label>
+                        <CardContent className="space-y-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                {[{id:'video',label:'Video'},{id:'audio',label:'Audio'},{id:'home',label:'Home Visit'}].map(opt => {
+                                    const active = serviceTypes.includes(opt.id);
+                                    return (
+                                        <Button
+                                            key={opt.id}
+                                            type="button"
+                                            variant={active ? 'default' : 'outline'}
+                                            className={`w-full justify-center rounded-xl ${active ? 'bg-blue-600 text-white hover:bg-blue-700' : 'border-slate-200 text-slate-700 hover:bg-slate-50'}`}
+                                            onClick={() => {
+                                                setServiceTypes(prev => prev.includes(opt.id) ? prev.filter(v => v !== opt.id) : [...prev, opt.id]);
+                                            }}
+                                        >
+                                            {opt.label}
+                                        </Button>
+                                    );
+                                })}
+                            </div>
+                            <p className="text-xs text-slate-500">Choose all modes you offer. These drive pricing and booking options.</p>
+                        </CardContent>
+                    </Card>
+                    <Card className="border-slate-100 shadow-sm rounded-2xl">
+                        <CardHeader className="pb-4">
+                             <CardTitle className="text-base font-semibold flex items-center gap-2">
+                                <DollarSign className="w-4 h-4 text-green-600" /> Consultation Fees
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            {['video','audio','home'].map(mode => (
+                              <div key={mode} className="space-y-2">
+                                <Label className="text-xs uppercase text-slate-500">{mode === 'home' ? 'Home Visit' : mode.charAt(0).toUpperCase()+mode.slice(1)}</Label>
                                 <div className="relative">
-                                    <span className="absolute left-3 top-2.5 text-slate-500">₹</span>
-                                    <Input 
-                                        type="number" 
-                                        value={pricing} 
-                                        onChange={e => setPricing(Number(e.target.value))} 
-                                        className="pl-8"
-                                    />
+                                  <span className="absolute left-3 top-2.5 text-slate-400 font-medium">₹</span>
+                                  <Input
+                                    type="number"
+                                    value={pricing[mode as 'video'|'audio'|'home'] || 0}
+                                    onChange={e => setPricing(prev => ({ ...prev, [mode]: Number(e.target.value) }))}
+                                    className="pl-7 text-lg font-bold h-11 border-slate-200 rounded-xl"
+                                  />
                                 </div>
+                              </div>
+                            ))}
+                            <div className="flex items-center justify-between text-sm text-slate-500 px-1">
+                                <span>Default Session Duration</span>
+                                <span className="font-medium text-slate-700">{duration} mins</span>
                             </div>
-                            <div className="space-y-2">
-                                <Label>Duration (Min)</Label>
-                                <Input 
-                                    type="number" 
-                                    value={duration} 
-                                    onChange={e => setDuration(Number(e.target.value))} 
-                                />
-                            </div>
-                            <Button variant="outline" className="w-full border-blue-200 text-blue-700 hover:bg-blue-50" onClick={handleUpdateServiceOptions}>
+                            <Button variant="outline" className="w-full border-blue-200 text-blue-700 hover:bg-blue-50 rounded-xl" onClick={handleUpdateServiceOptions}>
                                 Update Rates
                             </Button>
                         </CardContent>
                     </Card>
 
-                    <Card className="border-slate-200 shadow-sm">
-                         <CardHeader className="border-b border-slate-100 pb-4">
-                             <CardTitle className="text-lg flex items-center gap-2">
-                                <Bell className="w-5 h-5 text-purple-600" /> Notifications
+                    <Card className="border-slate-100 shadow-sm rounded-2xl">
+                         <CardHeader className="pb-4">
+                             <CardTitle className="text-base font-semibold flex items-center gap-2">
+                                <Bell className="w-4 h-4 text-purple-600" /> Preferences
                             </CardTitle>
                         </CardHeader>
-                        <CardContent className="pt-6 space-y-4">
+                        <CardContent className="space-y-4">
                             <div className="flex items-center justify-between">
-                                <Label className="cursor-pointer" htmlFor="email-notif">Email Alerts</Label>
+                                <Label className="text-sm font-medium text-slate-700" htmlFor="email-notif">Email Alerts</Label>
                                 <Switch id="email-notif" checked={emailNotifications} onCheckedChange={setEmailNotifications} />
                             </div>
-                            <Separator />
+                            <Separator className="bg-slate-100" />
                             <div className="flex items-center justify-between">
-                                <Label className="cursor-pointer" htmlFor="sms-notif">SMS Alerts</Label>
+                                <Label className="text-sm font-medium text-slate-700" htmlFor="sms-notif">SMS Alerts</Label>
                                 <Switch id="sms-notif" checked={smsNotifications} onCheckedChange={setSmsNotifications} />
-                            </div>
-                            <Separator />
-                            <div className="flex items-center justify-between">
-                                <Label className="cursor-pointer" htmlFor="pub-profile">Public Profile</Label>
-                                <Switch id="pub-profile" checked={publicProfile} onCheckedChange={setPublicProfile} />
                             </div>
                         </CardContent>
                     </Card>
@@ -957,129 +1101,105 @@ export default function TherapistDashboardPage() {
           </TabsContent>
 
           {/* --- Tab: Appointments --- */}
-          <TabsContent value="appointments" className="space-y-6">
-             <div className="flex items-center justify-between">
-                <h2 className="text-xl font-bold text-slate-800">Appointment Schedule</h2>
-                <Button variant="outline" size="sm" onClick={refreshData} disabled={isLoadingData}>
-                    <RefreshCw className={`w-4 h-4 mr-2 ${isLoadingData ? 'animate-spin' : ''}`} /> Refresh
-                </Button>
+          <TabsContent value="appointments" className="space-y-6 animate-in fade-in-50 duration-500">
+             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <h2 className="text-xl font-bold text-slate-800">Schedule</h2>
+                <div className="flex items-center gap-2">
+                    <LocalizationProvider dateAdapter={AdapterDateFns}>
+                         <div className="bg-white rounded-lg shadow-sm border border-slate-200">
+                             <DatePicker 
+                                 value={selectedDate}
+                                 onChange={(v: Date | null) => setSelectedDate(v ?? new Date())}
+                                 slotProps={{ textField: { size: 'small', variant: 'standard', sx: { px: 2, py: 1, '& .MuiInput-underline:before': { borderBottom: 'none' }, '& .MuiInput-underline:after': { borderBottom: 'none' } } } }}
+                             />
+                         </div>
+                    </LocalizationProvider>
+                    <Button variant="outline" size="icon" onClick={refreshData} className="border-slate-200 text-slate-500 bg-white">
+                       <RefreshCw className={`w-4 h-4 ${isLoadingData ? 'animate-spin' : ''}`} />
+                    </Button>
+                </div>
              </div>
-
-             {/* Scheduled Sessions Date Picker */}
-             <Card className="border-slate-200 shadow-sm">
-                <CardContent className="pt-6">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                        <div className="flex items-center gap-2">
-                            <CalendarIcon className="w-5 h-5 text-blue-600" />
-                            <p className="text-sm text-slate-600">Select date to view scheduled sessions</p>
-                        </div>
-                        <LocalizationProvider dateAdapter={AdapterDateFns}>
-                            <DatePicker 
-                                value={selectedDate}
-                                onChange={(v: Date | null) => setSelectedDate(v ?? new Date())}
-                                slotProps={{ textField: { size: 'small' } }}
-                            />
-                        </LocalizationProvider>
-                    </div>
-                </CardContent>
-             </Card>
 
              {/* Today's High Priority */}
              {todaySessions.length > 0 && (
-                <Card className="border-blue-200 bg-blue-50/50">
-                    <CardHeader>
-                        <CardTitle className="text-blue-700 flex items-center gap-2">
-                            <Clock className="w-5 h-5" /> Today's Sessions
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="grid gap-3">
-                        {todaySessions.map(session => (
-                            <div key={session.id} className="flex flex-col sm:flex-row items-center justify-between bg-white p-4 rounded-xl shadow-sm border border-blue-100">
-                                <div className="flex items-center gap-4 w-full sm:w-auto mb-3 sm:mb-0">
-                                    <Avatar className="h-10 w-10">
-                                        <AvatarFallback className="bg-blue-100 text-blue-700 font-bold">{session.patientName[0]}</AvatarFallback>
-                                    </Avatar>
-                                    <div>
-                                        <p className="font-semibold text-slate-900">{session.patientName}</p>
-                                        <div className="flex items-center gap-2 text-xs text-slate-500">
-                                            <span>{new Date(session.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                                            <span>•</span>
-                                            <span className="capitalize">{session.sessionType}</span>
-                                        </div>
+                <div className="space-y-3">
+                            <div className="flex items-center gap-2 text-sm font-semibold text-blue-700 uppercase tracking-wider px-1">
+                        <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
+                        Starting Soon
+                   </div>
+                   {todaySessions.map(session => (
+                        <div key={session.id} className="relative overflow-hidden bg-white p-4 sm:p-5 rounded-2xl shadow-sm shadow-blue-100 border border-blue-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+                            <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-blue-500"></div>
+                            <div className="flex items-center gap-4 w-full sm:w-auto pl-2">
+                                <Avatar className="h-12 w-12 border-2 border-blue-50">
+                                    <AvatarFallback className="bg-blue-100 text-blue-700 font-bold">{session.patientName[0]}</AvatarFallback>
+                                </Avatar>
+                                <div>
+                                    <h4 className="font-bold text-slate-900 text-lg">{session.patientName}</h4>
+                                    <div className="flex items-center gap-3 text-sm text-slate-500 mt-1">
+                                        <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-xs font-medium">{formatTime(session.startTime)}</span>
+                                        <span className="capitalize">{session.sessionType}</span>
                                     </div>
                                 </div>
-                                <Button size="sm" className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 rounded-full">
-                                    <Video className="w-4 h-4 mr-2" /> Join Session
-                                </Button>
                             </div>
-                        ))}
-                    </CardContent>
-                </Card>
+                            <Button className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 rounded-full shadow-lg shadow-blue-200 pl-4 pr-6">
+                                <Video className="w-4 h-4 mr-2" /> Join Session
+                            </Button>
+                        </div>
+                    ))}
+                </div>
              )}
 
-             {/* Main Appointment List (Responsive Table/Card) */}
-             <Card className="border-slate-200 shadow-sm overflow-hidden">
+             {/* Appointment List */}
+             <Card className="border-slate-100 shadow-sm rounded-2xl overflow-hidden bg-white">
+                <CardHeader className="bg-slate-50/50 border-b border-slate-100 py-4">
+                    <CardTitle className="text-base font-semibold text-slate-700 flex items-center gap-2">
+                        <CalendarIcon className="w-4 h-4" /> Appointments for {formatDate(selectedDate)}
+                    </CardTitle>
+                </CardHeader>
                 <CardContent className="p-0">
-                    {/* Scheduled Sessions for Selected Date */}
-                    <div className="p-4 border-b border-slate-100">
-                        <h3 className="text-base font-semibold text-slate-800 mb-3 flex items-center gap-2">
-                            <Clock className="w-4 h-4" /> Scheduled Sessions ({selectedDate ? new Date(selectedDate).toLocaleDateString() : ''})
-                        </h3>
-                        {scheduledSessions.length === 0 ? (
-                            <p className="text-sm text-slate-500">No sessions scheduled for the selected date.</p>
-                        ) : (
-                            <div className="space-y-3">
-                                {scheduledSessions.map((s) => (
-                                    <div key={s.id} className="flex flex-col sm:flex-row items-center justify-between bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-                                        <div className="flex items-center gap-4 w-full sm:w-auto mb-3 sm:mb-0">
-                                            <Avatar className="h-10 w-10">
-                                                <AvatarFallback className="bg-slate-100 text-slate-700 font-bold">{s.patientName[0]}</AvatarFallback>
-                                            </Avatar>
-                                            <div>
-                                                <p className="font-semibold text-slate-900">{s.patientName}</p>
-                                                <div className="flex items-center gap-2 text-xs text-slate-500">
-                                                    <span>{new Date(s.startTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                                                    <span>•</span>
-                                                    <span className="capitalize">{s.sessionType}</span>
-                                                    <span>•</span>
-                                                    <span className="capitalize">{s.status}</span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <Button size="sm" variant="outline" className="w-full sm:w-auto border-blue-200 text-blue-700">View Details</Button>
-                                    </div>
-                                ))}
+                    {scheduledSessions.length === 0 ? (
+                        <div className="text-center py-16 px-4">
+                            <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <CalendarIcon className="w-8 h-8 text-slate-300" />
                             </div>
-                        )}
-                    </div>
-                    {therapistData.appointments.upcoming.length === 0 ? (
-                        <div className="text-center py-12">
-                            <CalendarIcon className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                            <p className="text-slate-500">No upcoming appointments found.</p>
+                            <h3 className="text-slate-900 font-medium">No sessions scheduled</h3>
+                            <p className="text-slate-500 text-sm mt-1">Enjoy your free time!</p>
                         </div>
                     ) : (
-                        <>
-                            {/* Desktop Table View */}
+                        <div>
+                            {/* Desktop Table */}
                             <div className="hidden md:block">
                                 <Table>
-                                    <TableHeader className="bg-slate-50">
-                                        <TableRow>
-                                            <TableHead>Patient</TableHead>
-                                            <TableHead>Date & Time</TableHead>
+                                    <TableHeader>
+                                        <TableRow className="hover:bg-transparent border-slate-100">
+                                            <TableHead className="w-[30%] pl-6">Patient</TableHead>
+                                            <TableHead>Time</TableHead>
                                             <TableHead>Type</TableHead>
                                             <TableHead>Status</TableHead>
-                                            <TableHead className="text-right">Action</TableHead>
+                                            <TableHead className="text-right pr-6">Actions</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {therapistData.appointments.upcoming.map((apt) => (
-                                            <TableRow key={apt.id}>
-                                                <TableCell className="font-medium">{apt.patient}</TableCell>
-                                                <TableCell>{apt.date} at {apt.time}</TableCell>
-                                                <TableCell><Badge variant="outline" className="capitalize">{apt.type}</Badge></TableCell>
-                                                <TableCell><Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-green-200">Confirmed</Badge></TableCell>
-                                                <TableCell className="text-right">
-                                                    <Button variant="ghost" size="sm" className="text-blue-600">Details</Button>
+                                        {scheduledSessions.map((s) => (
+                                            <TableRow key={s.id} className="border-slate-50 hover:bg-slate-50/50">
+                                                <TableCell className="pl-6 font-medium text-slate-900">
+                                                    <div className="flex items-center gap-3">
+                                                        <Avatar className="h-8 w-8">
+                                                            <AvatarFallback className="bg-slate-100 text-slate-600 text-xs">{s.patientName[0]}</AvatarFallback>
+                                                        </Avatar>
+                                                        {s.patientName}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="text-slate-600 font-medium">
+                                                    {formatTime(s.startTime)}
+                                                </TableCell>
+                                                <TableCell><Badge variant="outline" className="capitalize font-normal text-slate-500 bg-white">{s.sessionType}</Badge></TableCell>
+                                                <TableCell>
+                                                    <Badge className="bg-emerald-50 text-emerald-700 border-transparent font-medium hover:bg-emerald-100 shadow-none">Confirmed</Badge>
+                                                </TableCell>
+                                                <TableCell className="text-right pr-6">
+                                                    <Button variant="ghost" size="sm" className="text-slate-400 hover:text-blue-600 hover:bg-blue-50">Details</Button>
                                                 </TableCell>
                                             </TableRow>
                                         ))}
@@ -1087,51 +1207,59 @@ export default function TherapistDashboardPage() {
                                 </Table>
                             </div>
 
-                            {/* Mobile Card View */}
+                            {/* Mobile Cards */}
                             <div className="md:hidden divide-y divide-slate-100">
-                                {therapistData.appointments.upcoming.map((apt) => (
-                                    <div key={apt.id} className="p-4 bg-white space-y-3">
-                                        <div className="flex justify-between items-start">
-                                            <div>
-                                                <p className="font-semibold text-slate-900">{apt.patient}</p>
-                                                <p className="text-sm text-slate-500 flex items-center gap-1 mt-1">
-                                                    <CalendarIcon className="w-3 h-3" /> {apt.date} • {apt.time}
-                                                </p>
+                                {scheduledSessions.map((s) => (
+                                    <div key={s.id} className="p-4 bg-white active:bg-slate-50 transition-colors">
+                                        <div className="flex justify-between items-start mb-3">
+                                            <div className="flex items-center gap-3">
+                                                <Avatar className="h-10 w-10 border border-slate-100">
+                                                    <AvatarFallback className="bg-slate-50 text-slate-600 font-bold">{s.patientName[0]}</AvatarFallback>
+                                                </Avatar>
+                                                <div>
+                                                    <h4 className="font-semibold text-slate-900">{s.patientName}</h4>
+                                                    <p className="text-xs text-slate-500 capitalize">{s.sessionType} Session</p>
+                                                </div>
                                             </div>
-                                            <Badge className="bg-green-50 text-green-700 border-green-100">Confirmed</Badge>
+                                            <Badge className="bg-emerald-50 text-emerald-700 border-0 text-[10px]">Confirmed</Badge>
                                         </div>
-                                        <div className="flex items-center justify-between pt-2">
-                                            <Badge variant="secondary" className="text-xs bg-slate-100 text-slate-600">{apt.type}</Badge>
-                                            <Button size="sm" variant="outline" className="h-8 border-blue-200 text-blue-600">View Details</Button>
+                                        <div className="bg-slate-50 rounded-lg p-3 flex items-center justify-between border border-slate-100">
+                                            <div className="flex items-center gap-2 text-sm text-slate-700 font-medium">
+                                                <Clock className="w-4 h-4 text-blue-500" />
+                                                {formatTime(s.startTime)}
+                                            </div>
+                                            <ChevronRight className="w-4 h-4 text-slate-300" />
                                         </div>
                                     </div>
                                 ))}
                             </div>
-                        </>
+                        </div>
                     )}
                 </CardContent>
              </Card>
           </TabsContent>
 
-          {/* --- Other Tabs (Verification, Earnings, Support) - Simplified Views --- */}
-          <TabsContent value="verification">
-             <Card>
-                <CardHeader>
-                    <CardTitle>Verification Steps</CardTitle>
-                    <CardDescription>Complete these steps to unlock full features.</CardDescription>
+          {/* --- Tab: Verification --- */}
+          <TabsContent value="verification" className="animate-in fade-in-50 duration-500">
+             <Card className="rounded-2xl border-slate-100 shadow-sm max-w-2xl mx-auto">
+                <CardHeader className="text-center pb-8 pt-8">
+                    <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <Shield className="w-8 h-8" />
+                    </div>
+                    <CardTitle className="text-xl">Verification Status</CardTitle>
+                    <CardDescription>Complete these steps to activate your profile.</CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                    {/* Simplified verification list */}
+                <CardContent className="space-y-4 px-4 sm:px-8 pb-8">
                     {['Identity (KYC)', 'Degree Certificate', 'Medical License'].map((step, i) => (
-                        <div key={step} className="flex items-center justify-between p-4 border rounded-xl">
-                            <div className="flex items-center gap-3">
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${i === 0 ? 'bg-green-100 text-green-600' : 'bg-slate-100 text-slate-400'}`}>
-                                    {i === 0 ? <CheckCircle className="w-5 h-5" /> : <span className="text-sm font-bold">{i+1}</span>}
+                        <div key={step} className="flex items-center justify-between p-4 border border-slate-100 rounded-xl bg-white hover:border-blue-200 transition-colors group">
+                            <div className="flex items-center gap-4">
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center border ${i === 0 ? 'bg-green-50 border-green-200 text-green-600' : 'bg-slate-50 border-slate-200 text-slate-400'}`}>
+                                    {i === 0 ? <CheckCircle className="w-5 h-5" /> : <span className="text-xs font-bold">{i+1}</span>}
                                 </div>
                                 <span className={i === 0 ? 'text-slate-900 font-medium' : 'text-slate-500'}>{step}</span>
                             </div>
-                            <Button variant={i === 0 ? "ghost" : "outline"} size="sm">
-                                {i === 0 ? 'View' : 'Upload'}
+                            <Button variant="ghost" size="sm" className={i === 0 ? "text-green-600" : "text-blue-600 bg-blue-50 hover:bg-blue-100"}>
+                                {i === 0 ? 'Verified' : 'Upload'}
                             </Button>
                         </div>
                     ))}
@@ -1139,55 +1267,27 @@ export default function TherapistDashboardPage() {
              </Card>
           </TabsContent>
 
-          <TabsContent value="earnings">
-                <div className="grid md:grid-cols-2 gap-6">
-                    <Card className="bg-slate-900 text-white border-0">
-                        <CardContent className="p-8">
-                            <p className="text-slate-400 font-medium mb-1">Total Balance</p>
-                            <h2 className="text-4xl font-bold mb-6">{formatCurrency(dashboardStats.pendingWithdrawal)}</h2>
-                            <Button className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold h-11">
-                                Request Withdrawal
-                            </Button>
-                        </CardContent>
-                    </Card>
-                    <Card>
-                        <CardHeader><CardTitle>Earnings History</CardTitle></CardHeader>
-                        <CardContent>
-                            <div className="space-y-4">
-                                <div className="flex justify-between items-center p-3 bg-slate-50 rounded-lg">
-                                    <span className="text-sm font-medium text-slate-600">This Month</span>
-                                    <span className="text-lg font-bold text-green-600">+{formatCurrency(dashboardStats.thisMonthEarnings)}</span>
-                                </div>
-                                <div className="flex justify-between items-center p-3 bg-slate-50 rounded-lg">
-                                    <span className="text-sm font-medium text-slate-600">Last Month</span>
-                                    <span className="text-lg font-bold text-slate-700">{formatCurrency(dashboardStats.lastMonthEarnings)}</span>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
-          </TabsContent>
-
-          <TabsContent value="support">
+          {/* --- Tab: Support --- */}
+          <TabsContent value="support" className="animate-in fade-in-50 duration-500">
              <div className="grid md:grid-cols-2 gap-6">
-                <Card className="hover:border-blue-300 transition-colors cursor-pointer group">
-                    <CardContent className="p-6 flex flex-col items-center text-center">
-                        <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-4 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                            <Mail className="w-6 h-6" />
+                <Card className="border-slate-100 shadow-sm hover:border-blue-200 hover:shadow-md transition-all cursor-pointer group rounded-2xl">
+                    <CardContent className="p-8 flex flex-col items-center text-center">
+                        <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-blue-600 group-hover:text-white transition-colors duration-300">
+                            <Mail className="w-7 h-7" />
                         </div>
-                        <h3 className="font-bold text-lg mb-2">Submit a Ticket</h3>
-                        <p className="text-slate-500 text-sm mb-4">Facing technical issues? Let our team know.</p>
-                        <Button variant="outline" className="border-blue-200 text-blue-700">Create Ticket</Button>
+                        <h3 className="font-bold text-lg mb-2 text-slate-900">Contact Support</h3>
+                        <p className="text-slate-500 text-sm mb-6 px-4">Facing technical issues or have questions about payments? Our team is here to help.</p>
+                        <Button className="w-full bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl">Create Ticket</Button>
                     </CardContent>
                 </Card>
-                <Card className="hover:border-blue-300 transition-colors cursor-pointer group">
-                    <CardContent className="p-6 flex flex-col items-center text-center">
-                        <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mb-4 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                            <FileText className="w-6 h-6" />
+                <Card className="border-slate-100 shadow-sm hover:border-purple-200 hover:shadow-md transition-all cursor-pointer group rounded-2xl">
+                    <CardContent className="p-8 flex flex-col items-center text-center">
+                        <div className="w-14 h-14 bg-purple-50 text-purple-600 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-purple-600 group-hover:text-white transition-colors duration-300">
+                            <FileText className="w-7 h-7" />
                         </div>
-                        <h3 className="font-bold text-lg mb-2">Help Center</h3>
-                        <p className="text-slate-500 text-sm mb-4">Browse guides and FAQs.</p>
-                        <Button variant="outline" className="border-blue-200 text-blue-700">Read Articles</Button>
+                        <h3 className="font-bold text-lg mb-2 text-slate-900">Knowledge Base</h3>
+                        <p className="text-slate-500 text-sm mb-6 px-4">Browse detailed guides on how to manage sessions, payments, and your profile.</p>
+                        <Button className="w-full bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl">View Articles</Button>
                     </CardContent>
                 </Card>
              </div>
@@ -1199,10 +1299,9 @@ export default function TherapistDashboardPage() {
   );
 }
 
-// --- Sub-Components for cleaner code ---
+// --- Helper Components (Styled) ---
 
-const StatsCard = ({ title, value, icon: Icon, color, loading }: { title: string, value: string | number, icon: any, color: string, loading: boolean }) => {
-    // Mapping for colors to Tailwind classes
+const StatsCard = ({ title, subtitle, value, icon: Icon, color, loading }: any) => {
     const colors: Record<string, string> = {
         blue: "text-blue-600 bg-blue-50",
         yellow: "text-amber-500 bg-amber-50",
@@ -1212,39 +1311,42 @@ const StatsCard = ({ title, value, icon: Icon, color, loading }: { title: string
     const colorClass = colors[color] || colors.blue;
 
     return (
-        <Card className="border-slate-200 shadow-sm hover:shadow-md transition-all duration-300">
-            <CardContent className="p-5 flex items-start justify-between">
-                <div>
-                    <p className="text-sm font-medium text-slate-500">{title}</p>
-                    <div className="mt-2 text-2xl font-bold text-slate-900">
-                        {loading ? <Loader2 className="w-6 h-6 animate-spin text-slate-300" /> : value}
+        <Card className="border-slate-100 shadow-sm hover:shadow-md transition-all duration-300 rounded-2xl group cursor-default bg-white">
+            <CardContent className="p-5">
+                <div className="flex justify-between items-start mb-4">
+                    <div className={`p-2.5 rounded-xl ${colorClass} group-hover:scale-110 transition-transform duration-300`}>
+                        <Icon className="w-5 h-5" />
                     </div>
                 </div>
-                <div className={`p-2 rounded-lg ${colorClass}`}>
-                    <Icon className="w-5 h-5" />
+                <div>
+                    <div className="text-2xl font-bold text-slate-900 tracking-tight">
+                        {loading ? <Loader2 className="w-6 h-6 animate-spin text-slate-200" /> : value}
+                    </div>
+                    <p className="text-sm font-semibold text-slate-700 mt-1">{title}</p>
+                    <p className="text-xs text-slate-400 font-medium">{subtitle}</p>
                 </div>
             </CardContent>
         </Card>
     );
 };
 
-const TabItem = ({ value, icon: Icon, label }: { value: string, icon: any, label: string }) => (
+const TabItem = ({ value, icon: Icon, label }: any) => (
     <TabsTrigger 
         value={value} 
-        className="flex-1 sm:flex-none flex items-center gap-2 px-4 py-2.5 rounded-lg data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md transition-all"
+        className="flex-shrink-0 flex items-center gap-2 px-5 py-2.5 rounded-full data-[state=active]:bg-blue-600 data-[state=active]:text-white data-[state=active]:shadow-md text-slate-500 hover:text-slate-800 transition-all mx-1"
     >
         <Icon className="w-4 h-4" />
-        <span className="text-xs sm:text-sm font-medium">{label}</span>
+        <span className="text-xs font-semibold tracking-wide">{label}</span>
     </TabsTrigger>
 );
 
 const ProfileField = ({ label, value, isEditing, onChange, type = 'text', options = [], placeholder = '' }: any) => (
-    <div className="space-y-1.5">
-        <Label className="text-xs uppercase tracking-wider text-slate-500 font-semibold">{label}</Label>
+    <div className="space-y-1.5 group">
+        <Label className="text-[10px] uppercase tracking-wider text-slate-400 font-bold group-hover:text-blue-600 transition-colors">{label}</Label>
         {isEditing ? (
             type === 'select' ? (
                 <Select value={value} onValueChange={onChange}>
-                    <SelectTrigger className="h-10 bg-slate-50 border-slate-200 focus:ring-blue-500/20"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-11 bg-slate-50 border-slate-200 focus:ring-2 focus:ring-blue-500/20 rounded-xl"><SelectValue /></SelectTrigger>
                     <SelectContent>
                         {options.map((opt: string) => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
                     </SelectContent>
@@ -1254,11 +1356,32 @@ const ProfileField = ({ label, value, isEditing, onChange, type = 'text', option
                     value={value} 
                     onChange={e => onChange(e.target.value)} 
                     placeholder={placeholder}
-                    className="h-10 bg-slate-50 border-slate-200 focus:ring-blue-500/20 transition-all"
+                    className="h-11 bg-slate-50 border-slate-200 focus:ring-2 focus:ring-blue-500/20 transition-all rounded-xl"
                 />
             )
         ) : (
-            <p className="text-base font-medium text-slate-800 py-1">{value || 'Not set'}</p>
+            <p className="text-base font-medium text-slate-800 py-1 border-b border-transparent">{value || <span className="text-slate-300 italic">Not specified</span>}</p>
         )}
     </div>
 );
+
+// Icon for recent activity
+function TrendingUpIcon(props: any) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
+      <polyline points="17 6 23 6 23 12" />
+    </svg>
+  )
+}

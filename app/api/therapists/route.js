@@ -19,16 +19,22 @@ export async function GET(request) {
     const maxFee = parseFloat(searchParams.get('maxFee'));
     const sortBy = searchParams.get('sortBy') || 'rating';
     const sortOrder = searchParams.get('sortOrder') === 'asc' ? 1 : -1;
+    const featuredOnly = searchParams.get('featured') === 'true' || searchParams.get('featured') === '1';
 
   // Broad query: do not force isActive=true to be compatible with legacy data
   const query = {};
   if (specialization) query.specializations = { $in: [new RegExp(specialization, 'i')] };
+    if (featuredOnly) query.featured = true;
     if (minRating > 0) query.rating = { $gte: minRating };
     if (maxFee) query.consultationFee = { $lte: maxFee };
 
     const skip = (page - 1) * limit;
     const sort = {};
-    if (sortBy === 'rating') sort.rating = sortOrder;
+    if (featuredOnly) {
+      // Put curated order first, fallback to rating
+      sort.featuredOrder = 1;
+      sort.rating = -1;
+    } else if (sortBy === 'rating') sort.rating = sortOrder;
     else if (sortBy === 'experience') sort.experience = sortOrder;
     else if (sortBy === 'fee') sort.consultationFee = sortOrder;
     else sort[sortBy] = sortOrder;
@@ -82,14 +88,18 @@ export async function GET(request) {
       const sortBy = searchParams.get('sortBy') || 'rating';
       const sortOrder = searchParams.get('sortOrder') === 'asc' ? 1 : -1;
 
-  const query = {};
-  if (specialization) query.specializations = { $in: [new RegExp(specialization, 'i')] };
+    const query = {};
+    if (specialization) query.specializations = { $in: [new RegExp(specialization, 'i')] };
+      if (featuredOnly) query.featured = true;
       if (minRating > 0) query.rating = { $gte: minRating };
       if (maxFee) query.consultationFee = { $lte: maxFee };
 
       const skip = (page - 1) * limit;
       const sort = {};
-      if (sortBy === 'rating') sort.rating = sortOrder;
+      if (featuredOnly) {
+        sort.featuredOrder = 1;
+        sort.rating = -1;
+      } else if (sortBy === 'rating') sort.rating = sortOrder;
       else if (sortBy === 'experience') sort.experience = sortOrder;
       else if (sortBy === 'fee') sort.consultationFee = sortOrder;
       else sort[sortBy] = sortOrder;

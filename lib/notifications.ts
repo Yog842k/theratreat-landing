@@ -47,11 +47,15 @@ export interface BookingNotificationPayload {
   userName?: string;
   userPhone?: string; // E.164 number for direct SMS (e.g. +15551234567)
   therapistName?: string;
+  therapistSpeciality?: string;
+  clientName?: string;
+  recipientType?: 'patient' | 'therapist';
   sessionType?: string;
   date?: string; // ISO string
   timeSlot?: string;
   roomCode?: string;
   meetingUrl?: string | null;
+  shortLink?: string;
 }
 
 export interface NotificationResult {
@@ -67,12 +71,26 @@ export interface NotificationResult {
 export async function sendBookingConfirmation(payload: BookingNotificationPayload): Promise<NotificationResult> {
   const errors: string[] = [];
   const meetingUrl = payload.meetingUrl || getMeetingUrl(payload.roomCode || '');
+  const shortLink = payload.shortLink || meetingUrl || 'Link will follow';
   const smsAllowed = !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_SMS_FROM);
   const whatsappAllowed = !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_WHATSAPP_FROM);
   const emailAllowed = !!(process.env.SENDGRID_API_KEY && process.env.SENDGRID_FROM_EMAIL && payload.userEmail);
   const debug = process.env.NOTIFICATIONS_DEBUG === '1';
 
   const isVideoOrAudio = payload.sessionType === 'video' || payload.sessionType === 'audio';
+  const recipientType = payload.recipientType || 'patient';
+  const modeLabel = (() => {
+    const key = String(payload.sessionType || '').toLowerCase();
+    if (key === 'video' || key === 'audio') return 'Online';
+    if (key === 'clinic') return 'Clinic';
+    if (key === 'home') return 'Home Care';
+    return 'Session';
+  })();
+  const dateText = payload.date ? new Date(payload.date).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' }) : 'TBA';
+  const timeText = payload.timeSlot || (payload.date ? new Date(payload.date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : 'TBA');
+  const therapistLine = payload.therapistSpeciality
+    ? `${payload.therapistName || 'Therapist'} (${payload.therapistSpeciality})`
+    : `${payload.therapistName || 'Therapist'}`;
   const subject = `Booking Confirmed · ${payload.bookingId}`;
   const textBody = [
     `Hi ${payload.userName || 'there'},`,
@@ -144,13 +162,25 @@ export async function sendBookingConfirmation(payload: BookingNotificationPayloa
     try {
       const client = getTwilio();
       if (!client) throw new Error('Twilio client not initialized');
-      // Make meeting link more prominent for video/audio sessions
-      let body: string;
-      if (isVideoOrAudio && meetingUrl) {
-        body = `✅ Booking ${payload.bookingId} confirmed!\n\n📅 ${payload.date ? new Date(payload.date).toLocaleString() : 'TBA'}\n⏰ ${payload.timeSlot || 'TBA'}\n\n🎥 Join your ${payload.sessionType} session:\n${meetingUrl}\n\nPlease join 5 minutes early.`;
-      } else {
-        body = `Booking ${payload.bookingId} confirmed. ${meetingUrl ? 'Join: ' + meetingUrl : ''}`.trim();
-      }
+      const body = recipientType === 'therapist'
+        ? [
+            'TheraBook: New booking confirmed',
+            `Client: ${payload.clientName || 'Patient'}`,
+            `Date & Time: ${dateText}, ${timeText}`,
+            `Mode: ${modeLabel}`,
+            `View details: ${shortLink}`,
+            '',
+            'Thank you for choosing TheraTreat'
+          ].join('\n')
+        : [
+            'TheraBook: Your session is confirmed ✅',
+            `Therapist: ${therapistLine}`,
+            `Date & Time: ${dateText}, ${timeText}`,
+            `Mode: ${modeLabel}`,
+            `Manage booking: ${shortLink}`,
+            '',
+            'Thank you for choosing TheraTreat'
+          ].join('\n');
       const msg = await twilioWithTimeout<{ sid: string }>(
         client.messages.create({
           from: process.env.TWILIO_SMS_FROM,
@@ -178,13 +208,25 @@ export async function sendBookingConfirmation(payload: BookingNotificationPayloa
     try {
       const client = getTwilio();
       if (!client) throw new Error('Twilio client not initialized');
-      // Make meeting link more prominent for video/audio sessions
-      let body: string;
-      if (isVideoOrAudio && meetingUrl) {
-        body = `✅ *Booking ${payload.bookingId} confirmed!*\n\n📅 ${payload.date ? new Date(payload.date).toLocaleString() : 'TBA'}\n⏰ ${payload.timeSlot || 'TBA'}\n\n🎥 *Join your ${payload.sessionType} session:*\n${meetingUrl}\n\nPlease join 5 minutes early.`;
-      } else {
-        body = `Booking ${payload.bookingId} confirmed. ${meetingUrl ? 'Join: ' + meetingUrl : ''}`.trim();
-      }
+      const body = recipientType === 'therapist'
+        ? [
+            'TheraBook: New booking confirmed',
+            `Client: ${payload.clientName || 'Patient'}`,
+            `Date & Time: ${dateText}, ${timeText}`,
+            `Mode: ${modeLabel}`,
+            `View details: ${shortLink}`,
+            '',
+            'Thank you for choosing TheraTreat'
+          ].join('\n')
+        : [
+            'TheraBook: Your session is confirmed ✅',
+            `Therapist: ${therapistLine}`,
+            `Date & Time: ${dateText}, ${timeText}`,
+            `Mode: ${modeLabel}`,
+            `Manage booking: ${shortLink}`,
+            '',
+            'Thank you for choosing TheraTreat'
+          ].join('\n');
       const msg = await twilioWithTimeout<{ sid: string }>(
         client.messages.create({
           from: `whatsapp:${process.env.TWILIO_WHATSAPP_FROM}`,
