@@ -109,10 +109,10 @@ export const platformStats = [
 
 export const footerSections = {
   coreModules: [
-    { label: "TheraBook - Consultations", href: "#" },
-    { label: "TheraSelf - Assessments", href: "#" },
-    { label: "TheraStore - Equipment", href: "#" },
-    { label: "TheraLearn - Education", href: "#" }
+    { label: "TheraBook - Consultations", href: "/therabook" },
+    { label: "TheraSelf - Assessments", href: "/theraself" },
+    { label: "TheraStore - Equipment", href: "/therastore" },
+    { label: "TheraLearn - Education", href: "/theralearn" }
   ],
   forProviders: [
     { label: "Join Our Network", href: "#" },
