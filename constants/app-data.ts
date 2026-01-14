@@ -159,6 +159,8 @@ export type ViewType =
   | "help-me-choose"
   | "patient-register"
   | "register"
+  | "instructor-register"
+  | "reviews"
   | "blog";
 
 // TheraStore Category System

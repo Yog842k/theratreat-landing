@@ -124,9 +124,6 @@ export default function TheraAI() {
                 <Link href="/theraself/tests" className="h-14 px-8 rounded-2xl bg-white text-violet-900 font-bold text-base shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:shadow-[0_0_30px_rgba(255,255,255,0.5)] transition-all hover:-translate-y-1 flex items-center justify-center gap-2">
                   Start Self Assessment <ArrowRight className="w-5 h-5" />
                 </Link>
-                <Link href="/therabook/therapists" className="h-14 px-8 rounded-2xl bg-white/5 backdrop-blur-sm text-white border border-white/20 font-bold text-base hover:bg-white/10 transition-all flex items-center justify-center gap-2">
-                  <Play className="w-4 h-4 text-white" /> For Therapists: TheraAI Pro
-                </Link>
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs font-semibold text-white/80 mb-6">

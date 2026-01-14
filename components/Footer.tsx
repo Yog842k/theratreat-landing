@@ -7,6 +7,7 @@ export function Footer() {
   const pathname = usePathname();
   const isTheraStore = pathname?.startsWith("/therastore");
   const isTheraSelf = pathname?.startsWith("/theraself");
+  const isTheraLearn = pathname?.startsWith("/theralearn");
   const palette = isTheraStore
     ? {
         bg: "bg-emerald-700",
@@ -19,6 +20,19 @@ export function Footer() {
         focusRing: "focus:ring-emerald-300",
         buttonText: "text-emerald-700",
         buttonHover: "hover:bg-emerald-50",
+      }
+    : isTheraLearn
+    ? {
+        bg: "bg-orange-600",
+        border: "border-orange-500",
+        textMuted: "text-orange-100",
+        icon: "text-orange-100",
+        inputBg: "bg-orange-500",
+        inputBorder: "border-orange-400",
+        placeholder: "placeholder-orange-200",
+        focusRing: "focus:ring-orange-200",
+        buttonText: "text-orange-700",
+        buttonHover: "hover:bg-orange-50",
       }
     : isTheraSelf
     ? {

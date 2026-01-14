@@ -46,6 +46,20 @@ export default function SignupClient() {
     if (type) setFormData(prev => ({ ...prev, userType: type }));
   }, [searchParams]);
 
+  useEffect(() => {
+    if (accountType === 'instructor') {
+      router.replace('/auth/signup/instructor');
+    }
+  }, [accountType, router]);
+
+  if (accountType === 'instructor') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-blue-100">
+        <div className="text-sm text-gray-600">Redirecting to instructor signup…</div>
+      </div>
+    );
+  }
+
   const getAccountTypeInfo = () => {
     const types = {
       patient: { title: 'Patient', description: 'Find and book therapy sessions', icon: <Heart className="w-5 h-5" />, color: 'bg-blue-100 text-blue-700 border-blue-200' },
@@ -103,7 +117,7 @@ export default function SignupClient() {
           if (data.data.token) {
             switch (data.data.user.userType) {
               case 'therapist': router.push('/therabook/onboarding/therapist'); break;
-              case 'instructor': router.push('/therabook/onboarding/instructor'); break;
+              case 'instructor': router.push('/theralearn/instructor/dashboard'); break;
               case 'student': router.push('/therabook/onboarding/student'); break;
               case 'clinic': router.push('/therabook/onboarding/clinic'); break;
               case 'patient': default: router.push('/therabook/onboarding/patient'); break;

@@ -7,6 +7,8 @@ export async function POST(request) {
     const body = await request.json();
     const { email, password, name, userType, phone, patientData, profileImageUrl, profile } = body;
 
+    const otpBypassEnabled = process.env.OTP_TEMP_BYPASS === '1';
+
     // Debug logging
     console.log('[register] Incoming registration request:', JSON.stringify(body));
 
@@ -22,6 +24,37 @@ export async function POST(request) {
       const existingUser = await database.findOne('users', { email });
       if (existingUser) {
         console.log('[register] User already exists:', email, existingUser);
+
+        // If the existing user is an instructor, ensure instructor doc exists and return success with token
+        if (existingUser.userType === 'instructor') {
+          try {
+            const existingInstructor = await database.findOne('instructors', {
+              $or: [{ userId: existingUser._id }, { email: existingUser.email }]
+            });
+            if (!existingInstructor) {
+              await database.insertOne('instructors', {
+                userId: existingUser._id,
+                email: existingUser.email,
+                phone: existingUser.phone,
+                name: existingUser.name,
+                profile: profile || {},
+                courseDraft: body.courseDraft || null,
+                webinarDraft: body.webinarDraft || null,
+                marketingConsent: Boolean(body.marketingConsent),
+                createdAt: new Date(),
+                updatedAt: new Date()
+              });
+              console.log('[register] Backfilled instructor doc for existing user');
+            }
+          } catch (e) {
+            console.warn('[register] Instructor backfill failed', e?.message || e);
+          }
+
+          const { password: _pw, ...userWithoutPassword } = existingUser;
+          const token = AuthUtils.generateToken({ userId: existingUser._id.toString(), userType: existingUser.userType });
+          return ResponseUtils.success({ user: userWithoutPassword, token }, 'Instructor already exists. Returning existing account.', 200);
+        }
+
         return ResponseUtils.badRequest('User already exists with this email');
       }
     } catch (findErr) {
@@ -32,13 +65,24 @@ export async function POST(request) {
     // Enforce phone OTP verification if phone provided
     try {
       if (phone) {
-        const { isPhoneVerified } = require('@/lib/otp');
-        const purpose = userType === 'therapist' ? 'signup:therapist' : userType === 'clinic' ? 'signup:clinic' : 'signup:user';
-        const verified = await isPhoneVerified({ phone, purpose });
-        console.log('[register] OTP check:', { phone, purpose, verified });
-        if (!verified) {
-          console.warn('[register] OTP not verified for', { phone, purpose });
-          return ResponseUtils.errorCode('OTP_REQUIRED', 'Phone not verified. Please complete OTP verification.', 409, { phone, purpose });
+        const purpose = userType === 'therapist'
+          ? 'signup:therapist'
+          : userType === 'clinic'
+            ? 'signup:clinic'
+            : userType === 'instructor'
+              ? 'signup:instructor'
+              : 'signup:user';
+
+        if (otpBypassEnabled) {
+          console.warn('[register] OTP bypass enabled, skipping verification for', { phone, purpose });
+        } else {
+          const { isPhoneVerified } = require('@/lib/otp');
+          const verified = await isPhoneVerified({ phone, purpose });
+          console.log('[register] OTP check:', { phone, purpose, verified });
+          if (!verified) {
+            console.warn('[register] OTP not verified for', { phone, purpose });
+            return ResponseUtils.errorCode('OTP_REQUIRED', 'Phone not verified. Please complete OTP verification.', 409, { phone, purpose });
+          }
         }
       }
     } catch (e) {
@@ -136,6 +180,28 @@ export async function POST(request) {
     if (!result || !result.insertedId) {
       console.error('[register] User insert did not return insertedId', JSON.stringify(result));
       return ResponseUtils.error('Registration failed: user not saved');
+    }
+
+    // Persist instructor record in dedicated collection when relevant
+    if (userType === 'instructor') {
+      try {
+        const instructorDoc = {
+          userId: result.insertedId,
+          email: user.email,
+          phone: user.phone,
+          name: user.name,
+          profile: profile || {},
+          courseDraft: body.courseDraft || null,
+          webinarDraft: body.webinarDraft || null,
+          marketingConsent: Boolean(body.marketingConsent),
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+        await database.insertOne('instructors', instructorDoc);
+      } catch (e) {
+        console.warn('[register] Instructor collection insert failed', e?.message || e);
+        // do not block user creation; just log
+      }
     }
 
     // Attempt Razorpay customer creation (non-blocking, never blocks user save)

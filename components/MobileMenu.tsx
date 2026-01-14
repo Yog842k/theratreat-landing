@@ -6,12 +6,7 @@ import { footerSections } from '@/constants/app-data';
 import Link from 'next/link';
 import { Menu, X } from 'lucide-react';
 
-/**
- * MobileMenu
- * Replaces prior MobileSubHeader. Only renders a button inside the primary
- * nav bar (small screens). Opens a floating panel (overlay) below the header
- * without introducing a persistent second bar that caused overflow.
- */
+
 export default function MobileMenu(){
   const [open, setOpen] = useState(false);
   const { user: authUser, logout } = useAuth();
@@ -87,6 +82,7 @@ export default function MobileMenu(){
                 ))}
               </div>
             </div>
+
             <div>
               <p className="text-[10px] uppercase font-semibold text-slate-500 mb-1">Support</p>
               <div className="flex flex-wrap gap-2">
