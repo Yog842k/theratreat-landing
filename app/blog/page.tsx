@@ -1,14 +1,5 @@
-import ComingSoon from '@/components/ComingSoon';
+import { redirect } from "next/navigation";
 
-export default function BlogComingSoon() {
-  return (
-    <ComingSoon
-  title="TheraBlogs"
-      subtitle="Insights • Stories • Research"
-      description={<>
-        Articles, evidence-based insights, recovery stories and platform updates will live here.
-        <br />The publishing workflow is being prepared for contributors.
-      </>}
-    />
-  );
+export default function RedirectTheraBlogs() {
+  redirect("/therablogs");
 }

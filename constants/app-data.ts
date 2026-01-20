@@ -20,7 +20,7 @@ export const navigationTabs = [
   { key: "store", label: "TheraStore", url: "/therastore", icon: ShoppingCart },
   { key: "learn", label: "TheraLearn", url: "/theralearn", icon: BookOpen },
   { key: "therapists", label: "Therapists", url: "/therapists", icon: Stethoscope },
-  { key: "blog", label: "TheraBlogs", url: "/blog", icon: FileText },
+  { key: "blog", label: "TheraBlogs", url: "/therablogs", icon: FileText },
   // Optionally show Admin in navigation via env flag
   ...(process.env.NEXT_PUBLIC_SHOW_ADMIN === "true"
     ? [{ key: "admin", label: "Admin", url: "/admin", icon: LayoutDashboard }]

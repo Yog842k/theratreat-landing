@@ -85,10 +85,10 @@ export default function AdminDashboardPage() {
           {/* 5. Blogs */}
           <DashboardCard
             icon={FileText}
-            title="Content & Blogs"
-            description="Write, edit, and publish articles to the TheraTreat knowledge base."
+            title="TheraBlogs"
+            description="Draft, upload, and publish content to the TheraBlogs hub."
           >
-            <ActionButton href="/admin/blogs" primary>Manage Posts</ActionButton>
+            <ActionButton href="/admin/therablogs" primary>Open Uploader</ActionButton>
             <JsonButton href="/api/admin/blogs" />
           </DashboardCard>
 

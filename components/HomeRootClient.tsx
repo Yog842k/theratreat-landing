@@ -45,7 +45,7 @@ export default function HomeRootClient() {
         router.push("/therapists");
         return;
       case "blog":
-        router.push("/blog");
+        router.push("/therablogs");
         return;
       default:
         setCurrentView(view);

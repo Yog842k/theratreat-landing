@@ -32,3 +32,20 @@ model MicroDeposit {
   verified_at        DateTime?
   BankVerification   BankVerification @relation(fields: [verification_id], references: [id])
 }
+
+model Blog {
+  id           String   @id @map("_id") @db.ObjectId
+  title        String
+  slug         String   @unique
+  summary      String?
+  category     String   @default("General")
+  tags         String[]
+  coverImage   String?
+  readTime     String?
+  content      String
+  status       String   @default("draft")
+  author       String?  @default("Admin")
+  scheduledFor DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}

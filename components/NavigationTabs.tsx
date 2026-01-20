@@ -36,6 +36,7 @@ export function NavigationTabs({ currentView, setCurrentView }: NavigationTabsPr
     if (pathname.startsWith('/therastore')) return 'store';
     if (pathname.startsWith('/theralearn')) return 'learn';
     if (pathname.startsWith('/therapists')) return 'therapists';
+    if (pathname.startsWith('/therablogs')) return 'blog';
     if (pathname.startsWith('/blog')) return 'blog';
     return currentView;
   };
