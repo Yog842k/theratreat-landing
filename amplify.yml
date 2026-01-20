@@ -19,6 +19,10 @@ frontend:
         - npm install autoprefixer postcss --force --save-dev
         - echo "Verify autoprefixer version:"
         - npx autoprefixer --version || echo "Autoprefixer installed manually"
+        - if [ -z "$DATABASE_URL" ]; then echo "DATABASE_URL env var missing. Set it in Amplify environment variables."; exit 1; fi
+        - printf "DATABASE_URL=%s\n" "$DATABASE_URL" > .env.production
+        - printf "DATABASE_URL=%s\n" "$DATABASE_URL" > .env.local
+        - echo "DATABASE_URL written to .env.production/.env.local"
     build:
       commands:
         - echo "Starting build..."
