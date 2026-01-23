@@ -4,6 +4,7 @@ import { Footer } from '@/components/Footer'
 import { AuthProvider } from '@/components/auth/NewAuthContext'
 import { ClientProviders } from '@/components/ClientProviders'
 import React from 'react'
+import Script from 'next/script'
 import { Navigation } from '@/components/Navigation'
 
 export const metadata: Metadata = {
@@ -24,6 +25,18 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-Y5YLPGH1YJ"
+          strategy="afterInteractive"
+        />
+        <Script id="ga-gtag" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-Y5YLPGH1YJ');
+          `}
+        </Script>
         <AuthProvider>
           <ClientProviders>
             {process.env.AUTH_DEV_BYPASS === '1' && process.env.NODE_ENV !== 'production' && (

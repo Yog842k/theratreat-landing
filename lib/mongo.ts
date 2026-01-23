@@ -1,15 +1,26 @@
 import { MongoClient, Db, Collection, WithId, Document } from "mongodb";
 
-const uri = process.env.DATABASE_URL;
-if (!uri) {
-  throw new Error("DATABASE_URL is not set");
+function getMongoUri(): string {
+  // Prefer the explicit Mongo URI; fall back to DATABASE_URL only if it is also Mongo.
+  const uri = process.env.MONGODB_URI || process.env.DATABASE_URL;
+  if (!uri) {
+    throw new Error("MONGODB_URI / DATABASE_URL is not set");
+  }
+
+  // Guard against accidentally picking up a Postgres/MySQL DATABASE_URL from Prisma.
+  const lower = uri.toLowerCase();
+  if (!lower.startsWith("mongodb")) {
+    throw new Error("MONGODB_URI must be a MongoDB connection string");
+  }
+
+  return uri;
 }
-const mongoUri: string = uri;
 
 const globalForMongo = global as unknown as { mongoClient?: MongoClient; mongoDb?: Db };
 
 export async function getDb(): Promise<Db> {
   if (!globalForMongo.mongoClient) {
+    const mongoUri = getMongoUri();
     globalForMongo.mongoClient = new MongoClient(mongoUri);
     await globalForMongo.mongoClient.connect();
     globalForMongo.mongoDb = globalForMongo.mongoClient.db();
