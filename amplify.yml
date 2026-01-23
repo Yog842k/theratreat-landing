@@ -59,6 +59,8 @@ frontend:
     build:
       commands:
         - echo "Starting build..."
+        - export NODE_ENV=production
+        - export NEXT_DIST_DIR=next-build
         - node scripts/write-next-env.mjs
         - npm run build
     postBuild:

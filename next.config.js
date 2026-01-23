@@ -60,8 +60,8 @@ const nextConfig = {
     // resolved at runtime, leading to: Cannot find module .../razorpay/order/route.js
     return config;
   },
-  // Use default .next in dev to avoid Windows EPERM on next-build/trace; keep custom dist in prod/CI
-  distDir: process.env.NEXT_DIST_DIR || (process.env.NODE_ENV === 'production' ? 'next-build' : '.next')
+  // Force a stable build output directory so Amplify can pick artifacts reliably.
+  distDir: 'next-build'
 };
 
 module.exports = nextConfig
