@@ -92,14 +92,27 @@ export async function GET(request, context) {
     }
 
     // Hydrate related entities
-    const ownerUser = await database.findOne('users', { _id: booking.userId }, { projection: { name: 1, email: 1, phone: 1 } });
-    const therapistUser = await database.findOne('users', { _id: booking.therapistId }, { projection: { name: 1, email: 1 } });
+    let ownerUser = null;
+    let therapistUser = null;
     let therapistProfile = null;
-    if (booking.therapistProfileId) {
-      therapistProfile = await database.findOne('therapists', { _id: booking.therapistProfileId });
-    } else if (therapistUser) {
-      // legacy embedded profile
-      therapistProfile = therapistUser.therapistProfile || null;
+    try {
+      ownerUser = await database.findOne('users', { _id: booking.userId }, { projection: { name: 1, email: 1, phone: 1 } });
+    } catch (err) {
+      console.error('[BookingDetails] Error fetching ownerUser:', err);
+    }
+    try {
+      therapistUser = await database.findOne('users', { _id: booking.therapistId }, { projection: { name: 1, email: 1 } });
+    } catch (err) {
+      console.error('[BookingDetails] Error fetching therapistUser:', err);
+    }
+    try {
+      if (booking.therapistProfileId) {
+        therapistProfile = await database.findOne('therapists', { _id: booking.therapistProfileId });
+      } else if (therapistUser) {
+        therapistProfile = therapistUser.therapistProfile || null;
+      }
+    } catch (err) {
+      console.error('[BookingDetails] Error fetching therapistProfile:', err);
     }
 
     const therapist = {
@@ -113,7 +126,10 @@ export async function GET(request, context) {
 
   } catch (error) {
     console.error('Get booking error (simple path):', error);
-    return ResponseUtils.error('Failed to fetch booking');
+    if (error && error.stack) {
+      console.error('Stack trace:', error.stack);
+    }
+    return ResponseUtils.error('Failed to fetch booking', 500, error?.message || error);
   }
 }
 

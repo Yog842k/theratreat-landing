@@ -187,6 +187,7 @@ function FormAdd({ onAdded }: { onAdded: () => void }) {
     { name: "Default", questions: [{ text: "", options: ["", "", "", "3"] }] }
   ]);
   const [saving, setSaving] = useState(false);
+  const [scoringPrompt, setScoringPrompt] = useState("");
 
   // Auto-generate slug from title unless user overrides
   function toSlug(s: string) {
@@ -234,11 +235,13 @@ function FormAdd({ onAdded }: { onAdded: () => void }) {
                 (q.options[2] || "").trim(),
                 (q.options[3] || "3").trim()
               ] }))
-          }))
+          })),
+          scoring: scoringPrompt.trim() ? { prompt: scoringPrompt.trim() } : undefined
         })
       });
       if (!res.ok) throw new Error("Failed to create");
       setSlug(""); setSlugTouched(false); setTitle(""); setDesc(""); setCategory(""); setQuestionSets([{ name: "Default", questions: [{ text: "", options: ["", "", "", "3"] }] }]);
+      setScoringPrompt("");
       onAdded();
     } catch (e) {
       alert((e as any)?.message || "Error");
@@ -251,27 +254,39 @@ function FormAdd({ onAdded }: { onAdded: () => void }) {
   const inputClass = "w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all placeholder:text-slate-300";
   const labelClass = "block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide";
 
+
   return (
     <form onSubmit={submit} className="space-y-8">
-      
       {/* 1. Basic Info */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-         <div>
-            <label className={labelClass}>Slug (ID)</label>
+        <div>
+          <label className={labelClass}>Slug (ID)</label>
           <input className={inputClass} placeholder="e.g. anxiety-test-01" value={slug} onChange={e=>{ setSlug(e.target.value); setSlugTouched(true); }} required />
-         </div>
-         <div>
-            <label className={labelClass}>Title</label>
+        </div>
+        <div>
+          <label className={labelClass}>Title</label>
           <input className={inputClass} placeholder="e.g. Generalized Anxiety Assessment" value={title} onChange={e=>setTitle(e.target.value)} required />
-         </div>
-         <div>
-            <label className={labelClass}>Category</label>
-            <input className={inputClass} placeholder="e.g. Mental Health" value={category} onChange={e=>setCategory(e.target.value)} />
-         </div>
-         <div className="md:col-span-2">
-            <label className={labelClass}>Description</label>
-            <textarea className={inputClass} rows={2} placeholder="Brief description of what this test measures..." value={desc} onChange={e=>setDesc(e.target.value)} />
-         </div>
+        </div>
+        <div>
+          <label className={labelClass}>Category</label>
+          <input className={inputClass} placeholder="e.g. Mental Health" value={category} onChange={e=>setCategory(e.target.value)} />
+        </div>
+        <div className="md:col-span-2">
+          <label className={labelClass}>Description</label>
+          <textarea className={inputClass} rows={2} placeholder="Brief description of what this test measures..." value={desc} onChange={e=>setDesc(e.target.value)} />
+        </div>
+        <div className="md:col-span-2">
+          <label className={labelClass}>Scoring Prompt (AI)</label>
+          <textarea
+            className={inputClass}
+            rows={3}
+            placeholder="Describe how the AI should score this test. Example: 'Sum the values of all answers. If total >= 10, high risk. If 5-9, moderate risk. Otherwise, low risk.'"
+            value={scoringPrompt}
+            onChange={e => setScoringPrompt(e.target.value)}
+            required
+          />
+          <span className="text-xs text-slate-400">This prompt will be used by the AI to generate scoring and reports for this test.</span>
+        </div>
       </div>
 
       <hr className="border-slate-100" />

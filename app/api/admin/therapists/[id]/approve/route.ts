@@ -8,7 +8,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     const oid = db.toObjectId(id);
     await col.updateOne(
       { _id: oid },
-      { $set: { verified: true, status: "approved", verifiedAt: new Date().toISOString(), rejected: false } }
+      { $set: { isVerified: true, verified: true, status: "approved", verifiedAt: new Date().toISOString(), rejected: false } }
     );
     return NextResponse.json({ ok: true });
   } catch (err: any) {

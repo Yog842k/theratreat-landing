@@ -172,9 +172,9 @@ export default function BookingList({
       </CardHeader>
       <CardContent>
         <div className='space-y-4'>
-          {items.map((booking) => (
+          {items.map((booking, idx) => (
             <div 
-              key={booking._id} 
+              key={booking._id || idx} 
               className='p-6 bg-white rounded-xl border border-gray-100 hover:shadow-lg transition-all duration-200'
             >
               <div className='flex flex-col lg:flex-row lg:items-center gap-4'>

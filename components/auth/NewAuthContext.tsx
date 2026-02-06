@@ -29,12 +29,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const clearStoredAuth = useCallback(() => {
+    localStorage.removeItem(STORAGE_TOKEN_KEY);
+    localStorage.removeItem(STORAGE_USER_KEY);
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('user');
+  }, []);
+
+  const parseJwt = useCallback((jwtToken: string) => {
+    try {
+      const [, payload] = jwtToken.split('.');
+      if (!payload) return null;
+      const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+      const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
+      const json = atob(padded);
+      return JSON.parse(json);
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const isTokenExpired = useCallback((jwtToken: string) => {
+    const payload = parseJwt(jwtToken);
+    if (!payload || typeof payload.exp !== 'number') return false;
+    return Date.now() >= payload.exp * 1000;
+  }, [parseJwt]);
+
   const loadFromStorage = useCallback(() => {
     try {
       // Prefer new keys, but support legacy keys used in older flows
       const storedToken = localStorage.getItem(STORAGE_TOKEN_KEY) || localStorage.getItem('authToken');
       const storedUser = localStorage.getItem(STORAGE_USER_KEY) || localStorage.getItem('user');
       if (storedToken && storedUser) {
+        if (isTokenExpired(storedToken)) {
+          clearStoredAuth();
+          setToken(null);
+          setUser(null);
+          return;
+        }
         setToken(storedToken);
         try {
           setUser(JSON.parse(storedUser));
@@ -49,7 +81,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setToken(null);
       setUser(null);
     }
-  }, []);
+  }, [clearStoredAuth, isTokenExpired]);
 
   useEffect(() => {
     loadFromStorage();
@@ -75,20 +107,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = () => {
-    localStorage.removeItem(STORAGE_TOKEN_KEY);
-    localStorage.removeItem(STORAGE_USER_KEY);
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('user');
+    clearStoredAuth();
     setToken(null);
     setUser(null);
   };
 
   const refresh = () => loadFromStorage();
 
+  useEffect(() => {
+    if (!token) return;
+    const payload = parseJwt(token);
+    if (!payload || typeof payload.exp !== 'number') return;
+    const remainingMs = payload.exp * 1000 - Date.now();
+    if (remainingMs <= 0) {
+      logout();
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      logout();
+    }, remainingMs);
+    return () => window.clearTimeout(timer);
+  }, [token, parseJwt, logout]);
+
   const value: AuthContextValue = {
     user,
     token,
-    isAuthenticated: !!token && !!user,
+    isAuthenticated: !!token && !!user && !isTokenExpired(token),
     isLoading,
     login,
     logout,

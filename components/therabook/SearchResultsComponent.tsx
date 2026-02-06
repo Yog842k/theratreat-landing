@@ -96,12 +96,12 @@ export function SearchResultsComponent({
   if (!therapists || therapists.length === 0) {
     return (
       <div className="text-center py-8 sm:py-12 px-4">
-        <div className="w-16 h-16 sm:w-24 sm:h-24 mx-auto mb-3 sm:mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-          <MessageCircle className="w-6 h-6 sm:w-8 sm:h-8 text-gray-400" />
+        <div className="w-16 h-16 sm:w-24 sm:h-24 mx-auto mb-3 sm:mb-4 bg-slate-100 rounded-full flex items-center justify-center">
+          <MessageCircle className="w-6 h-6 sm:w-8 sm:h-8 text-slate-400" />
         </div>
-        <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">No therapists found</h3>
-        <p className="text-sm sm:text-base text-gray-500 mb-4">Try adjusting your search criteria or filters to find more results.</p>
-        <div className="text-xs sm:text-sm text-gray-400">{searchQuery && <p>No results for "{searchQuery}"</p>}</div>
+        <h3 className="text-lg sm:text-xl font-semibold text-slate-900 mb-2">No therapists found</h3>
+        <p className="text-sm sm:text-base text-slate-500 mb-4">Try adjusting your search criteria or filters to find more results.</p>
+        <div className="text-xs sm:text-sm text-slate-400">{searchQuery && <p>No results for "{searchQuery}"</p>}</div>
       </div>
     );
   }
@@ -110,8 +110,8 @@ export function SearchResultsComponent({
     <div className="space-y-4 sm:space-y-6">
       {searchQuery && (
         <div className="mb-4 sm:mb-6">
-          <p className="text-xs sm:text-sm text-gray-600">
-            Showing {therapists.length} results for <span className="font-medium text-gray-900">"{searchQuery}"</span>
+          <p className="text-xs sm:text-sm text-slate-600">
+            Showing {therapists.length} results for <span className="font-medium text-slate-900">"{searchQuery}"</span>
           </p>
         </div>
       )}
@@ -124,8 +124,9 @@ export function SearchResultsComponent({
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: index * 0.1 }}
           >
-            <Card className="hover:shadow-lg transition-all duration-300 border-0 bg-white/95 backdrop-blur-sm">
-              <CardContent className="p-4 sm:p-5 lg:p-6">
+            <Card className="relative overflow-hidden border border-slate-200/70 bg-white/90 shadow-[0_14px_28px_-24px_rgba(15,23,42,0.45)] transition-all duration-300 hover:shadow-[0_20px_36px_-26px_rgba(15,23,42,0.5)]">
+              <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-blue-500 via-sky-400 to-indigo-500" />
+              <CardContent className="p-4 sm:p-5 lg:p-6 pt-5 sm:pt-6">
                 <div className="flex flex-col lg:flex-row gap-4 sm:gap-5 lg:gap-6">
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4 mb-4">
@@ -134,7 +135,7 @@ export function SearchResultsComponent({
                           <img
                             src={therapist.image}
                             alt={therapist.name}
-                            className="w-14 h-14 sm:w-16 sm:h-16 rounded-full object-cover ring-2 ring-blue-100"
+                            className="w-14 h-14 sm:w-16 sm:h-16 rounded-full object-cover ring-2 ring-white shadow-md"
                           />
                           {therapist.isOnline && (
                             <div className="absolute -top-1 -right-1 w-4 h-4 sm:w-5 sm:h-5 bg-green-500 rounded-full border-2 border-white">
@@ -145,17 +146,17 @@ export function SearchResultsComponent({
 
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center space-x-2 mb-1 flex-wrap">
-                            <h3 className="text-base sm:text-lg font-semibold text-blue-600 truncate">
+                            <h3 className="text-base sm:text-lg font-semibold text-slate-900 truncate">
                               {highlightSearchTerm(therapist.name, searchQuery)}
                             </h3>
                             {therapist.verified && <Award className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-500 flex-shrink-0" />}
                           </div>
 
-                          <p className="text-sm sm:text-base text-gray-600 mb-1.5 sm:mb-2 truncate">
+                          <p className="text-sm sm:text-base text-slate-600 mb-1.5 sm:mb-2 truncate">
                             {highlightSearchTerm(therapist.specialty, searchQuery)}
                           </p>
 
-                          <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 gap-1 sm:gap-0 text-xs sm:text-sm text-gray-500">
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 gap-1 sm:gap-0 text-xs sm:text-sm text-slate-500">
                             <span>{therapist.experience}+ years experience</span>
                             <div className="flex items-center space-x-1">
                               <Star className="w-3.5 h-3.5 sm:w-4 sm:h-4 fill-yellow-400 text-yellow-400" />
@@ -165,17 +166,18 @@ export function SearchResultsComponent({
                           </div>
                         </div>
                       </div>
-
                       <div className="text-left sm:text-right flex-shrink-0 sm:ml-4">
-                        <p className="text-xs sm:text-sm text-gray-500">Starting from</p>
-                        <p className="text-lg sm:text-xl lg:text-2xl font-bold text-blue-600">₹{therapist.price}</p>
-                        <p className="text-[10px] sm:text-xs text-gray-500">per session</p>
+                        <p className="text-[10px] sm:text-xs uppercase tracking-wide text-slate-500">Starting from</p>
+                        <div className="mt-1 inline-flex items-end gap-1 rounded-full bg-blue-50 px-3 py-1">
+                          <span className="text-lg sm:text-xl font-semibold text-blue-700">₹{therapist.price}</span>
+                          <span className="text-[10px] sm:text-xs text-blue-700/70">per session</span>
+                        </div>
                       </div>
                     </div>
 
                     <div className="space-y-3 sm:space-y-4 mb-4">
                       <div>
-                        <p className="text-xs sm:text-sm font-medium text-gray-700 mb-1.5 sm:mb-2">Specializes in:</p>
+                        <p className="text-xs sm:text-sm font-medium text-slate-700 mb-1.5 sm:mb-2">Specializes in:</p>
                         <div className="flex flex-wrap gap-1.5 sm:gap-2">
                           {therapist.therapyTypes.slice(0, 3).map((type, idx) => (
                             <Badge key={idx} variant="secondary" className="text-[10px] sm:text-xs px-2 py-0.5">
@@ -191,7 +193,7 @@ export function SearchResultsComponent({
                       </div>
 
                       <div>
-                        <p className="text-xs sm:text-sm font-medium text-gray-700 mb-1.5 sm:mb-2">Treats conditions:</p>
+                        <p className="text-xs sm:text-sm font-medium text-slate-700 mb-1.5 sm:mb-2">Treats conditions:</p>
                         <div className="flex flex-wrap gap-1.5 sm:gap-2">
                           {therapist.conditions.slice(0, 4).map((condition, idx) => (
                             <Badge
@@ -213,10 +215,10 @@ export function SearchResultsComponent({
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mb-4">
                       <div>
-                        <p className="text-[10px] sm:text-xs font-medium text-gray-600 mb-1">Session Types</p>
+                        <p className="text-[10px] sm:text-xs font-medium text-slate-600 mb-1">Session Types</p>
                         <div className="flex flex-wrap gap-1">
                           {therapist.sessionFormats.map((format, idx) => (
-                            <div key={idx} className="flex items-center space-x-1 bg-gray-50 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-[10px] sm:text-xs">
+                            <div key={idx} className="flex items-center space-x-1 bg-slate-50 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded text-[10px] sm:text-xs">
                               {getSessionFormatIcon(format)}
                               <span className="whitespace-nowrap">{formatSessionTypes([format])[0]}</span>
                             </div>
@@ -225,8 +227,8 @@ export function SearchResultsComponent({
                       </div>
 
                       <div>
-                        <p className="text-[10px] sm:text-xs font-medium text-gray-600 mb-1">Location</p>
-                        <div className="flex items-center space-x-1 text-xs sm:text-sm text-gray-700">
+                        <p className="text-[10px] sm:text-xs font-medium text-slate-600 mb-1">Location</p>
+                        <div className="flex items-center space-x-1 text-xs sm:text-sm text-slate-700">
                           <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
                           <span className="truncate">
                             {highlightSearchTerm(
@@ -238,7 +240,7 @@ export function SearchResultsComponent({
                       </div>
 
                       <div>
-                        <p className="text-[10px] sm:text-xs font-medium text-gray-600 mb-1">Next Available</p>
+                        <p className="text-[10px] sm:text-xs font-medium text-slate-600 mb-1">Next Available</p>
                         <div className="flex items-center space-x-1 text-xs sm:text-sm text-green-600">
                           <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
                           <span className="truncate">{therapist.availability}</span>
@@ -247,10 +249,10 @@ export function SearchResultsComponent({
                     </div>
 
                     <div className="mb-4">
-                      <p className="text-[10px] sm:text-xs font-medium text-gray-600 mb-1">Languages</p>
+                      <p className="text-[10px] sm:text-xs font-medium text-slate-600 mb-1">Languages</p>
                       <div className="flex flex-wrap gap-1.5 sm:gap-2">
                         {therapist.languages.map((language, idx) => (
-                          <span key={idx} className="text-[10px] sm:text-xs text-gray-600 bg-gray-50 px-2 py-0.5 sm:py-1 rounded">
+                          <span key={idx} className="text-[10px] sm:text-xs text-slate-600 bg-slate-50 px-2 py-0.5 sm:py-1 rounded">
                             {highlightSearchTerm(language, searchQuery)}
                           </span>
                         ))}
@@ -291,3 +293,7 @@ export function SearchResultsComponent({
     </div>
   );
 }
+
+
+
+

@@ -64,6 +64,7 @@ export function AdvancedTherapistSearch({ setCurrentView, initialFilters, therap
   const [sortBy, setSortBy] = useState("rating");
   const [showFilters, setShowFilters] = useState(false); // Hidden by default on mobile
   const [isLarge, setIsLarge] = useState(false);
+  const [searchResetSignal, setSearchResetSignal] = useState(0);
   const [openCategories, setOpenCategories] = useState<string[]>(
     initialFilters?.conditions?.length ? ["conditions"] : initialFilters?.therapyTypes?.length ? ["therapy-types"] : ["conditions"]
   );
@@ -434,6 +435,34 @@ export function AdvancedTherapistSearch({ setCurrentView, initialFilters, therap
   ];
 
   const sourceTherapists = therapists && therapists.length > 0 ? therapists : mockTherapists;
+  const normalizeText = (value: string) => value.toLowerCase().trim();
+  const normalizeSpecialty = (value: string) => {
+    const map: Record<string, string> = {
+      "clinical-psychology": "Clinical Psychology",
+      physiotherapy: "Physiotherapy",
+      "speech-therapy": "Speech Therapy",
+      "occupational-therapy": "Occupational Therapy",
+      "aba-therapy": "ABA Therapy",
+      "special-education": "Special Education",
+    };
+    return map[value] || value;
+  };
+  const applyLocation = (location: string) => {
+    const raw = String(location || "").trim();
+    if (!raw || normalizeText(raw) === "all") {
+      setSelectedCity("");
+      setSelectedArea("");
+      return;
+    }
+    if (normalizeText(raw).replace(/\s+/g, "-") === "near-me") {
+      setSelectedCity("near-me");
+      setSelectedArea("");
+      return;
+    }
+    const parts = raw.split(",").map((p) => p.trim()).filter(Boolean);
+    setSelectedCity(parts[0] || raw);
+    setSelectedArea(parts.length > 1 ? parts.slice(1).join(", ") : "");
+  };
 
   const toggleCategory = (categoryId: string) => {
     setOpenCategories((prev) => (prev.includes(categoryId) ? prev.filter((id) => id !== categoryId) : [...prev, categoryId]));
@@ -463,6 +492,7 @@ export function AdvancedTherapistSearch({ setCurrentView, initialFilters, therap
     setSelectedAgeGroups([]);
     setSelectedCity("");
     setSelectedArea("");
+    setSearchResetSignal((prev) => prev + 1);
   };
 
   const getActiveFilterCount = () => {
@@ -477,10 +507,17 @@ export function AdvancedTherapistSearch({ setCurrentView, initialFilters, therap
   };
 
   const handleEnhancedSearch = (searchParams: any) => {
-    if (searchParams.query !== undefined) setSearchQuery(searchParams.query || "");
-    if (searchParams.location) setSelectedCity(searchParams.location);
-    if (searchParams.specialty) setSelectedTherapyTypes((prev) => (prev.includes(searchParams.specialty) ? prev : [...prev, searchParams.specialty]));
-    if (searchParams.sessionType) setSelectedFormats((prev) => (prev.includes(searchParams.sessionType) ? prev : [...prev, searchParams.sessionType]));
+    const query = searchParams?.search ?? searchParams?.query ?? searchParams?.searchQuery ?? "";
+    if (query !== undefined) setSearchQuery(String(query || ""));
+    if (searchParams?.location !== undefined) applyLocation(searchParams.location);
+    if (searchParams?.specialty) {
+      const normalized = normalizeSpecialty(String(searchParams.specialty));
+      setSelectedTherapyTypes((prev) => (prev.includes(normalized) ? prev : [...prev, normalized]));
+    }
+    if (searchParams?.sessionType) {
+      const normalized = String(searchParams.sessionType);
+      setSelectedFormats((prev) => (prev.includes(normalized) ? prev : [...prev, normalized]));
+    }
   };
 
   const handleBookSession = (therapistId: string) => {
@@ -497,7 +534,7 @@ export function AdvancedTherapistSearch({ setCurrentView, initialFilters, therap
   const filteredTherapists = useMemo(() => {
     let filtered = sourceTherapists.filter((therapist) => {
       if (searchQuery) {
-        const query = searchQuery.toLowerCase();
+        const query = searchQuery.trim().toLowerCase();
         const searchableText = [
           therapist.name,
           therapist.specialty,
@@ -511,12 +548,38 @@ export function AdvancedTherapistSearch({ setCurrentView, initialFilters, therap
           .toLowerCase();
         if (!searchableText.includes(query)) return false;
       }
-      if (selectedConditions.length > 0 && !selectedConditions.some((c) => therapist.conditions.includes(c))) return false;
-      if (selectedTherapyTypes.length > 0 && !selectedTherapyTypes.some((t) => therapist.therapyTypes.includes(t))) return false;
-      if (selectedFormats.length > 0 && !selectedFormats.some((f) => therapist.sessionFormats.includes(f))) return false;
-      if (selectedAgeGroups.length > 0 && !selectedAgeGroups.some((a) => therapist.ageGroups.includes(a))) return false;
-      if (selectedCity && therapist.location.city !== selectedCity) return false;
-      if (selectedArea && !therapist.location.area.toLowerCase().includes(selectedArea.toLowerCase())) return false;
+      const matchesAny = (selected: string[], values: string[]) => {
+        if (selected.length === 0) return true;
+        const normalizedValues = values.map((v) => normalizeText(v));
+        const stopwords = new Set(["therapist", "therapy", "pathologist", "specialist"]);
+        const toTokens = (value: string) =>
+          normalizeText(value)
+            .split(/\s+/)
+            .filter((t) => t && !stopwords.has(t));
+        const valueTokens = values.map((v) => toTokens(v));
+        return selected.some((sel) => {
+          const needle = normalizeText(sel);
+          const selTokens = toTokens(sel);
+          return normalizedValues.some((val, idx) => {
+            if (val === needle || val.includes(needle) || needle.includes(val)) return true;
+            if (selTokens.length === 0) return false;
+            return valueTokens[idx].some((token) => selTokens.includes(token));
+          });
+        });
+      };
+      if (selectedConditions.length > 0 && !matchesAny(selectedConditions, therapist.conditions)) return false;
+      if (selectedTherapyTypes.length > 0 && !matchesAny(selectedTherapyTypes, therapist.therapyTypes)) return false;
+      if (selectedFormats.length > 0) {
+        const normalizedFormats = therapist.sessionFormats.map((f) => normalizeText(f));
+        const formatMatch = selectedFormats.some((f) => normalizedFormats.includes(normalizeText(f)));
+        if (!formatMatch) return false;
+      }
+      if (selectedAgeGroups.length > 0 && !matchesAny(selectedAgeGroups, therapist.ageGroups)) return false;
+      const locationText = [therapist.location.area, therapist.location.city].filter(Boolean).join(" ").toLowerCase();
+      if (selectedCity && normalizeText(selectedCity).replace(/\s+/g, "-") !== "near-me") {
+        if (!locationText.includes(normalizeText(selectedCity))) return false;
+      }
+      if (selectedArea && !locationText.includes(normalizeText(selectedArea))) return false;
       return true;
     });
 
@@ -559,186 +622,295 @@ export function AdvancedTherapistSearch({ setCurrentView, initialFilters, therap
   ]);
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.6 }} className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-50">
-      <section className="py-4 sm:py-6 lg:py-8 px-3 sm:px-4 lg:px-6 bg-white border-b">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex flex-col gap-4 sm:gap-6">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 sm:gap-4">
-              <div className="flex-1">
-                <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-blue-600 mb-1 sm:mb-2">Find Your Perfect Therapist</h1>
-                <p className="text-xs sm:text-sm text-muted-foreground">{filteredTherapists.length} verified professionals available</p>
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.6 }} className="min-h-screen bg-slate-50">
+      <section className="relative overflow-hidden border-b bg-gradient-to-br from-white via-slate-50 to-blue-50">
+        <div className="absolute -top-24 right-[-10%] h-56 w-56 rounded-full bg-blue-200/40 blur-3xl" />
+        <div className="absolute bottom-[-20%] left-[-5%] h-64 w-64 rounded-full bg-sky-200/40 blur-3xl" />
+        <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-white/80 to-transparent" />
+        <div className="relative max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-6 sm:py-8 lg:py-10">
+          <div className="flex flex-col gap-5 sm:gap-6">
+            <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-4">
+              <div className="max-w-2xl">
+                <p className="text-[11px] uppercase tracking-[0.28em] text-slate-500">TheraBook Search</p>
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-semibold text-slate-900 mt-2">Find care that fits your life</h1>
+                <p className="text-sm sm:text-base text-slate-600 mt-2">
+                  Search by specialty, condition, session type, or location. Compare verified professionals and book in minutes.
+                </p>
               </div>
-              <Button
-                variant="outline"
-                onClick={() => setShowFilters(!showFilters)}
-                className="w-full sm:w-auto lg:hidden border-blue-200 text-blue-600 hover:bg-blue-50 font-medium"
-              >
-                <Filter className="w-4 h-4 mr-2" />
-                {showFilters ? 'Hide' : 'Show'} Filters 
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant="secondary" className="bg-white/80 text-slate-700 border border-slate-200/70">
+                  {filteredTherapists.length} results
+                </Badge>
                 {getActiveFilterCount() > 0 && (
-                  <Badge variant="secondary" className="ml-2 bg-blue-100 text-blue-700">
-                    {getActiveFilterCount()}
+                  <Badge variant="secondary" className="bg-blue-600 text-white">
+                    {getActiveFilterCount()} filters
                   </Badge>
                 )}
-              </Button>
+              </div>
             </div>
 
-            <div className="max-w-4xl w-full">
-              <EnhancedSearch onSearch={handleEnhancedSearch} variant="compact" placeholder="Search by name, specialty, condition, or location..." showFilters={false} />
-            </div>
+            <Card className="border border-slate-200/70 bg-white/90 shadow-[0_20px_45px_-30px_rgba(15,23,42,0.45)] backdrop-blur">
+              <div className="p-4 sm:p-5 lg:p-6">
+                <div className="flex flex-col lg:flex-row gap-4 lg:items-center">
+                  <div className="flex-1 min-w-0">
+                    <EnhancedSearch
+                      onSearch={handleEnhancedSearch}
+                      variant="compact"
+                      placeholder="Search by name, specialty, condition, or location..."
+                      showFilters={false}
+                      initialQuery={searchQuery}
+                      resetSignal={searchResetSignal}
+                    />
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-2 lg:items-center">
+                    <div className="w-full sm:w-56">
+                      <Select value={sortBy} onValueChange={setSortBy}>
+                        <SelectTrigger className="h-10 text-sm border-slate-200 bg-white">
+                          <SelectValue placeholder="Sort by" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="rating">Highest Rating</SelectItem>
+                          <SelectItem value="experience">Most Experienced</SelectItem>
+                          <SelectItem value="price-low">Price: Low to High</SelectItem>
+                          <SelectItem value="price-high">Price: High to Low</SelectItem>
+                          <SelectItem value="reviews">Most Reviews</SelectItem>
+                          <SelectItem value="verified">Verified First</SelectItem>
+                          <SelectItem value="online">Available Now</SelectItem>
+                          <SelectItem value="distance">Nearest (City)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowFilters(!showFilters)}
+                      className="w-full sm:w-auto lg:hidden border-slate-200 text-slate-700 hover:bg-slate-100"
+                    >
+                      <Filter className="w-4 h-4 mr-2" />
+                      {showFilters ? "Hide" : "Show"} Filters
+                      {getActiveFilterCount() > 0 && (
+                        <Badge variant="secondary" className="ml-2 bg-blue-100 text-blue-700">
+                          {getActiveFilterCount()}
+                        </Badge>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+                {(searchQuery || getActiveFilterCount() > 0) && (
+                  <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] sm:text-xs text-slate-500">
+                    {searchQuery && (
+                      <Badge variant="secondary" className="bg-blue-50 text-blue-700">
+                        Search: {searchQuery}
+                      </Badge>
+                    )}
+                    {selectedCity && (
+                      <Badge variant="secondary" className="bg-slate-50 text-slate-700">
+                        City: {selectedCity}
+                      </Badge>
+                    )}
+                    {selectedArea && (
+                      <Badge variant="secondary" className="bg-slate-50 text-slate-700">
+                        Area: {selectedArea}
+                      </Badge>
+                    )}
+                    {selectedTherapyTypes.length > 0 && (
+                      <Badge variant="secondary" className="bg-slate-50 text-slate-700">
+                        Therapy: {selectedTherapyTypes.length}
+                      </Badge>
+                    )}
+                    {selectedConditions.length > 0 && (
+                      <Badge variant="secondary" className="bg-slate-50 text-slate-700">
+                        Conditions: {selectedConditions.length}
+                      </Badge>
+                    )}
+                    {selectedFormats.length > 0 && (
+                      <Badge variant="secondary" className="bg-slate-50 text-slate-700">
+                        Formats: {selectedFormats.length}
+                      </Badge>
+                    )}
+                    {selectedAgeGroups.length > 0 && (
+                      <Badge variant="secondary" className="bg-slate-50 text-slate-700">
+                        Age: {selectedAgeGroups.length}
+                      </Badge>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={clearAllFilters}
+                      className="h-7 px-2 text-[11px] sm:text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                    >
+                      Clear All
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </Card>
           </div>
         </div>
       </section>
 
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-6">
+        <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-5 lg:gap-8">
           <AnimatePresence>
             {(showFilters || isLarge) && (
-              <motion.div 
-                initial={{ opacity: 0, x: -50, height: 0 }} 
-                animate={{ opacity: 1, x: 0, height: "auto" }} 
-                exit={{ opacity: 0, x: -50, height: 0 }} 
+              <motion.div
+                initial={{ opacity: 0, x: -50, height: 0 }}
+                animate={{ opacity: 1, x: 0, height: "auto" }}
+                exit={{ opacity: 0, x: -50, height: 0 }}
                 transition={{ duration: 0.3 }}
-                className="lg:col-span-1 w-full"
+                className="w-full"
               >
-                <Card className="lg:sticky lg:top-6 p-4 sm:p-5 lg:p-6 border-0 shadow-lg bg-white/90 backdrop-blur-sm">
-                  <div className="flex items-center justify-between mb-4 sm:mb-6">
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-lg sm:text-xl font-semibold text-blue-600">Filters</h2>
-                      {getActiveFilterCount() > 0 && (
-                        <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-700">
-                          {getActiveFilterCount()}
-                        </Badge>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {getActiveFilterCount() > 0 && (
-                        <Button variant="ghost" size="sm" onClick={clearAllFilters} className="text-red-500 hover:text-red-600 h-8 px-2 text-xs sm:text-sm">
-                          <X className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
-                          <span className="hidden sm:inline">Clear All</span>
-                          <span className="sm:hidden">Clear</span>
+                <Card className="lg:sticky lg:top-6 border border-slate-200/70 bg-white/90 shadow-[0_18px_36px_-28px_rgba(15,23,42,0.45)] backdrop-blur">
+                  <div className="p-4 sm:p-5 lg:p-6">
+                    <div className="flex items-center justify-between mb-4 sm:mb-6">
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-base sm:text-lg font-semibold text-slate-900">Filters</h2>
+                        {getActiveFilterCount() > 0 && (
+                          <Badge variant="secondary" className="text-[10px] sm:text-xs bg-blue-100 text-blue-700">
+                            {getActiveFilterCount()}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {getActiveFilterCount() > 0 && (
+                          <Button variant="ghost" size="sm" onClick={clearAllFilters} className="text-red-500 hover:text-red-600 h-8 px-2 text-xs sm:text-sm">
+                            <X className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
+                            <span className="hidden sm:inline">Clear All</span>
+                            <span className="sm:hidden">Clear</span>
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShowFilters(false)}
+                          className="lg:hidden h-8 px-2"
+                          aria-label="Close filters"
+                        >
+                          <X className="w-4 h-4" />
                         </Button>
-                      )}
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        onClick={() => setShowFilters(false)} 
-                        className="lg:hidden h-8 px-2"
-                        aria-label="Close filters"
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="space-y-4 sm:space-y-6 max-h-[calc(100vh-200px)] lg:max-h-none overflow-y-auto lg:overflow-visible">
-                    <Collapsible open={openCategories.includes("conditions")} onOpenChange={() => toggleCategory("conditions")}>
-                      <CollapsibleTrigger className="flex items-center justify-between w-full p-2 sm:p-3 hover:bg-blue-50 rounded-lg transition-colors">
-                        <span className="font-medium text-blue-600 text-sm sm:text-base">🏥 Health Conditions</span>
-                        {openCategories.includes("conditions") ? <ChevronUp className="w-4 h-4 flex-shrink-0" /> : <ChevronDown className="w-4 h-4 flex-shrink-0" />}
-                      </CollapsibleTrigger>
-                      <CollapsibleContent className="space-y-3 sm:space-y-4 pt-3 sm:pt-4">
-                        {conditionCategories.map((category) => (
-                          <Collapsible key={category.id} open={openCategories.includes(category.id)} onOpenChange={() => toggleCategory(category.id)}>
-                            <CollapsibleTrigger className={`flex items-center justify-between w-full p-2.5 sm:p-3 ${category.bgColor} rounded-lg hover:opacity-80 transition-opacity`}>
-                              <div className="flex items-center space-x-2 min-w-0 flex-1">
-                                <category.icon className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${category.color} flex-shrink-0`} />
-                                <span className="text-xs sm:text-sm font-medium truncate">{category.title}</span>
-                              </div>
-                              {openCategories.includes(category.id) ? <ChevronUp className="w-3 h-3 flex-shrink-0 ml-2" /> : <ChevronDown className="w-3 h-3 flex-shrink-0 ml-2" />}
-                            </CollapsibleTrigger>
-                            <CollapsibleContent className="pl-3 sm:pl-4 pt-2 space-y-1.5 sm:space-y-2 max-h-48 sm:max-h-60 overflow-y-auto">
-                              {category.conditions.map((condition) => (
-                                <div key={condition} className="flex items-start space-x-2">
-                                  <Checkbox id={condition} checked={selectedConditions.includes(condition)} onCheckedChange={() => toggleCondition(condition)} className="mt-0.5" />
-                                  <label htmlFor={condition} className="text-xs sm:text-sm text-muted-foreground cursor-pointer hover:text-foreground leading-relaxed">
-                                    {condition}
-                                  </label>
+                    <div className="space-y-4 sm:space-y-6 max-h-[calc(100vh-220px)] lg:max-h-none overflow-y-auto lg:overflow-visible">
+                      <Collapsible open={openCategories.includes("conditions")} onOpenChange={() => toggleCategory("conditions")}>
+                        <CollapsibleTrigger className="flex items-center justify-between w-full rounded-xl border border-slate-200/70 bg-slate-50 px-3 py-2 text-slate-700 hover:bg-white transition-colors">
+                          <span className="font-medium text-sm sm:text-base">Health Conditions</span>
+                          {openCategories.includes("conditions") ? <ChevronUp className="w-4 h-4 flex-shrink-0" /> : <ChevronDown className="w-4 h-4 flex-shrink-0" />}
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="space-y-3 sm:space-y-4 pt-3 sm:pt-4">
+                          {conditionCategories.map((category) => (
+                            <Collapsible key={category.id} open={openCategories.includes(category.id)} onOpenChange={() => toggleCategory(category.id)}>
+                              <CollapsibleTrigger className={`flex items-center justify-between w-full p-2.5 sm:p-3 ${category.bgColor} rounded-lg border border-transparent hover:border-slate-200/60 transition-colors`}>
+                                <div className="flex items-center space-x-2 min-w-0 flex-1">
+                                  <category.icon className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${category.color} flex-shrink-0`} />
+                                  <span className="text-xs sm:text-sm font-medium truncate">{category.title}</span>
                                 </div>
+                                {openCategories.includes(category.id) ? <ChevronUp className="w-3 h-3 flex-shrink-0 ml-2" /> : <ChevronDown className="w-3 h-3 flex-shrink-0 ml-2" />}
+                              </CollapsibleTrigger>
+                              <CollapsibleContent className="pl-3 sm:pl-4 pt-2 space-y-1.5 sm:space-y-2 max-h-56 overflow-y-auto">
+                                {category.conditions.map((condition) => {
+                                  const isActive = selectedConditions.includes(condition);
+                                  return (
+                                    <div key={condition} className={`flex items-start space-x-2 rounded-lg px-2 py-1 ${isActive ? "bg-blue-50" : "hover:bg-slate-50"}`}>
+                                      <Checkbox id={condition} checked={isActive} onCheckedChange={() => toggleCondition(condition)} className="mt-0.5" />
+                                      <label htmlFor={condition} className={`text-xs sm:text-sm cursor-pointer leading-relaxed ${isActive ? "text-blue-700" : "text-slate-600 hover:text-slate-900"}`}>
+                                        {condition}
+                                      </label>
+                                    </div>
+                                  );
+                                })}
+                              </CollapsibleContent>
+                            </Collapsible>
+                          ))}
+                        </CollapsibleContent>
+                      </Collapsible>
+
+                      <Separator />
+
+                      <Collapsible open={openCategories.includes("therapy-types")} onOpenChange={() => toggleCategory("therapy-types")}>
+                        <CollapsibleTrigger className="flex items-center justify-between w-full rounded-xl border border-slate-200/70 bg-slate-50 px-3 py-2 text-slate-700 hover:bg-white transition-colors">
+                          <span className="font-medium text-sm sm:text-base">Therapy Types</span>
+                          {openCategories.includes("therapy-types") ? <ChevronUp className="w-4 h-4 flex-shrink-0" /> : <ChevronDown className="w-4 h-4 flex-shrink-0" />}
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="pt-3 sm:pt-4 space-y-1.5 sm:space-y-2 max-h-56 overflow-y-auto">
+                          {therapyTypes.map((type) => {
+                            const isActive = selectedTherapyTypes.includes(type);
+                            return (
+                              <div key={type} className={`flex items-start space-x-2 rounded-lg px-2 py-1 ${isActive ? "bg-blue-50" : "hover:bg-slate-50"}`}>
+                                <Checkbox id={type} checked={isActive} onCheckedChange={() => toggleTherapyType(type)} className="mt-0.5" />
+                                <label htmlFor={type} className={`text-xs sm:text-sm cursor-pointer leading-relaxed ${isActive ? "text-blue-700" : "text-slate-600 hover:text-slate-900"}`}>
+                                  {type}
+                                </label>
+                              </div>
+                            );
+                          })}
+                        </CollapsibleContent>
+                      </Collapsible>
+
+                      <Separator />
+
+                      <div>
+                        <h4 className="font-medium text-slate-900 mb-2 sm:mb-3 text-sm sm:text-base">Session Format</h4>
+                        <div className="space-y-1.5 sm:space-y-2">
+                          {sessionFormats.map((format) => {
+                            const isActive = selectedFormats.includes(format.id);
+                            return (
+                              <div key={format.id} className={`flex items-center space-x-2 rounded-lg px-2 py-1 ${isActive ? "bg-blue-50 text-blue-700" : "hover:bg-slate-50 text-slate-600"}`}>
+                                <Checkbox id={format.id} checked={isActive} onCheckedChange={() => toggleFormat(format.id)} />
+                                <format.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 flex-shrink-0" />
+                                <label htmlFor={format.id} className="text-xs sm:text-sm cursor-pointer">
+                                  {format.label}
+                                </label>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      <Separator />
+
+                      <div>
+                        <h4 className="font-medium text-slate-900 mb-2 sm:mb-3 text-sm sm:text-base">Location</h4>
+                        <div className="space-y-2 sm:space-y-3">
+                          <Select value={selectedCity} onValueChange={setSelectedCity}>
+                            <SelectTrigger className="h-10 text-sm rounded-lg border-slate-200 bg-white">
+                              <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-2" />
+                              <SelectValue placeholder="Select City" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="near-me">Near Me</SelectItem>
+                              {cities.map((city) => (
+                                <SelectItem key={city} value={city}>
+                                  {city}
+                                </SelectItem>
                               ))}
-                            </CollapsibleContent>
-                          </Collapsible>
-                        ))}
-                      </CollapsibleContent>
-                    </Collapsible>
-
-                    <Separator />
-
-                    <Collapsible open={openCategories.includes("therapy-types")} onOpenChange={() => toggleCategory("therapy-types")}>
-                      <CollapsibleTrigger className="flex items-center justify-between w-full p-2 sm:p-3 hover:bg-blue-50 rounded-lg transition-colors">
-                        <span className="font-medium text-blue-600 text-sm sm:text-base">🧑‍⚕️ Therapy Type</span>
-                        {openCategories.includes("therapy-types") ? <ChevronUp className="w-4 h-4 flex-shrink-0" /> : <ChevronDown className="w-4 h-4 flex-shrink-0" />}
-                      </CollapsibleTrigger>
-                      <CollapsibleContent className="pt-3 sm:pt-4 space-y-1.5 sm:space-y-2 max-h-48 sm:max-h-60 overflow-y-auto">
-                        {therapyTypes.map((type) => (
-                          <div key={type} className="flex items-start space-x-2">
-                            <Checkbox id={type} checked={selectedTherapyTypes.includes(type)} onCheckedChange={() => toggleTherapyType(type)} className="mt-0.5" />
-                            <label htmlFor={type} className="text-xs sm:text-sm text-muted-foreground cursor-pointer hover:text-foreground leading-relaxed">
-                              {type}
-                            </label>
-                          </div>
-                        ))}
-                      </CollapsibleContent>
-                    </Collapsible>
-
-                    <Separator />
-
-                    <div>
-                      <h4 className="font-medium text-blue-600 mb-2 sm:mb-3 text-sm sm:text-base">📆 Session Format</h4>
-                      <div className="space-y-1.5 sm:space-y-2">
-                        {sessionFormats.map((format) => (
-                          <div key={format.id} className="flex items-center space-x-2">
-                            <Checkbox id={format.id} checked={selectedFormats.includes(format.id)} onCheckedChange={() => toggleFormat(format.id)} />
-                            <format.icon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground flex-shrink-0" />
-                            <label htmlFor={format.id} className="text-xs sm:text-sm text-muted-foreground cursor-pointer hover:text-foreground">
-                              {format.label}
-                            </label>
-                          </div>
-                        ))}
+                            </SelectContent>
+                          </Select>
+                          <Input
+                            placeholder="Enter locality or area"
+                            value={selectedArea}
+                            onChange={(e) => setSelectedArea(e.target.value)}
+                            className="h-10 text-sm rounded-lg border-slate-200 bg-white"
+                          />
+                        </div>
                       </div>
-                    </div>
 
-                    <Separator />
+                      <Separator />
 
-                    <div>
-                      <h4 className="font-medium text-blue-600 mb-2 sm:mb-3 text-sm sm:text-base">📍 Location</h4>
-                      <div className="space-y-2 sm:space-y-3">
-                        <Select value={selectedCity} onValueChange={setSelectedCity}>
-                          <SelectTrigger className="h-9 sm:h-10 text-sm">
-                            <MapPin className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-2" />
-                            <SelectValue placeholder="Select City" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="near-me">📍 Near Me</SelectItem>
-                            {cities.map((city) => (
-                              <SelectItem key={city} value={city}>
-                                {city}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <Input 
-                          placeholder="Enter locality or area" 
-                          value={selectedArea} 
-                          onChange={(e) => setSelectedArea(e.target.value)}
-                          className="h-9 sm:h-10 text-sm"
-                        />
-                      </div>
-                    </div>
-
-                    <Separator />
-
-                    <div>
-                      <h4 className="font-medium text-blue-600 mb-2 sm:mb-3 text-sm sm:text-base">👥 Age Group</h4>
-                      <div className="space-y-1.5 sm:space-y-2">
-                        {ageGroups.map((ageGroup) => (
-                          <div key={ageGroup} className="flex items-center space-x-2">
-                            <Checkbox id={ageGroup} checked={selectedAgeGroups.includes(ageGroup)} onCheckedChange={() => toggleAgeGroup(ageGroup)} />
-                            <label htmlFor={ageGroup} className="text-xs sm:text-sm text-muted-foreground cursor-pointer hover:text-foreground">
-                              {ageGroup}
-                            </label>
-                          </div>
-                        ))}
+                      <div>
+                        <h4 className="font-medium text-slate-900 mb-2 sm:mb-3 text-sm sm:text-base">Age Group</h4>
+                        <div className="space-y-1.5 sm:space-y-2">
+                          {ageGroups.map((ageGroup) => {
+                            const isActive = selectedAgeGroups.includes(ageGroup);
+                            return (
+                              <div key={ageGroup} className={`flex items-center space-x-2 rounded-lg px-2 py-1 ${isActive ? "bg-blue-50" : "hover:bg-slate-50"}`}>
+                                <Checkbox id={ageGroup} checked={isActive} onCheckedChange={() => toggleAgeGroup(ageGroup)} />
+                                <label htmlFor={ageGroup} className={`text-xs sm:text-sm cursor-pointer ${isActive ? "text-blue-700" : "text-slate-600 hover:text-slate-900"}`}>
+                                  {ageGroup}
+                                </label>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -747,7 +919,7 @@ export function AdvancedTherapistSearch({ setCurrentView, initialFilters, therap
             )}
           </AnimatePresence>
 
-          <div className={`${showFilters && !isLarge ? "lg:col-span-4" : "lg:col-span-3"} w-full`}>
+          <div className="w-full">
             <SearchResultsComponent
               therapists={filteredTherapists}
               searchQuery={searchQuery}
@@ -760,3 +932,4 @@ export function AdvancedTherapistSearch({ setCurrentView, initialFilters, therap
     </motion.div>
   );
 }
+

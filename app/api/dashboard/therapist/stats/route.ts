@@ -104,7 +104,8 @@ export async function GET(request: NextRequest) {
         location: therapist.location,
         bio: therapist.bio,
         image: therapist.image,
-        isVerified: therapist.isVerified,
+        isVerified: therapist.isVerified ?? therapist.verified ?? false,
+        verified: therapist.verified ?? therapist.isVerified ?? false
       }
     });
   } catch (error) {

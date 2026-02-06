@@ -8,7 +8,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     const oid = db.toObjectId(id);
     const doc = await col.findOne({ _id: oid });
     if (!doc) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
-    return NextResponse.json(doc);
+    // Ensure both isVerified and verified are present for compatibility
+    const result = {
+      ...doc,
+      isVerified: doc.isVerified ?? doc.verified ?? false,
+      verified: doc.verified ?? doc.isVerified ?? false
+    };
+    return NextResponse.json(result);
   } catch (err: any) {
     console.error("[admin/therapists/get] error", err?.message || err);
     return NextResponse.json({ ok: false, error: "get_failed" }, { status: 500 });

@@ -172,7 +172,9 @@ export const bookingService = {
     try {
       const res = await fetch(`/api/therapists/${therapistId}/availability?date=${date}`);
       if (res.ok) {
-        const json = await res.json();
+        const text = await res.text();
+        let json: any = null;
+        try { json = text ? JSON.parse(text) : null; } catch { json = null; }
         if (json?.success && json?.data?.availability) {
           console.log('[booking-service] ✅ Got availability from API:', {
             therapistId,
@@ -182,8 +184,13 @@ export const bookingService = {
           });
           return { availability: json.data.availability, source: 'api' };
         }
+        if (!json) {
+          console.warn('[booking-service] Availability API returned empty/invalid JSON, falling back');
+        }
       } else {
-        const errorData = await res.json().catch(() => ({}));
+        const errorDataText = await res.text();
+        let errorData: any = {};
+        try { errorData = errorDataText ? JSON.parse(errorDataText) : {}; } catch { errorData = {}; }
         console.warn('[booking-service] Availability API returned error:', res.status, errorData);
       }
     } catch (error: any) {

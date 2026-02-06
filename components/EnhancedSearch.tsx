@@ -49,6 +49,8 @@ interface EnhancedSearchProps {
   variant?: "hero" | "page" | "compact";
   placeholder?: string;
   showFilters?: boolean;
+  initialQuery?: string;
+  resetSignal?: number;
 }
 
 interface SearchParams {
@@ -69,14 +71,25 @@ interface SearchSuggestion {
   icon?: React.ReactNode;
 }
 
+interface TherapistSuggestion {
+  id: string;
+  name: string;
+  title: string;
+  location?: string;
+  image?: string;
+  score?: number;
+}
+
 export function EnhancedSearch({ 
   onSearch, 
   setCurrentView, 
   variant = "page", 
   placeholder = "Search therapists, specialties, conditions...",
-  showFilters = true 
+  showFilters = true,
+  initialQuery = "",
+  resetSignal
 }: EnhancedSearchProps) {
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState(initialQuery || "");
   const [selectedLocation, setSelectedLocation] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedSessionType, setSelectedSessionType] = useState("");
@@ -90,10 +103,14 @@ export function EnhancedSearch({
   const locationDropdownRef = useRef<HTMLDivElement>(null);
   const locationDebounceRef = useRef<NodeJS.Timeout | null>(null);
   const searchLocationDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const therapistDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const lastResetRef = useRef<number | undefined>(undefined);
   const [locationSuggestions, setLocationSuggestions] = useState<GooglePlacePrediction[]>([]);
   const [searchLocationSuggestions, setSearchLocationSuggestions] = useState<GooglePlacePrediction[]>([]);
   const [showLocationDropdown, setShowLocationDropdown] = useState(false);
   const [isFetchingLocations, setIsFetchingLocations] = useState(false);
+  const [therapistSuggestions, setTherapistSuggestions] = useState<TherapistSuggestion[]>([]);
+  const [isFetchingTherapists, setIsFetchingTherapists] = useState(false);
   const { isReady: isPlacesReady, getPredictions } = useGooglePlacesAutocomplete({
     componentRestrictions: { country: "in" },
     types: ["(cities)"],
@@ -111,13 +128,28 @@ export function EnhancedSearch({
   }, [isPlacesReady]);
   const { setFilterState, clearFilterState } = useTherapistSearch();
 
-  // Mock data for search suggestions
+  useEffect(() => {
+    if (typeof initialQuery === "string") {
+      setSearchQuery(initialQuery);
+    }
+  }, [initialQuery]);
+
+  useEffect(() => {
+    if (resetSignal === undefined) return;
+    if (lastResetRef.current === resetSignal) return;
+    lastResetRef.current = resetSignal;
+    setSearchQuery(initialQuery || "");
+    setSelectedLocation("");
+    setSelectedDate("");
+    setSelectedSessionType("");
+    setSelectedSpecialty("");
+    setSelectedAvailability("");
+    setShowSuggestions(false);
+    clearFilterState();
+  }, [resetSignal, initialQuery, clearFilterState]);
+
+  // Mock data for search suggestions (non-therapist)
   const allSuggestions: SearchSuggestion[] = [
-    // Therapists
-    { id: "t1", text: "Dr. Priya Sharma", type: "therapist", category: "Clinical Psychology", icon: <Users className="w-4 h-4" /> },
-    { id: "t2", text: "Dr. Rajesh Kumar", type: "therapist", category: "Physiotherapy", icon: <Users className="w-4 h-4" /> },
-    { id: "t3", text: "Dr. Kavita Mehta", type: "therapist", category: "Speech Therapy", icon: <Users className="w-4 h-4" /> },
-    
     // Specialties
     { id: "s1", text: "Clinical Psychology", type: "specialty", count: 156, icon: <Brain className="w-4 h-4" /> },
     { id: "s2", text: "Physiotherapy", type: "specialty", count: 203, icon: <Activity className="w-4 h-4" /> },
@@ -162,6 +194,8 @@ export function EnhancedSearch({
 
   const recentSearches = searchHistory.slice(0, 5);
 
+  const normalizeText = (value: string) => value.toLowerCase().trim();
+
   // Voice search functionality
   const toggleVoiceSearch = () => {
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
@@ -204,7 +238,6 @@ export function EnhancedSearch({
 
   // Fetch location suggestions using Google Places
   useEffect(() => {
-    if (!isPlacesReady) return;
 
     if (locationDebounceRef.current) {
       clearTimeout(locationDebounceRef.current);
@@ -240,7 +273,6 @@ export function EnhancedSearch({
 
   // Fetch Google location suggestions for the main search bar
   useEffect(() => {
-    if (!isPlacesReady) return;
 
     if (searchLocationDebounceRef.current) {
       clearTimeout(searchLocationDebounceRef.current);
@@ -269,6 +301,71 @@ export function EnhancedSearch({
     };
   }, [searchQuery, showSuggestions, isPlacesReady]);
 
+  // Fetch therapist suggestions from DB
+  useEffect(() => {
+    if (therapistDebounceRef.current) {
+      clearTimeout(therapistDebounceRef.current);
+    }
+
+    const query = searchQuery.trim();
+    if (!showSuggestions || query.length < 2) {
+      setTherapistSuggestions([]);
+      return;
+    }
+
+    therapistDebounceRef.current = setTimeout(() => {
+      setIsFetchingTherapists(true);
+      fetch(`/api/therapists?search=${encodeURIComponent(query)}&limit=6&sortBy=rating`, {
+        headers: { 'Content-Type': 'application/json' },
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          const items = Array.isArray(data?.data?.therapists)
+            ? data.data.therapists
+            : Array.isArray(data?.therapists)
+              ? data.therapists
+              : [];
+
+          const q = normalizeText(query);
+          const mapped: TherapistSuggestion[] = items.map((t: any, index: number) => {
+            const name = t.displayName || t.fullName || t.name || 'Therapist';
+            const title =
+              t.title ||
+              (Array.isArray(t.specializations) ? t.specializations[0] : '') ||
+              (Array.isArray(t.designations) ? t.designations[0] : '') ||
+              'Therapist';
+            const location = t.location || t.currentCity || '';
+            const image = t.image || t.profilePhotoUrl || t.photo || '';
+            const score = normalizeText(String(name)).indexOf(q);
+            return {
+              id: String(t._id || t.id || t.userId || `${name}-${index}`),
+              name,
+              title,
+              location,
+              image,
+              score: score >= 0 ? score : 999,
+            };
+          });
+
+          const ranked = mapped
+            .sort((a, b) => (a.score ?? 999) - (b.score ?? 999))
+            .slice(0, 3);
+          setTherapistSuggestions(ranked);
+        })
+        .catch((error) => {
+          console.error('Failed to fetch therapist suggestions', error);
+          setTherapistSuggestions([]);
+        })
+        .finally(() => setIsFetchingTherapists(false));
+    }, 250);
+
+    return () => {
+      if (therapistDebounceRef.current) {
+        clearTimeout(therapistDebounceRef.current);
+      }
+    };
+  }, [searchQuery, showSuggestions]);
+
   // Close dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -283,11 +380,19 @@ export function EnhancedSearch({
 
   // Handle search submission
   const handleSearch = () => {
-    if (!searchQuery.trim()) return;
+    const cleanedQuery = searchQuery.trim();
+    const hasActiveFilters = Boolean(
+      selectedLocation ||
+        selectedDate ||
+        selectedSessionType ||
+        selectedSpecialty ||
+        selectedAvailability
+    );
+    if (!cleanedQuery && !hasActiveFilters) return;
 
     // Add to search history
-    if (!searchHistory.includes(searchQuery)) {
-      setSearchHistory(prev => [searchQuery, ...prev.slice(0, 9)]);
+    if (cleanedQuery && !searchHistory.includes(cleanedQuery)) {
+      setSearchHistory(prev => [cleanedQuery, ...prev.slice(0, 9)]);
     }
 
     // Close suggestions
@@ -295,7 +400,7 @@ export function EnhancedSearch({
 
     // Prepare search parameters
     const searchParams: SearchParams = {};
-    if (searchQuery) searchParams.search = searchQuery;
+    if (cleanedQuery) searchParams.search = cleanedQuery;
     if (selectedLocation) searchParams.location = selectedLocation;
     if (selectedDate) searchParams.date = selectedDate;
     if (selectedSessionType) searchParams.sessionType = selectedSessionType;
@@ -304,7 +409,7 @@ export function EnhancedSearch({
 
     // Update filter state for context
     const filters: any = {};
-    if (searchQuery) filters.searchQuery = searchQuery;
+    if (cleanedQuery) filters.searchQuery = cleanedQuery;
     if (selectedLocation) filters.locations = [selectedLocation];
     if (selectedSpecialty) filters.therapyTypes = [selectedSpecialty];
     if (selectedSessionType) filters.sessionFormats = [selectedSessionType];
@@ -330,6 +435,12 @@ export function EnhancedSearch({
     setSelectedLocation(label);
     setSearchQuery(label);
     setSearchLocationSuggestions([]);
+    setShowSuggestions(false);
+    setTimeout(handleSearch, 100);
+  };
+
+  const handleTherapistSuggestionSelect = (name: string) => {
+    setSearchQuery(name);
     setShowSuggestions(false);
     setTimeout(handleSearch, 100);
   };
@@ -372,12 +483,12 @@ export function EnhancedSearch({
   const getContainerClasses = () => {
     switch (variant) {
       case "hero":
-        return "bg-white/10 backdrop-blur-md rounded-2xl p-6 space-y-6 border border-white/20 shadow-[0_8px_30px_rgb(0,0,0,0.12)]";
+        return "bg-white/90 backdrop-blur-xl rounded-3xl p-4 md:p-5 space-y-4 border border-blue-100/80 shadow-[0_18px_40px_-28px_rgba(37,99,235,0.35)] ring-1 ring-blue-100/60";
       case "page":
         // Page variant (hero usage) with elevated glass effect and tighter spacing on large screens
-        return "bg-white/70 backdrop-blur-xl rounded-2xl p-4 md:p-6 space-y-5 shadow-[0_8px_24px_-4px_rgba(0,0,0,0.12)] ring-1 ring-black/5";
+        return "bg-white/85 backdrop-blur-xl rounded-3xl p-4 md:p-6 space-y-5 shadow-[0_18px_40px_-28px_rgba(15,23,42,0.4)] ring-1 ring-black/5";
       case "compact":
-        return "bg-white rounded-lg shadow-lg p-4 space-y-4";
+        return "bg-white/90 backdrop-blur-sm rounded-xl border border-blue-100 shadow-sm p-4 space-y-3";
       default:
         return "bg-white rounded-xl shadow-xl p-6 space-y-6";
     }
@@ -386,13 +497,13 @@ export function EnhancedSearch({
   const getInputClasses = () => {
     switch (variant) {
       case "hero":
-        return "pl-12 pr-20 bg-white/95 border-0 text-gray-700 placeholder-gray-500 rounded-xl h-14 text-lg shadow-inner";
+        return "pl-12 pr-20 h-12 md:h-14 bg-white border border-blue-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-2xl text-base md:text-lg transition-all";
       case "page":
-        return "pl-12 pr-24 h-14 md:h-16 bg-white/90 border border-gray-200/60 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-2xl text-base md:text-lg transition-all";
+        return "pl-12 pr-24 h-12 md:h-14 bg-white border border-slate-200/70 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 rounded-2xl text-base md:text-lg transition-all";
       case "compact":
-        return "pl-10 pr-16 h-10 border-gray-200 focus:ring-blue-500";
+        return "pl-10 pr-16 h-11 rounded-lg border-blue-200 focus:ring-blue-500";
       default:
-        return "pl-12 pr-20 h-12 border-gray-200 focus:ring-blue-500";
+        return "pl-12 pr-20 h-12 border-blue-200 focus:ring-blue-500";
     }
   };
 
@@ -406,8 +517,8 @@ export function EnhancedSearch({
         )}
         {variant === "page" && (
           <div className="flex flex-col items-center text-center space-y-2">
-            <h3 className="font-semibold tracking-tight text-gray-800 text-xl md:text-2xl">Find Your Perfect Therapist</h3>
-            <p className="text-sm md:text-base text-gray-600 max-w-2xl">Search by specialty, condition, location or session format. Use filters to narrow results and start your healing journey.</p>
+            <h3 className="font-semibold tracking-tight text-slate-800 text-xl md:text-2xl">Find Your Perfect Therapist</h3>
+            <p className="text-sm md:text-base text-slate-600 max-w-2xl">Search by specialty, condition, location or session format. Use filters to narrow results and start your healing journey.</p>
             {placesClientKind !== 'none' && (
               <Badge variant="outline" className="text-[10px] uppercase tracking-wider">
                 Google Places: {placesClientKind === 'new' ? 'New' : 'Legacy'}
@@ -418,7 +529,7 @@ export function EnhancedSearch({
 
         {/* Main Search Bar */}
         <div className="relative">
-          <Search className={`absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 ${
+          <Search className={`absolute left-4 top-1/2 transform -translate-y-1/2 text-blue-500/70 ${
             variant === "compact" ? "w-4 h-4" : "w-5 h-5"
           }`} />
           
@@ -439,7 +550,7 @@ export function EnhancedSearch({
                 size="sm"
                 variant="ghost"
                 onClick={() => setSearchQuery("")}
-                className="h-6 w-6 p-0 text-gray-400 hover:text-gray-600"
+                className="h-6 w-6 p-0 text-blue-500/70 hover:text-slate-600"
               >
                 <X className="w-4 h-4" />
               </Button>
@@ -452,7 +563,7 @@ export function EnhancedSearch({
               className={`h-8 w-8 p-0 ${
                 isVoiceSearching 
                   ? "text-red-500 hover:text-red-600 animate-pulse" 
-                  : "text-gray-400 hover:text-gray-600"
+                  : "text-blue-500/70 hover:text-slate-600"
               }`}
             >
               {isVoiceSearching ? (
@@ -493,14 +604,14 @@ export function EnhancedSearch({
                   autoComplete="off"
                   className={
                 variant === 'hero'
-                      ? 'pl-10 pr-10 bg-white/95 border-0 h-12 rounded-xl'
+                      ? 'pl-10 pr-10 bg-white border border-blue-200 h-11 rounded-2xl'
                   : variant === 'page'
                         ? 'pl-10 pr-10 bg-white/90 h-12 rounded-xl border-gray-200/60'
                         : 'pl-8 pr-8 h-10'
                   }
                 />
                 {isFetchingLocations && (
-                  <Loader2 className="w-4 h-4 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 animate-spin" />
+                  <Loader2 className="w-4 h-4 text-blue-500/70 absolute right-3 top-1/2 -translate-y-1/2 animate-spin" />
                 )}
               </div>
 
@@ -527,7 +638,7 @@ export function EnhancedSearch({
                       ))}
                     </div>
                   </ScrollArea>
-                  <div className="text-[10px] uppercase tracking-wider text-gray-400 text-right pr-3 pb-2">
+                  <div className="text-[10px] uppercase tracking-wider text-blue-500/70 text-right pr-3 pb-2">
                     Powered by Google
                   </div>
                 </Card>
@@ -537,7 +648,7 @@ export function EnhancedSearch({
             <Select value={selectedSpecialty} onValueChange={setSelectedSpecialty}>
               <SelectTrigger className={
                 variant === 'hero'
-                  ? 'bg-white/95 border-0 h-12'
+                  ? 'bg-white border border-blue-200 h-11 rounded-2xl'
                   : variant === 'page'
                     ? 'bg-white/90 h-12 rounded-xl border-gray-200/60'
                     : 'h-10'
@@ -548,19 +659,19 @@ export function EnhancedSearch({
                 </div>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="clinical-psychology">Clinical Psychology</SelectItem>
-                <SelectItem value="physiotherapy">Physiotherapy</SelectItem>
-                <SelectItem value="speech-therapy">Speech Therapy</SelectItem>
-                <SelectItem value="occupational-therapy">Occupational Therapy</SelectItem>
-                <SelectItem value="aba-therapy">ABA Therapy</SelectItem>
-                <SelectItem value="special-education">Special Education</SelectItem>
+                <SelectItem value="Clinical Psychology">Clinical Psychology</SelectItem>
+                <SelectItem value="Physiotherapy">Physiotherapy</SelectItem>
+                <SelectItem value="Speech Therapy">Speech Therapy</SelectItem>
+                <SelectItem value="Occupational Therapy">Occupational Therapy</SelectItem>
+                <SelectItem value="ABA Therapy">ABA Therapy</SelectItem>
+                <SelectItem value="Special Education">Special Education</SelectItem>
               </SelectContent>
             </Select>
 
             <Select value={selectedDate} onValueChange={setSelectedDate}>
               <SelectTrigger className={
                 variant === 'hero'
-                  ? 'bg-white/95 border-0 h-12'
+                  ? 'bg-white border border-blue-200 h-11 rounded-2xl'
                   : variant === 'page'
                     ? 'bg-white/90 h-12 rounded-xl border-gray-200/60'
                     : 'h-10'
@@ -583,7 +694,7 @@ export function EnhancedSearch({
               onClick={handleSearch}
               className={
                 variant === 'hero'
-                  ? 'bg-blue-600 hover:bg-blue-700 text-white h-12'
+                  ? 'bg-blue-600 hover:bg-blue-700 text-white h-11 rounded-2xl shadow-md shadow-blue-900/20'
                   : variant === 'page'
                     ? 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white h-12 rounded-xl shadow'
                     : 'bg-blue-600 hover:bg-blue-700 text-white h-10'
@@ -615,8 +726,8 @@ export function EnhancedSearch({
               onClick={() => setIsAdvancedOpen(!isAdvancedOpen)}
               className={
                 variant === 'page'
-                  ? 'text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-50 rounded-lg'
-                  : 'text-sm text-gray-600 hover:text-gray-800'
+                  ? 'text-sm text-slate-600 hover:text-slate-800 hover:bg-gray-50 rounded-lg'
+                  : 'text-sm text-slate-600 hover:text-slate-800'
               }
             >
               <Filter className="w-4 h-4 mr-2" />
@@ -717,7 +828,7 @@ export function EnhancedSearch({
                             onClick={() => handleSearchLocationSelect(suggestion)}
                             className="w-full flex items-center space-x-3 p-2 hover:bg-gray-50 rounded-lg text-left"
                           >
-                            <div className="text-gray-400">
+                            <div className="text-blue-500/70">
                               <MapPin className="w-4 h-4" />
                             </div>
                             <div className="flex-1">
@@ -733,7 +844,7 @@ export function EnhancedSearch({
                           </button>
                         ))}
                       </div>
-                      <p className="text-[10px] uppercase tracking-wider text-gray-400 text-right mt-1">
+                      <p className="text-[10px] uppercase tracking-wider text-blue-500/70 text-right mt-1">
                         Powered by Google
                       </p>
                     </div>
@@ -749,7 +860,7 @@ export function EnhancedSearch({
                             onClick={() => handleSuggestionClick(suggestion)}
                             className="w-full flex items-center space-x-3 p-2 hover:bg-gray-50 rounded-lg text-left"
                           >
-                            <div className="text-gray-400">
+                            <div className="text-blue-500/70">
                               {suggestion.icon}
                             </div>
                             <div className="flex-1">
@@ -790,7 +901,7 @@ export function EnhancedSearch({
                             }}
                             className="w-full flex items-center space-x-3 p-2 hover:bg-gray-50 rounded-lg text-left"
                           >
-                            <Clock className="w-4 h-4 text-gray-400" />
+                            <Clock className="w-4 h-4 text-blue-500/70" />
                             <span className="text-sm text-gray-700">{search}</span>
                           </button>
                         ))}
@@ -820,6 +931,52 @@ export function EnhancedSearch({
                       </div>
                     </div>
                   )}
+
+                  {/* Closest Therapist Match */}
+                  {searchQuery.length > 0 && (isFetchingTherapists || therapistSuggestions.length > 0) && (
+                    <div>
+                      <h4 className="text-sm font-medium text-gray-900 mb-2 flex items-center">
+                        <Users className="w-4 h-4 mr-2" />
+                        Closest therapist
+                      </h4>
+                      {isFetchingTherapists ? (
+                        <div className="flex items-center space-x-3 p-2 rounded-lg bg-gray-50">
+                          <div className="h-9 w-9 rounded-full bg-slate-200 animate-pulse" />
+                          <div className="flex-1 space-y-1">
+                            <div className="h-3 w-28 bg-slate-200 rounded animate-pulse" />
+                            <div className="h-2 w-40 bg-slate-100 rounded animate-pulse" />
+                          </div>
+                        </div>
+                      ) : (
+                        therapistSuggestions.map((t) => (
+                          <button
+                            key={t.id}
+                            onClick={() => handleTherapistSuggestionSelect(t.name)}
+                            className="w-full flex items-center space-x-3 p-2 hover:bg-gray-50 rounded-lg text-left"
+                          >
+                            {t.image ? (
+                              <img
+                                src={t.image}
+                                alt={t.name}
+                                className="h-9 w-9 rounded-full object-cover border border-gray-200"
+                                loading="lazy"
+                              />
+                            ) : (
+                              <div className="h-9 w-9 rounded-full bg-slate-100 border border-gray-200 flex items-center justify-center text-xs font-semibold text-slate-500">
+                                {(t.name || 'T').split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase()}
+                              </div>
+                            )}
+                            <div className="flex-1">
+                              <div className="text-sm font-medium text-gray-900">{t.name}</div>
+                              <div className="text-xs text-gray-500">
+                                {t.title}{t.location ? ` · ${t.location}` : ''}
+                              </div>
+                            </div>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
                 </div>
               </ScrollArea>
             </Card>
@@ -837,3 +994,5 @@ declare global {
     SpeechRecognition: any;
   }
 }
+
+

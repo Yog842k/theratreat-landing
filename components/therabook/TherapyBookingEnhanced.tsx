@@ -6,42 +6,35 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/components/auth/NewAuthContext';
 import { bookingService, type BookingData, type AvailabilitySlot } from '@/lib/booking-service';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import TextField from '@mui/material/TextField';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { cn } from '@/components/ui/utils';
 import { toast } from 'sonner';
-import { ArrowLeft, Building, Calendar as CalendarIcon, Calendar, CheckCircle, Clock, CreditCard, Heart, MapPin, Phone, Shield, Star, Timer, Video, AlertCircle, Info } from 'lucide-react';
+import { 
+  ArrowLeft, Building, Calendar as CalendarIcon, Calendar, 
+  CheckCircle, Clock, CreditCard, Heart, MapPin, Phone, 
+  Shield, Star, Video, AlertCircle, Info, ChevronRight, Sparkles
+} from 'lucide-react';
 
 type TherapyBookingProps = {
   therapistId: string;
 };
 
-const mockTherapistFallback = {
-  name: 'Loading Therapist...',
-  title: '',
-  price: 0,
-  image: '/api/placeholder/100/100',
-  rating: 0,
-  reviews: 0,
-  location: '',
-  nextAvailable: ''
-};
 
-const sessionTypes = [
+
+// Session types will be injected with therapist pricing
+const baseSessionTypes = [
   {
     id: 'video',
     name: 'Video Consultation',
     description: 'Face-to-face online session via secure video platform',
     icon: Video,
     duration: '50 minutes',
-    price: 999,
-    features: ['HD Video Quality', 'Screen Sharing', 'Secure & Private'],
+    features: ['HD Video', 'Screen Sharing', 'Encrypted'],
     popular: true
   },
   {
@@ -50,8 +43,7 @@ const sessionTypes = [
     description: 'Voice-only session via secure phone connection',
     icon: Phone,
     duration: '50 minutes',
-    price: 499,
-    features: ['Crystal Clear Audio', 'No Video Required', 'Phone Friendly']
+    features: ['Crystal Clear Audio', 'No Video', 'Privacy Focused']
   },
   {
     id: 'clinic',
@@ -59,25 +51,35 @@ const sessionTypes = [
     description: "Visit therapist's clinic for face-to-face session",
     icon: Building,
     duration: '50 minutes',
-    price: 699,
     location: '123 Main St, New York, NY',
-    features: ['Personal Connection', 'Comfortable Office', 'Parking Available']
+    features: ['In-Person', 'Comfortable Office', 'Parking Available']
   },
   {
     id: 'home',
     name: 'Home Care',
     description: 'At-home therapy sessions',
-    icon: Building,
+    icon: MapPin,
     duration: '60 minutes',
-    price: 1299,
-    features: ['Therapist comes to you', 'Comfort of home']
+    features: ['Therapist comes to you', 'Comfort of home', 'Travel included']
   }
 ];
 
 export function TherapyBookingEnhanced({ therapistId }: TherapyBookingProps) {
+    const [therapist, setTherapist] = useState<any>(null);
+    // Only use therapist data if loaded from API/database
+    const sessionTypesWithPricing = useMemo(() => {
+      if (!therapist) return [];
+      return baseSessionTypes.map(type => {
+        let price = therapist?.pricing?.[type.id] ?? therapist?.pricing?.[type.id.toLowerCase()] ?? therapist?.price ?? 0;
+        if (typeof price === 'string') price = parseFloat(price) || 0;
+        if (typeof price !== 'number' || isNaN(price)) price = 0;
+        return { ...type, price };
+      });
+    }, [therapist]);
   const router = useRouter();
-  const { user, token, isAuthenticated, isLoading, refresh } = useAuth();
+  const { user, token, isAuthenticated, isLoading } = useAuth();
 
+  // --- State Management ---
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(
     new Date(Date.now() + 24 * 60 * 60 * 1000)
   );
@@ -87,33 +89,25 @@ export function TherapyBookingEnhanced({ therapistId }: TherapyBookingProps) {
   const [isLoadingAvailability, setIsLoadingAvailability] = useState(false);
   const [isBooking, setIsBooking] = useState(false);
   const [bookingError, setBookingError] = useState<string | null>(null);
-  // Start with fallback data immediately - don't wait for API
-  const [therapist, setTherapist] = useState<any>(mockTherapistFallback);
-  const [isLoadingTherapist, setIsLoadingTherapist] = useState(false); // Start as false to show UI immediately
-  const [isUsingFallbackData, setIsUsingFallbackData] = useState(true); // Start with fallback
   
-  // Use refs to prevent cancellation on re-renders
+  // (removed duplicate therapist state declaration)
+  const [isUsingFallbackData, setIsUsingFallbackData] = useState(true);
+   
+  // Refs to manage fetch lifecycles (race conditions)
   const fetchControllerRef = useRef<AbortController | null>(null);
   const hasLoadedRef = useRef<boolean>(false);
   const currentTherapistIdRef = useRef<string>('');
   const fetchCounterRef = useRef<number>(0);
 
-  // 6-step flow overall
-  // 1. Confirm Therapist (separate page - /confirm-therapist)
-  // 2. Date & Time (Step 1 in this component)
-  // 3. Session Format (Step 2 in this component)
-  // 4. Your Details (Step 3 in this component)
-  // 5. Payment (Step 4 in this component - integrated)
-  // 6. Confirmation (separate page)
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
-  
-  // Payment state
+   
+  // Payment State
   const [bookingId, setBookingId] = useState<string | null>(null);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [gatewayMode, setGatewayMode] = useState<string>('');
 
-  // Patient details (Step 4)
+  // Form Details
   const [patientFullName, setPatientFullName] = useState('');
   const [patientEmail, setPatientEmail] = useState('');
   const [patientPhone, setPatientPhone] = useState('');
@@ -123,7 +117,7 @@ export function TherapyBookingEnhanced({ therapistId }: TherapyBookingProps) {
   const [patientEmergency, setPatientEmergency] = useState('');
   const [hasTherapyBefore, setHasTherapyBefore] = useState(false);
 
-  // In-Home visit details (only required when session type is 'home')
+  // Home Visit Details
   const [inHomeAddressLine1, setInHomeAddressLine1] = useState('');
   const [inHomeAddressLine2, setInHomeAddressLine2] = useState('');
   const [inHomeCity, setInHomeCity] = useState('');
@@ -131,649 +125,171 @@ export function TherapyBookingEnhanced({ therapistId }: TherapyBookingProps) {
   const [inHomeContactName, setInHomeContactName] = useState('');
   const [inHomeContactPhone, setInHomeContactPhone] = useState('');
 
+  // --- Validation Logic ---
   const isValidObjectId = (id: string) => /^[a-fA-F0-9]{24}$/.test(id);
   const therapistIdValid = isValidObjectId(therapistId);
 
-  const canProceedFromStep1 = useMemo(() => !!(selectedDate && selectedTime), [selectedDate, selectedTime]); // Step 1 is now Date & Time
-  const canProceedFromStep2 = useMemo(() => !!selectedSessionType, [selectedSessionType]); // Step 2 is Session Type
+  const canProceedFromStep1 = useMemo(() => !!(selectedDate && selectedTime), [selectedDate, selectedTime]);
+  const canProceedFromStep2 = useMemo(() => !!selectedSessionType, [selectedSessionType]);
   const inHomeSelected = useMemo(() => selectedSessionType === 'home', [selectedSessionType]);
+  
   const canProceedFromStep3 = useMemo(() => {
     const baseOk = !!(patientFullName && patientEmail && patientPhone && patientConcerns);
     if (!inHomeSelected) return baseOk;
+    // Extra validation for Home visits
     const pinOk = /^\d{6}$/.test(inHomePincode.trim());
     const phoneOk = inHomeContactPhone.trim().length >= 10;
     return baseOk && !!(inHomeAddressLine1 && inHomeCity) && pinOk && phoneOk;
-  }, [patientFullName, patientEmail, patientPhone, patientConcerns, inHomeSelected, inHomeAddressLine1, inHomeCity, inHomePincode, inHomeContactPhone]); // Step 3 is Details
-  const canProceedFromStep4 = useMemo(() => !!bookingId, [bookingId]); // Step 4 is Payment - requires booking to be created
+  }, [patientFullName, patientEmail, patientPhone, patientConcerns, inHomeSelected, inHomeAddressLine1, inHomeCity, inHomePincode, inHomeContactPhone]);
+  
+  const canProceedFromStep4 = useMemo(() => !!bookingId, [bookingId]);
+  
   const canBook = useMemo(() => (
     !!(therapistIdValid && selectedSessionType && selectedDate && selectedTime && canProceedFromStep3)
   ), [therapistIdValid, selectedSessionType, selectedDate, selectedTime, canProceedFromStep3]);
 
+
+  // --- Data Loading Effects ---
+
+  // 1. Load Therapist Data (Real API)
   useEffect(() => {
     // Skip if therapist ID is invalid
-    if (!therapistIdValid) {
-      return;
-    }
+    if (!therapistIdValid) return;
     
-    // Skip if we've already loaded this therapist (prevents duplicate fetches)
-    if (hasLoadedRef.current && currentTherapistIdRef.current === therapistId) {
-      console.log('[Frontend] Therapist already loaded, skipping fetch');
-      return;
-    }
-    
-    // Increment fetch counter to track the latest fetch
+    // Skip if we've already loaded this therapist
+    if (hasLoadedRef.current && currentTherapistIdRef.current === therapistId) return;
+
     fetchCounterRef.current += 1;
     const thisFetchId = fetchCounterRef.current;
     
-    // Capture therapistId at the time of effect execution (for cleanup closure)
-    const capturedTherapistId = therapistId;
+    // Cleanup previous controller
+    if (fetchControllerRef.current) fetchControllerRef.current.abort();
     
-    // Cancel any previous fetch ONLY if therapist ID changed (not on re-renders)
-    if (fetchControllerRef.current && currentTherapistIdRef.current !== capturedTherapistId) {
-      console.log('[Frontend] Cancelling previous fetch for different therapist');
-      fetchControllerRef.current.abort();
-      fetchControllerRef.current = null;
-    }
-    
-    // Don't create new fetch if one is already in progress for the same therapist
-    // (This handles React Strict Mode double-rendering)
-    if (fetchControllerRef.current && currentTherapistIdRef.current === capturedTherapistId) {
-      console.log('[Frontend] Fetch already in progress for this therapist, skipping duplicate');
-      return;
-    }
-    
-    // Create new abort controller for this fetch
     const abortController = new AbortController();
     fetchControllerRef.current = abortController;
-    currentTherapistIdRef.current = capturedTherapistId;
-    hasLoadedRef.current = false; // Reset loaded flag for new fetch
-    
-    let isMounted = true;
-    
+    currentTherapistIdRef.current = therapistId;
+
     async function loadTherapist() {
       try {
-        console.log('[Frontend] 🚀 Starting fetch for therapist:', capturedTherapistId);
-        
-        // Make the API call - only abort if component actually unmounts
-        const res = await fetch(`/api/therapists/${capturedTherapistId}`, {
-          cache: 'no-store',
+        const res = await fetch(`/api/therapists/${therapistId}`, {
           signal: abortController.signal,
-          headers: {
-            'Content-Type': 'application/json'
-          }
+          headers: { 'Content-Type': 'application/json' }
         });
+
+        if (!res.ok) throw new Error('Failed to load therapist');
+        const data = await res.json();
         
-        // Check if request was aborted or this fetch is no longer the latest
-        if (abortController.signal.aborted || thisFetchId !== fetchCounterRef.current) {
-          console.log('[Frontend] Request was aborted or superseded by newer fetch, ignoring response');
-          return;
-        }
-        
-        if (!isMounted) {
-          console.log('[Frontend] Component unmounted, ignoring response');
-          return;
-        }
-        
-        console.log('[Frontend] ✅ Response received:', { ok: res.ok, status: res.status });
-        
-        // Handle non-OK responses
-        if (!res.ok) {
-          if (res.status === 503) {
-            console.log('[Frontend] Service unavailable (503), using fallback');
-            return; // Keep fallback data
-          }
-          
-          // Try to parse error
-          let errorData: any = {};
-          try {
-            errorData = await res.json().catch(() => ({}));
-          } catch {
-            return; // Keep fallback data
-          }
-          
-          // Check if it's a database error
-          const isDbError = 
-            errorData?.error?.includes('Database') || 
-            errorData?.error?.includes('MongoDB') || 
-            errorData?.error?.includes('connect') ||
-            errorData?.error?.includes('unavailable') ||
-            errorData?.message?.includes('Database') ||
-            errorData?.message?.includes('database') ||
-            errorData?.message?.includes('unavailable') ||
-            (errorData?.success === false && errorData?.error === 'Database connection unavailable');
-          
-          if (isDbError) {
-            console.log('[Frontend] Database error detected, using fallback');
-            return; // Keep fallback data
-          }
-          
-          console.warn('[Frontend] API error (non-database):', errorData);
-          return; // Keep fallback data
-        }
-        
-        // Parse successful response
-        let data: any = {};
-        try {
-          const text = await res.text();
-          data = JSON.parse(text);
-        } catch (parseError) {
-          console.error('[Frontend] Failed to parse response:', parseError);
-          return;
-        }
-        
-        // Check if request was aborted or component unmounted
-        if (abortController.signal.aborted || !isMounted) {
-          console.log('[Frontend] Request aborted or component unmounted during parsing');
-          return;
-        }
-        
-        // Check if therapist ID has changed (don't update if it has)
-        if (currentTherapistIdRef.current !== capturedTherapistId) {
-          console.log('[Frontend] Therapist ID changed, ignoring response');
-          return;
-        }
-        
-        console.log('[Frontend] 📦 Parsed data:', { 
-          success: data?.success, 
-          hasTherapist: !!data?.therapist,
-          therapistName: data?.therapist?.displayName || data?.therapist?.name 
-        });
-        
-        // Process successful response - update state if therapist ID still matches
-        if (data?.success === true && data?.therapist) {
-          const t = data.therapist;
-          if (t && isMounted && !abortController.signal.aborted && currentTherapistIdRef.current === capturedTherapistId) {
-            console.log('[Frontend] ✅ Updating therapist state:', { 
-              name: t.displayName || t.name, 
-              id: t._id,
-              fetchId: thisFetchId,
-              currentCounter: fetchCounterRef.current
-            });
-            
-            // Update state - React will handle re-rendering
-            setTherapist({
-              name: t.displayName || t.name || 'Therapist',
-              title: t.title || t.specializations?.[0] || 'Licensed Therapist',
-              price: t.consultationFee || t.price || 0,
-              image: t.photo || t.image || t.profilePhotoUrl || '/api/placeholder/100/100',
-              rating: t.rating || 0,
-              reviews: t.reviewsCount || t.reviewCount || t.totalReviews || 0,
-              location: t.location || '',
-              nextAvailable: ''
-            });
-            
-            setIsUsingFallbackData(false);
-            hasLoadedRef.current = true;
-            console.log('[Frontend] ✅ Therapist state updated successfully!');
-            return;
-          } else {
-            console.warn('[Frontend] ⚠️ Skipping state update:', {
-              hasT: !!t,
-              isMounted,
-              aborted: abortController.signal.aborted,
-              idMatch: currentTherapistIdRef.current === capturedTherapistId
-            });
-          }
-        }
-        
-        // Fallback: try to extract therapist from any response format
+        // Handle various response structures
         const t = data?.data?.therapist || data?.therapist;
-        if (t && isMounted && !abortController.signal.aborted && currentTherapistIdRef.current === capturedTherapistId) {
-          console.log('[Frontend] ⚠️ Using fallback extraction path');
+
+        if (t && thisFetchId === fetchCounterRef.current) {
+          // Always use pricing object if available, else fallback
+          let pricing = t.pricing || {};
+          if (Object.keys(pricing).length === 0) {
+            const fallbackVal = t.consultationFee ?? t.sessionFee ?? t.price ?? 0;
+            pricing = { video: fallbackVal, audio: fallbackVal, clinic: fallbackVal, home: fallbackVal };
+          } else {
+            pricing = {
+              video: pricing.video ?? t.consultationFee ?? t.sessionFee ?? t.price ?? 0,
+              audio: pricing.audio ?? t.consultationFee ?? t.sessionFee ?? t.price ?? 0,
+              clinic: pricing.clinic ?? t.consultationFee ?? t.sessionFee ?? t.price ?? 0,
+              home: pricing.home ?? t.consultationFee ?? t.sessionFee ?? t.price ?? 0
+            };
+          }
           setTherapist({
             name: t.displayName || t.name || 'Therapist',
             title: t.title || t.specializations?.[0] || 'Licensed Therapist',
             price: t.consultationFee || t.price || 0,
             image: t.photo || t.image || t.profilePhotoUrl || '/api/placeholder/100/100',
             rating: t.rating || 0,
-            reviews: t.reviewsCount || t.reviewCount || t.totalReviews || 0,
+            reviews: t.reviewsCount || t.reviewCount || 0,
             location: t.location || '',
-            nextAvailable: ''
+            nextAvailable: '',
+            pricing
           });
           setIsUsingFallbackData(false);
           hasLoadedRef.current = true;
-          console.log('[Frontend] ✅ Therapist state updated (fallback path)');
-        } else {
-          console.warn('[Frontend] ⚠️ No therapist data found or conditions not met:', {
-            hasT: !!t,
-            isMounted,
-            aborted: abortController.signal.aborted,
-            idMatch: currentTherapistIdRef.current === capturedTherapistId,
-            data: data
-          });
         }
       } catch (e: any) {
-        // Only log if not aborted (aborted is expected when component unmounts)
-        if (e?.name === 'AbortError') {
-          console.log('[Frontend] Request aborted (expected on unmount/ID change)');
-          return;
-        }
-        console.error('[Frontend] ❌ Error loading therapist:', e?.message || e);
+        if (e.name !== 'AbortError') console.error('Therapist load error', e);
       }
     }
-    
-    // Load therapist
+
     loadTherapist();
-    
-    // Cleanup: only abort if this fetch is no longer the latest one
-    // This handles both therapist ID changes and React Strict Mode double-rendering
+
     return () => {
-      isMounted = false;
-      
-      // Only abort if this fetch is superseded by a newer one or therapist ID changed
-      const isSuperseded = thisFetchId !== fetchCounterRef.current;
-      const therapistChanged = currentTherapistIdRef.current !== capturedTherapistId;
-      
-      if (isSuperseded || therapistChanged) {
-        // This fetch is no longer needed - abort it
-        if (fetchControllerRef.current === abortController) {
-          console.log('[Frontend] Cleanup: aborting superseded fetch');
-          abortController.abort();
-          // Only clear if this is still the current one (not replaced)
-          if (fetchControllerRef.current === abortController) {
-            fetchControllerRef.current = null;
-          }
-        }
-      } else {
-        console.log('[Frontend] Cleanup: keeping fetch (still latest)');
-      }
+      if (thisFetchId === fetchCounterRef.current) abortController.abort();
     };
   }, [therapistId, therapistIdValid]);
 
+  // 2. Load Availability (Real API)
   useEffect(() => {
     if (!selectedDate || !therapistIdValid) {
       setAvailability([]);
       return;
     }
-    
-    // Debounce availability loading to prevent excessive API calls
+
     const timeoutId = setTimeout(() => {
       loadAvailability();
-    }, 300); // 300ms debounce delay
-    
-    return () => {
-      clearTimeout(timeoutId);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
   }, [selectedDate, therapistIdValid]);
 
   const loadAvailability = async () => {
-    if (!selectedDate || !therapistIdValid) {
-      setAvailability([]);
-      return;
-    }
-    
+    if (!selectedDate) return;
     setIsLoadingAvailability(true);
     setBookingError(null);
     try {
       const dateString = selectedDate.toISOString().split('T')[0];
-      const response = await bookingService.getTherapistAvailability(therapistId, {
-        date: dateString
-      });
+      const response = await bookingService.getTherapistAvailability(therapistId, { date: dateString });
       setAvailability(response.availability as AvailabilitySlot[]);
-    } catch (error: any) {
-      // Use mock slots as fallback - don't show error for connection issues
-      const errorMsg = error?.message || String(error) || '';
-      const isDbError = errorMsg.includes('MongoDB') || 
-                       errorMsg.includes('connect') || 
-                       errorMsg.includes('Database') ||
-                       errorMsg.includes('database');
-      
-      if (!isDbError) {
-        console.error('Failed to load availability:', error);
-        setBookingError('Unable to load availability. Please try again.');
-      }
-      
-      // Fallback: Show all default slots as available (no random blocking!)
-      // Only actual bookings should block slots
-      const fallbackSlots = [
-        { time: '09:00', available: true },
-        { time: '10:00', available: true },
-        { time: '11:00', available: true },
-        { time: '12:00', available: true },
-        { time: '13:00', available: true },
-        { time: '14:00', available: true },
-        { time: '15:00', available: true },
-        { time: '16:00', available: true },
-        { time: '17:00', available: true },
-        { time: '18:00', available: true }
-      ];
-      setAvailability(fallbackSlots);
+    } catch (error) {
+       console.error("Availability load failed", error);
+       setBookingError("Could not load availability. Please try again.");
+       setAvailability([]);
     } finally {
       setIsLoadingAvailability(false);
     }
   };
 
-  const getSelectedSessionType = () => sessionTypes.find((type) => type.id === selectedSessionType);
+  // 3. Load Gateway Config (Razorpay mode)
+  useEffect(() => {
+    if (step === 4) {
+        fetch('/api/payments/razorpay/config').then(async r => {
+            const json = await r.json().catch(() => null);
+            const mode = json?.data?.mode || json?.mode;
+            if (mode) setGatewayMode(mode);
+        }).catch(err => console.warn('Failed to load gateway config', err));
+    }
+  }, [step]);
+
+
+  // --- Helper Functions ---
+
+  const getSelectedSessionType = () => sessionTypesWithPricing.find((type) => type.id === selectedSessionType);
+  
   const getSelectedPrice = () => {
     const st = getSelectedSessionType();
-    if (st) {
-      return st.price;
-    }
-    // If no session type selected, show therapist's consultation fee if available
-    // Otherwise, show the minimum price from available session types (starting price)
-    if (therapist.price && therapist.price > 0) {
-      return therapist.price;
-    }
-    // Return minimum session type price as starting price
-    const minPrice = Math.min(...sessionTypes.map(type => type.price));
-    return minPrice;
+    if (st) return st.price;
+    if (therapist.price && therapist.price > 0) return therapist.price;
+    // Fallback minimum
+    return 499; 
   };
 
   const next = () => {
     if (step === 3 && canBook) {
-      // Step 3 → Step 4: Create booking first, then proceed to payment
       handleCreateBooking();
     } else {
       setStep((s) => (s < 4 ? ((s + 1) as 1 | 2 | 3 | 4) : s));
     }
   };
+  
   const back = () => setStep((s) => (s > 1 ? ((s - 1) as 1 | 2 | 3 | 4) : s));
 
-  // Create booking before payment step with enhanced error handling and retry logic
-  const handleCreateBooking = async (retryCount = 0): Promise<void> => {
-    if (!canBook || !selectedDate) return;
-    
-    // Enhanced authentication check with detailed logging
-    if (!isAuthenticated || !user) {
-      console.error('[Booking] ❌ Authentication check failed', {
-        isAuthenticated,
-        hasUser: !!user,
-        hasToken: !!token,
-        isLoading
-      });
-      setBookingError('Please log in to book a session');
-      return;
-    }
-    
-    // Validate token exists - try to get from storage as fallback
-    let finalToken = token;
-    if (!finalToken) {
-      console.warn('[Booking] ⚠️ Token missing from context, checking localStorage...');
-      try {
-        const storedToken = localStorage.getItem('token') || sessionStorage.getItem('token');
-        if (storedToken) {
-          console.log('[Booking] ✅ Found token in storage');
-          finalToken = storedToken;
-        } else {
-          console.error('[Booking] ❌ Token not found in storage either', {
-            isAuthenticated,
-            hasUser: !!user,
-            userId: user?._id,
-            userEmail: user?.email,
-            isLoading,
-            localStorageToken: !!localStorage.getItem('token'),
-            sessionStorageToken: !!sessionStorage.getItem('token')
-          });
-          setBookingError('Authentication token is missing. Please log in again.');
-          toast.error("Authentication required", { 
-            description: "Please log in to continue booking",
-            action: {
-              label: "Go to Login",
-              onClick: () => router.push('/therabook/login')
-            }
-          });
-          return;
-        }
-      } catch (storageError) {
-        console.error('[Booking] ❌ Error accessing storage:', storageError);
-        setBookingError('Unable to access authentication. Please log in again.');
-        toast.error("Authentication error", { description: "Please log in to continue" });
-        return;
-      }
-    }
-    
-    setIsBooking(true);
-    setBookingError(null);
-    
-    const maxRetries = 2;
-    const retryDelay = 1000; // 1 second
-    
-    try {
-      // Log booking attempt with structured data (excluding token for security)
-      console.log('[Booking] Creating booking attempt', {
-        attempt: retryCount + 1,
-        therapistId,
-        date: selectedDate.toISOString().split('T')[0],
-        time: selectedTime,
-        sessionType: selectedSessionType,
-        userId: user._id,
-        userEmail: user.email,
-        hasToken: !!token,
-        tokenLength: token?.length || 0,
-        timestamp: new Date().toISOString()
-      });
+  // --- Payment & Booking Logic ---
 
-      const patientDetails: any = {
-        fullName: patientFullName,
-        email: patientEmail,
-        phone: patientPhone,
-        age: patientAge,
-        language: patientLanguage,
-        concerns: patientConcerns,
-        emergencyContact: patientEmergency,
-        hasTherapyBefore
-      };
-
-      if (inHomeSelected) {
-        patientDetails.inHomeService = {
-          addressLine1: inHomeAddressLine1,
-          addressLine2: inHomeAddressLine2,
-          city: inHomeCity,
-          pincode: inHomePincode,
-          contactName: inHomeContactName,
-          contactPhone: inHomeContactPhone
-        };
-      }
-
-      const bookingData: BookingData = {
-        therapistId: therapistId,
-        appointmentDate: selectedDate.toISOString().split('T')[0],
-        appointmentTime: selectedTime,
-        sessionType: selectedSessionType,
-        notes: JSON.stringify(patientDetails)
-      };
-
-      let booking;
-      let newBookingId: string;
-      
-      // Use finalToken (from context or storage fallback)
-      if (!finalToken) {
-        throw new Error('Authentication token is missing. Please log in again.');
-      }
-      
-      try {
-        console.log('[Booking] 📤 Sending booking request', {
-          hasToken: !!finalToken,
-          tokenSource: finalToken === token ? 'context' : 'storage',
-          tokenPrefix: finalToken?.substring(0, 20) + '...',
-          bookingData: {
-            therapistId: bookingData.therapistId,
-            appointmentDate: bookingData.appointmentDate,
-            appointmentTime: bookingData.appointmentTime,
-            sessionType: bookingData.sessionType
-          }
-        });
-        
-        booking = await bookingService.createBooking(bookingData, finalToken);
-        newBookingId = (booking as any)?._id || (booking as any)?.bookingId || 'unknown';
-        
-        console.log('[Booking] ✅ Booking created successfully', {
-          bookingId: newBookingId,
-          booking: booking,
-          timestamp: new Date().toISOString()
-        });
-      } catch (bookingError: any) {
-        // Enhanced error logging
-        const errorDetails = {
-          error: bookingError,
-          message: bookingError?.message || 'Unknown error',
-          response: bookingError?.response,
-          status: bookingError?.status,
-          statusText: bookingError?.statusText,
-          data: bookingError?.data,
-          stack: bookingError?.stack
-        };
-        
-        console.error('[Booking] ❌ Booking creation failed', errorDetails);
-        
-        // Retry logic for network errors or transient failures
-        const isRetryableError = 
-          bookingError?.message?.includes('network') ||
-          bookingError?.message?.includes('timeout') ||
-          bookingError?.message?.includes('fetch') ||
-          bookingError?.status === 500 ||
-          bookingError?.status === 503 ||
-          bookingError?.status === 502 ||
-          !bookingError?.status; // Network errors often don't have status
-        
-        if (isRetryableError && retryCount < maxRetries) {
-          console.log(`[Booking] 🔄 Retrying booking creation (${retryCount + 1}/${maxRetries})...`);
-          await new Promise(resolve => setTimeout(resolve, retryDelay * (retryCount + 1)));
-          return handleCreateBooking(retryCount + 1);
-        }
-        
-        // Provide user-friendly error messages
-        let userMessage = 'Failed to create booking';
-        if (bookingError?.message?.includes('already booked') || bookingError?.message?.includes('duplicate')) {
-          userMessage = 'This time slot is already booked. Please select another time.';
-        } else if (bookingError?.message?.includes('network') || bookingError?.message?.includes('timeout')) {
-          userMessage = 'Network error. Please check your connection and try again.';
-        } else if (bookingError?.status === 401 || bookingError?.status === 403 || bookingError?.message?.includes('Unauthorized') || bookingError?.message?.includes('Authentication failed')) {
-          userMessage = 'Your session has expired. Please log in again to continue booking.';
-          // Clear potentially invalid token and redirect to login
-          console.warn('[Booking] ⚠️ Authentication failed - token may be expired or invalid', {
-            hasToken: !!finalToken,
-            tokenLength: finalToken?.length || 0,
-            error: bookingError?.message,
-            status: bookingError?.status
-          });
-          
-          // Clear auth state
-          try {
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            sessionStorage.removeItem('token');
-            sessionStorage.removeItem('user');
-          } catch (e) {
-            console.warn('[Booking] Could not clear auth storage:', e);
-          }
-          
-          // Don't retry on auth errors - they won't succeed
-          setBookingError(userMessage);
-          toast.error("Session Expired", { 
-            description: "Please log in again to continue booking",
-            duration: 5000,
-            action: {
-              label: "Go to Login",
-              onClick: () => {
-                router.push('/therabook/login?redirect=' + encodeURIComponent(window.location.pathname));
-              }
-            }
-          });
-          
-          // Redirect to login after a short delay
-          setTimeout(() => {
-            router.push('/therabook/login?redirect=' + encodeURIComponent(window.location.pathname));
-          }, 2000);
-          
-          throw bookingError;
-        } else if (bookingError?.status === 400) {
-          userMessage = bookingError?.message || 'Invalid booking data. Please check your selections.';
-        } else if (bookingError?.message) {
-          userMessage = bookingError.message;
-        }
-        
-        setBookingError(userMessage);
-        throw bookingError;
-      }
-      
-      setBookingId(newBookingId);
-      setBookingError(null); // Clear any previous errors
-      
-      // Check if user should skip payment (for specific emails)
-      const allowedEmails = ['sachinparihar10@gmail.com'];
-      const userEmail = user?.email || patientEmail || '';
-      const shouldSkipPayment = allowedEmails.includes(userEmail.toLowerCase());
-      
-      if (shouldSkipPayment) {
-        console.log('[Booking] ⏭️ Skipping payment for allowed email');
-        // Mark booking as paid and redirect to confirmation
-        try {
-          // Update booking payment status to paid (this will automatically set status to 'confirmed')
-          const updateResponse = await fetch(`/api/bookings/${newBookingId}`, {
-            method: 'PATCH',
-            headers: {
-              'Content-Type': 'application/json',
-              ...(token ? { Authorization: `Bearer ${token}` } : {})
-            },
-            body: JSON.stringify({ 
-              paymentStatus: 'paid'
-            })
-          });
-          
-          if (!updateResponse.ok) {
-            const errorData = await updateResponse.json().catch(() => ({}));
-            console.warn('[Booking] ⚠️ Payment status update response:', {
-              status: updateResponse.status,
-              error: errorData,
-              bookingId: newBookingId
-            });
-      } else {
-            console.log('[Booking] ✅ Payment status updated to paid');
-          }
-          
-          // Redirect directly to confirmation
-          router.push(`/therabook/therapists/${therapistId}/book/confirmation?bookingId=${newBookingId}`);
-          return;
-        } catch (updateError) {
-          console.error('[Booking] ❌ Failed to update booking payment status:', {
-            error: updateError,
-            bookingId: newBookingId
-          });
-          // Still redirect to confirmation even if update fails
-          router.push(`/therabook/therapists/${therapistId}/book/confirmation?bookingId=${newBookingId}`);
-          return;
-        }
-      }
-      
-      // Load gateway config for normal payment flow
-      fetch('/api/payments/razorpay/config').then(async r => {
-        const json = await r.json().catch(() => null);
-        const mode = json?.data?.mode || json?.mode;
-        if (mode) {
-          setGatewayMode(mode);
-          console.log('[Booking] ✅ Payment gateway mode loaded:', mode);
-        }
-      }).catch((err) => {
-        console.warn('[Booking] ⚠️ Failed to load payment gateway config:', err);
-      });
-      
-      // Move to payment step
-      setStep(4);
-      console.log('[Booking] ✅ Booking flow completed, moved to payment step');
-    } catch (error: any) {
-      // Final error handling with detailed logging
-      const errorLog = {
-        error,
-        message: error?.message || 'Unknown error',
-        stack: error?.stack,
-        retryCount,
-        timestamp: new Date().toISOString()
-      };
-      
-      console.error('[Booking] ❌ Final booking error:', errorLog);
-      
-      // Don't set error if it's already been set (from retry logic)
-      if (!bookingError) {
-        setBookingError(error?.message || 'Failed to create booking. Please try again.');
-      }
-    } finally {
-      setIsBooking(false);
-    }
-  };
-
-  // Load Razorpay script
+  // Load Razorpay Script Helper
   const loadRazorpayScript = () => new Promise<boolean>((resolve) => {
     if (typeof window !== 'undefined' && (window as any).Razorpay) return resolve(true);
     if (document.getElementById('razorpay-js')) return resolve(true);
@@ -785,126 +301,194 @@ export function TherapyBookingEnhanced({ therapistId }: TherapyBookingProps) {
     document.body.appendChild(script);
   });
 
-  // Handle payment
-  const handlePayment = async () => {
-    if (!bookingId) return;
-    setIsProcessingPayment(true);
-    setPaymentError(null);
-    try {
-      // Create order on server
-      const res = await fetch('/api/payments/razorpay/order', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
-        },
-        body: JSON.stringify({ bookingId })
-      });
-      const text = await res.text();
-      let parsed: any = null;
-      try { parsed = text ? JSON.parse(text) : null; } catch {}
-      if (!res.ok) {
-        const code = parsed?.code;
-        const serverMsg = parsed?.message || parsed?.error || text || 'Failed to initialize payment';
-        let friendly = serverMsg;
-        if (code === 'RAZORPAY_NO_CREDENTIALS') {
-          friendly = 'Payment gateway not configured. Please contact support.';
-        } else if (code === 'RAZORPAY_PREFIX_MISMATCH') {
-          friendly = serverMsg + ' (Key ID prefix mismatch)';
-        } else if (code === 'RAZORPAY_WEAK_SECRET') {
-          friendly = 'Payment gateway configuration error. Please contact support.';
-        } else if (code === 'RAZORPAY_AUTH') {
-          friendly = 'Gateway authentication failed. Please contact support.';
-        }
-        throw new Error(`[${code || 'ERR'}] ${friendly}`);
+  // Step 3 -> 4: Create Booking in Backend
+    const handleCreateBooking = async () => {
+      if(!isAuthenticated || !token) {
+        toast.error("Please log in to book");
+        // Save state to localStorage if needed before redirect
+        router.push(`/auth/login?redirect=${encodeURIComponent(window.location.pathname)}`);
+        return;
       }
-      const { data } = parsed || {};
-      const { order, keyId, simulated } = data || {};
-      if (!order?.id || !keyId) throw new Error('Invalid order response');
+      
+      setIsBooking(true);
+      setBookingError(null);
 
-      // If server is running in fake mode, bypass Razorpay and auto-verify
-      if (simulated) {
-        try {
-          const verifyRes = await fetch('/api/payments/razorpay/verify', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              ...(token ? { Authorization: `Bearer ${token}` } : {})
-            },
-            body: JSON.stringify({
-              bookingId,
-              razorpay_payment_id: 'pay_FAKE',
-              razorpay_order_id: order.id,
-              razorpay_signature: 'sig_FAKE',
-            })
-          });
-          if (!verifyRes.ok) throw new Error('Verification failed');
-          router.push(`/therabook/therapists/${therapistId}/book/confirmation?bookingId=${bookingId}`);
-          return;
-        } catch (e) {
-          console.error(e);
-          setPaymentError('Payment verification failed (simulated). Please contact support.');
-          setIsProcessingPayment(false);
-          return;
-        }
-      }
-
-      const loaded = await loadRazorpayScript();
-      if (!loaded) throw new Error('Razorpay SDK failed to load');
-
-      const options: any = {
-        key: keyId,
-        amount: order.amount,
-        currency: order.currency,
-        name: 'TheraBook',
-        description: 'Therapy session payment',
-        order_id: order.id,
-        prefill: {
-          name: patientFullName || user?.name || '',
-          email: patientEmail || user?.email || '',
-        },
-        notes: { bookingId },
-        handler: async function (response: any) {
-          try {
-            const verifyRes = await fetch('/api/payments/razorpay/verify', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                ...(token ? { Authorization: `Bearer ${token}` } : {})
-              },
-              body: JSON.stringify({
-                bookingId,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_signature: response.razorpay_signature,
-              })
-            });
-            if (!verifyRes.ok) throw new Error('Verification failed');
-            router.push(`/therabook/therapists/${therapistId}/book/confirmation?bookingId=${bookingId}`);
-          } catch (e) {
-            console.error(e);
-            setPaymentError('Payment verification failed. Please contact support.');
-            setIsProcessingPayment(false);
-          }
-        },
-        modal: {
-          ondismiss: () => setIsProcessingPayment(false)
-        },
-        theme: { color: '#2563eb' }
+      try {
+        // Construct booking payload
+        const bookingPayload: BookingData = {
+        therapistId,
+        appointmentDate: selectedDate!.toISOString().split('T')[0],
+        appointmentTime: selectedTime,
+        sessionType: selectedSessionType,
+        amount: sessionTypesWithPricing.find(t => t.id === selectedSessionType)?.price ?? 0,
+        patientFullName,
+        patientEmail,
+        patientPhone,
+        patientAge,
+        patientLanguage,
+        patientConcerns,
+        patientEmergency,
+        hasTherapyBefore,
+        inHomeAddressLine1: inHomeSelected ? inHomeAddressLine1 : undefined,
+        inHomeAddressLine2: inHomeSelected ? inHomeAddressLine2 : undefined,
+        inHomeCity: inHomeSelected ? inHomeCity : undefined,
+        inHomePincode: inHomeSelected ? inHomePincode : undefined,
+        inHomeContactName: inHomeSelected ? inHomeContactName : undefined,
+        inHomeContactPhone: inHomeSelected ? inHomeContactPhone : undefined,
+        notes: JSON.stringify({
+          fullName: patientFullName,
+          email: patientEmail,
+          phone: patientPhone,
+          age: patientAge,
+          concerns: patientConcerns,
+          emergency: patientEmergency,
+          language: patientLanguage,
+          hasTherapyBefore,
+          inHomeDetails: inHomeSelected ? {
+            addressLine1: inHomeAddressLine1,
+            addressLine2: inHomeAddressLine2,
+            city: inHomeCity,
+            pincode: inHomePincode,
+            contactName: inHomeContactName,
+            contactPhone: inHomeContactPhone
+          } : undefined
+        })
       };
 
-      // @ts-ignore
-      const rzp = new window.Razorpay(options);
-      rzp.open();
-    } catch (e: any) {
-      console.error('handlePayment error:', e);
-      const msg = e?.message || '';
-      if (/Failed to fetch|NetworkError/i.test(msg)) {
-        setPaymentError('Could not reach the server. Please check your connection and try again.');
-      } else {
-        setPaymentError(msg || 'Payment failed. Please try again.');
+        // Call Booking Service
+        const booking = await bookingService.createBooking(bookingPayload, token);
+          
+        const newBookingId = (booking as any)._id || (booking as any).bookingId;
+          
+        if (!newBookingId) throw new Error("No booking ID returned from server");
+          
+        setBookingId(newBookingId);
+        // Bypass payment for specific email
+        if (user?.email === 'sachinparihar10@gmail.com') {
+        router.push(`/therabook/therapists/${therapistId}/book/confirmation?bookingId=${newBookingId}`);
+        return;
+        }
+        // Do NOT redirect to confirmation here. Only move to payment step.
+        setStep(4); // Move to Payment Step
+      } catch (err: any) {
+        console.error("Booking creation error:", err);
+        setBookingError(err.message || 'Failed to create booking. Please try again.');
+        toast.error("Booking Failed", { description: err.message });
+      } finally {
+        setIsBooking(false);
       }
-      setIsProcessingPayment(false);
+    };
+
+  // Step 4: Handle Payment (Razorpay)
+  const handlePayment = async () => {
+    if (!bookingId) return;
+    
+    setIsProcessingPayment(true);
+    setPaymentError(null);
+
+    try {
+        // 1. Create Order on Server
+        const res = await fetch('/api/payments/razorpay/order', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { Authorization: `Bearer ${token}` } : {})
+            },
+            body: JSON.stringify({ bookingId })
+        });
+
+        const text = await res.text();
+        let parsed: any = null;
+        try { parsed = text ? JSON.parse(text) : null; } catch {}
+        
+        if (!res.ok) {
+            throw new Error(parsed?.message || parsed?.error || 'Failed to initialize payment');
+        }
+
+        const { data } = parsed || {};
+        const { order, keyId, simulated } = data || {};
+        
+        if (!order?.id || !keyId) throw new Error('Invalid order response from server');
+
+        // 2. Handle Simulated/Dev Mode
+        if (simulated) {
+            const verifyRes = await fetch('/api/payments/razorpay/verify', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { Authorization: `Bearer ${token}` } : {})
+                },
+                body: JSON.stringify({
+                    bookingId,
+                    razorpay_payment_id: 'pay_FAKE_' + Date.now(),
+                    razorpay_order_id: order.id,
+                    razorpay_signature: 'sig_FAKE',
+                })
+            });
+            if (!verifyRes.ok) throw new Error('Verification failed (simulated)');
+            router.push(`/therabook/therapists/${therapistId}/book/confirmation?bookingId=${bookingId}`);
+            return;
+        }
+
+        // 3. Load Razorpay SDK
+        const loaded = await loadRazorpayScript();
+        if (!loaded) throw new Error('Razorpay SDK failed to load');
+
+        // 4. Open Payment Modal
+        const options: any = {
+            key: keyId,
+            amount: order.amount,
+            currency: order.currency,
+            name: 'TheraBook',
+            description: 'Therapy session payment',
+            order_id: order.id,
+            prefill: {
+                name: patientFullName || user?.name || '',
+                email: patientEmail || user?.email || '',
+                contact: patientPhone || '',
+            },
+            notes: { bookingId },
+            handler: async function (response: any) {
+                try {
+                    // 5. Verify Payment on Server
+                    const verifyRes = await fetch('/api/payments/razorpay/verify', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            ...(token ? { Authorization: `Bearer ${token}` } : {})
+                        },
+                        body: JSON.stringify({
+                            bookingId,
+                            razorpay_payment_id: response.razorpay_payment_id,
+                            razorpay_order_id: response.razorpay_order_id,
+                            razorpay_signature: response.razorpay_signature,
+                        })
+                    });
+                    
+                    if (!verifyRes.ok) throw new Error('Payment verification failed');
+                    
+                    // 6. Redirect to Confirmation ONLY after payment is verified
+                    router.push(`/therabook/therapists/${therapistId}/book/confirmation?bookingId=${bookingId}`);
+                } catch (e) {
+                    console.error(e);
+                    setPaymentError('Payment verification failed. Please contact support.');
+                    setIsProcessingPayment(false);
+                }
+            },
+            modal: {
+                ondismiss: () => setIsProcessingPayment(false)
+            },
+            theme: { color: '#2563eb' }
+        };
+
+        // @ts-ignore
+        const rzp = new window.Razorpay(options);
+        rzp.open();
+
+    } catch (e: any) {
+        console.error('Payment error:', e);
+        setPaymentError(e.message || 'Payment initialization failed. Please try again.');
+        setIsProcessingPayment(false);
     }
   };
 
@@ -916,892 +500,551 @@ export function TherapyBookingEnhanced({ therapistId }: TherapyBookingProps) {
     }
   };
 
-  const userRole = (user?.userType || '').toLowerCase();
-  const isEndUser = userRole === 'user' || userRole === 'patient' || userRole === 'client';
+  // --- Renderers ---
 
-  // Memoize StepHeader before any conditional returns (Rules of Hooks)
-  const StepHeader = React.useMemo(() => {
-    const stepLabels = ['Date & Time', 'Session Format', 'Your Details', 'Payment'];
-    const stepText = stepLabels[step - 1];
+  // 1. Step Header Component
+  const StepHeader = useMemo(() => {
+    const stepLabels = ['Date & Time', 'Session Type', 'Details', 'Payment'];
     return (
-      <div className="bg-white/90 backdrop-blur-md border-b border-gray-200 shadow-lg sticky top-0 z-50">
-        <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 max-w-6xl">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
-            <Link href={`/therabook/therapists/${therapistId}`}>
-              <Button variant="ghost" size="sm" className="hover:bg-gray-100 rounded-xl text-xs sm:text-sm">
-                <ArrowLeft className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
-                <span className="hidden sm:inline">Back to Profile</span>
-                <span className="sm:hidden">Back</span>
-              </Button>
-            </Link>
-            <div className="flex items-center gap-2 sm:gap-4">
-              <Avatar className="w-10 h-10 sm:w-12 sm:h-12 ring-2 ring-blue-100 flex-shrink-0">
-                <AvatarImage src={therapist.image} alt={therapist.name} />
-                <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white text-xs sm:text-sm">
-                  {String(therapist.name || '')
-                    .split(' ')
-                    .map((n: string) => n[0])
-                    .join('')}
-                </AvatarFallback>
-              </Avatar>
-              <div className="text-left sm:text-right min-w-0">
-                <h1 className="text-base sm:text-xl font-bold text-gray-900 truncate">{therapist.name}</h1>
-                <p className="text-xs sm:text-sm text-gray-600 truncate">{therapist.title}</p>
+      <div className="bg-white/80 backdrop-blur-md border-b border-slate-200 sticky top-0 z-50 shadow-sm">
+        <div className="container mx-auto px-4 py-4 max-w-6xl">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            
+            {/* Left: Navigation & Context */}
+            <div className="flex items-center gap-4">
+               <Link href={`/therabook/therapists/${therapistId}`}>
+                 <Button variant="ghost" size="icon" className="h-9 w-9 text-slate-500 hover:text-slate-900 hover:bg-slate-100 rounded-full">
+                    <ArrowLeft className="h-5 w-5" />
+                 </Button>
+               </Link>
+              <div className="flex items-center gap-3 border-l border-slate-200 pl-4">
+                <Avatar className="h-9 w-9 ring-1 ring-slate-200">
+                  <AvatarImage src={therapist?.image || '/api/placeholder/100/100'} />
+                  <AvatarFallback className="bg-blue-600 text-white text-xs">
+                    {therapist?.name?.[0] || '?'}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                   <h2 className="text-sm font-bold text-slate-900 leading-tight">{therapist?.name || 'Therapist'}</h2>
+                   <p className="text-xs text-slate-500 font-medium">Step {step}: {stepLabels[step - 1]}</p>
+                </div>
               </div>
             </div>
-          </div>
-          <div className="mt-4 sm:mt-6">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-0 mb-2">
-              <h2 className="text-lg sm:text-2xl font-bold text-gray-800">{stepText}</h2>
-              <Badge variant="secondary" className="bg-blue-100 text-blue-700 text-xs">Step {step + 1} of 6</Badge>
+
+            {/* Right: Progress Stepper */}
+            <div className="flex items-center gap-2">
+                {stepLabels.map((label, idx) => {
+                    const s = idx + 1;
+                    const isActive = s === step;
+                    const isCompleted = s < step;
+                    return (
+                        <div key={label} className="flex items-center group">
+                            <div className={`
+                                flex items-center justify-center w-8 h-8 rounded-full text-xs font-bold transition-all duration-300
+                                ${isActive ? 'bg-blue-600 text-white ring-4 ring-blue-50 scale-105' : ''}
+                                ${isCompleted ? 'bg-emerald-500 text-white' : ''}
+                                ${!isActive && !isCompleted ? 'bg-slate-100 text-slate-400' : ''}
+                            `}>
+                                {isCompleted ? <CheckCircle className="w-4 h-4" /> : s}
+                            </div>
+                            {idx < stepLabels.length - 1 && (
+                                <div className={`w-8 h-0.5 mx-1 transition-colors duration-300 ${isCompleted ? 'bg-emerald-500' : 'bg-slate-200'}`} />
+                            )}
+                        </div>
+                    );
+                })}
             </div>
-            {/* 6-step indicators - responsive */}
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 sm:gap-3 lg:gap-4 mt-3 sm:mt-4">
-              {['Confirm Therapist', ...stepLabels, 'Confirmation'].map((label, idx) => {
-                const s = idx + 1;
-                const active = s <= (step + 1); // step + 1 because step 1 is on separate page
-                return (
-                  <div key={label} className="flex flex-col items-center">
-                    <div className={`w-7 h-7 sm:w-8 sm:h-8 lg:w-10 lg:h-10 rounded-full flex items-center justify-center border-2 font-semibold text-xs sm:text-sm lg:text-base transition-all ${active ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-white text-gray-500 border-gray-300'}`}>{s}</div>
-                    <div className={`text-[9px] sm:text-[10px] lg:text-xs mt-1.5 sm:mt-2 text-center leading-tight px-0.5 ${active ? 'text-blue-700 font-semibold' : 'text-gray-500'}`}>
-                      <span className="hidden lg:inline">{label}</span>
-                      <span className="hidden sm:inline lg:hidden">{label.split(' ')[0]}</span>
-                      <span className="sm:hidden">{s}</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+
           </div>
         </div>
       </div>
     );
   }, [step, therapist, therapistId]);
 
-  // Loading state while auth is being checked
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50">
-        <div className="text-center px-4">
-          <div className="animate-spin rounded-full h-12 w-12 sm:h-16 sm:w-16 border-4 border-blue-600 border-t-transparent mx-auto mb-4 sm:mb-6"></div>
-          <p className="text-gray-600 text-sm sm:text-lg">Loading your session...</p>
-        </div>
-      </div>
-    );
-  }
-  
-  // Don't block UI for therapist loading - show immediately with fallback data
 
-  // If not authenticated, show prompt
-  if (!isAuthenticated || !user) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-        <div className="container mx-auto px-4 py-16 max-w-2xl">
-          <div className="bg-white rounded-3xl shadow-2xl p-12 text-center border border-gray-100">
-            <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-6">
-              <Calendar className="w-10 h-10 text-white" />
-            </div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-4">Login Required</h1>
-            <p className="text-gray-600 mb-8 text-lg leading-relaxed">
-              Please log in to book a therapy session with <span className="font-semibold text-blue-600">{therapist.name}</span>
-            </p>
-            <div className="space-y-4">
-              <Link href={`/auth/login?redirect=${encodeURIComponent(`/therabook/therapists/${therapistId}/book`)}`}>
-                <Button className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-4 rounded-2xl text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300">
-                  Log In to Book Session
-                </Button>
-              </Link>
-              <Link href={`/auth/signup?redirect=${encodeURIComponent(`/therabook/therapists/${therapistId}/book`)}`}>
-                <Button variant="outline" className="w-full py-4 rounded-2xl text-lg border-2 border-gray-200 hover:border-gray-300">
-                  Create Account
-                </Button>
-              </Link>
-              <Link href={`/therabook/therapists/${therapistId}`}>
-                <Button variant="ghost" className="w-full text-gray-600 hover:text-gray-800 rounded-2xl">
-                  Back to Therapist Profile
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </div>
+  if (isLoading || therapist === null) return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 gap-3">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
+          <p className="text-slate-500 text-sm animate-pulse">Loading booking experience...</p>
       </div>
-    );
-  }
+  );
 
-  // If logged in as therapist/admin/clinic-owner (non end-user), block booking creation and guide
-  if (isAuthenticated && user && !isEndUser) {
-    const isClinicOwner = userRole === 'clinic-owner';
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-        <div className="container mx-auto px-4 py-16 max-w-2xl">
-          <div className="bg-white rounded-3xl shadow-2xl p-12 text-center border border-gray-100">
-            <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-6">
-              <Shield className="w-10 h-10 text-white" />
-            </div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-4">Bookings are for end users</h1>
-            <p className="text-gray-600 mb-8 text-lg leading-relaxed">
-              {isClinicOwner 
-                ? "You are logged in as a clinic owner. Clinic accounts cannot book therapy sessions. Please use a patient account to book sessions."
-                : <>You are logged in as <span className="font-semibold">{userRole}</span>. Only end users (patients) can create bookings.</>}
-            </p>
-            <div className="space-y-4">
-              {isClinicOwner ? (
-                <Link href="/clinics/dashboard">
-                  <Button className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-4 rounded-2xl text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300">
-                    Go to Clinic Dashboard
-                  </Button>
-                </Link>
-              ) : (
-                <Link href="/auth/logout">
-                  <Button className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-4 rounded-2xl text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300">
-                    Switch Account
-                  </Button>
-                </Link>
-              )}
-              <Link href={`/therabook/therapists/${therapistId}`}>
-                <Button variant="outline" className="w-full py-4 rounded-2xl text-lg border-2 border-gray-200 hover:border-gray-300">Back to Therapist Profile</Button>
-              </Link>
-            </div>
-          </div>
+  if (!therapistIdValid) return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="text-center p-8">
+            <h2 className="text-xl font-bold text-slate-900">Invalid Therapist ID</h2>
+            <Link href="/therabook/therapists"><Button variant="link">Return to Directory</Button></Link>
         </div>
-      </div>
-    );
-  }
+    </div>
+  ); 
 
-  // If therapist id is invalid (demo mode)
-  if (!therapistIdValid) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="container mx-auto px-4 py-8 max-w-2xl">
-          <div className="bg-white rounded-lg shadow-md p-8 text-center">
-            <h1 className="text-2xl font-bold text-gray-900 mb-4">Demo Therapist Only</h1>
-            <p className="text-gray-600 mb-4">
-              This booking page was opened with an ID that is not a valid therapist record.
-            </p>
-            <p className="text-gray-600 mb-6">
-              To create a real booking, navigate from a real therapist profile (with a 24‑character ID) or seed a therapist in the database.
-            </p>
-            <Link href="/therabook/therapists">
-              <Button className="w-full mb-3">Browse Therapists</Button>
-            </Link>
-            <Link href={`/therabook/therapists/${therapistId}`}>
-              <Button variant="outline" className="w-full">Return to Profile</Button>
-            </Link>
-          </div>
-        </div>
+  if (!therapist) return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="text-center p-8">
+        <p className="text-red-500 font-bold">Therapist data could not be loaded from the database.</p>
       </div>
-    );
-  }
+    </div>
+  );
 
-    return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+  return (
+    <div className="min-h-screen bg-slate-50/50 pb-20 font-sans selection:bg-blue-100 selection:text-blue-900">
       {StepHeader}
-      <div className="container mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8 max-w-6xl">
-        {/* Info Banner for Fallback Data */}
-        {isUsingFallbackData && (
-          <div className="mb-4 sm:mb-6 animate-in slide-in-from-top-2 duration-300">
-            <div className="bg-amber-50 border-l-4 border-amber-400 rounded-lg p-4 shadow-sm">
-              <div className="flex items-start gap-3">
-                <Info className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                <div className="flex-1">
-                  <h4 className="text-sm font-semibold text-amber-900 mb-1">Demo Mode</h4>
-                  <p className="text-xs sm:text-sm text-amber-800">
-                    We're using demo therapist data. Your booking will still be processed, but some details may be limited.
-                  </p>
-              </div>
-            </div>
-          </div>
-            </div>
-        )}
+      
+      <div className="container mx-auto px-4 py-8 max-w-6xl">
         
-        <div className="grid lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
-          {/* Main Column */}
-          <div className="lg:col-span-2 space-y-4 sm:space-y-6 lg:space-y-8">
+        {/* Main Grid Layout */}
+        <div className="grid lg:grid-cols-12 gap-8">
+          
+          {/* LEFT COLUMN (Content) - Spans 8 cols */}
+          <div className="lg:col-span-8 space-y-6">
+            
             {/* Step 1: Date & Time */}
             {step === 1 && (
-              <>
-                {/* Date Selection (Improved) */}
-                <Card className="shadow-xl border-0 rounded-2xl sm:rounded-3xl overflow-hidden">
-                  <CardHeader className="bg-gradient-to-r from-green-50 to-blue-50 pb-4 sm:pb-6 p-4 sm:p-6">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
-                      <div className="flex items-center gap-2 sm:gap-3">
-                        <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-green-500 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
-                          <CalendarIcon className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-                        </div>
-                        <div>
-                          <CardTitle className="text-lg sm:text-2xl">Select Date</CardTitle>
-                          <CardDescription className="text-xs sm:text-base">Choose your preferred date</CardDescription>
-                        </div>
+              <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                
+                {/* Date Selection Card */}
+                <Card className="border-0 shadow-md shadow-slate-200/50 overflow-hidden">
+                  <CardHeader className="border-b border-slate-50 bg-white pb-4">
+                    <CardTitle className="text-lg text-slate-800 flex items-center gap-2">
+                      <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
+                          <CalendarIcon className="w-5 h-5" />
                       </div>
-                      {selectedDate && (
-                        <div className="text-xs sm:text-sm text-blue-700 font-medium bg-blue-50 border border-blue-200 rounded-full px-2 sm:px-3 py-1 w-full sm:w-auto text-center sm:text-left">
-                          {formatDateShort(selectedDate)}
-                        </div>
-                      )}
-                    </div>
+                      Select Date
+                    </CardTitle>
                   </CardHeader>
-                  <CardContent className="p-4 sm:p-6 space-y-3 sm:space-y-4">
-                    {/* Quick Picks */}
-                    <div className="flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        className="px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm rounded-full border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors"
-                        onClick={() => setSelectedDate(new Date())}
-                      >
-                        Today
-                      </button>
-                      <button
-                        type="button"
-                        className="px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm rounded-full border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors"
-                        onClick={() => setSelectedDate(new Date(Date.now() + 24*60*60*1000))}
-                      >
-                        Tomorrow
-                      </button>
-                      <button
-                        type="button"
-                        className="px-2.5 sm:px-3 py-1.5 text-xs sm:text-sm rounded-full border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors"
-                        onClick={() => setSelectedDate(new Date(Date.now() + 7*24*60*60*1000))}
-                      >
-                        Next Week
-                      </button>
+                  <CardContent className="p-6">
+                    {/* Date Pills */}
+                    <div className="flex gap-2 mb-6 overflow-x-auto pb-2 scrollbar-none">
+                       {[0, 1, 2, 3, 7].map((days) => {
+                           const d = new Date();
+                           d.setDate(d.getDate() + days);
+                           const isSelected = selectedDate?.toDateString() === d.toDateString();
+                           return (
+                               <button
+                                   key={days}
+                                   onClick={() => setSelectedDate(d)}
+                                   className={`
+                                     flex flex-col items-center justify-center min-w-[4.5rem] py-3 rounded-xl text-sm font-medium transition-all duration-200 border
+                                     ${isSelected 
+                                       ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-200 transform scale-105' 
+                                       : 'bg-white border-slate-200 text-slate-600 hover:border-blue-300 hover:bg-blue-50'}
+                                   `}
+                               >
+                                   <span className="text-xs opacity-80 font-normal">{d.toLocaleDateString('en-US', { weekday: 'short' })}</span>
+                                   <span className="text-lg font-bold">{d.getDate()}</span>
+                               </button>
+                           )
+                       })}
                     </div>
 
-                    {/* Inline Calendar */}
-                      <div className="rounded-xl sm:rounded-2xl border border-gray-100 p-2 sm:p-3 lg:p-4">
-                        <LocalizationProvider dateAdapter={AdapterDateFns}>
-                          <DatePicker
-                            label="Select session date"
-                            value={selectedDate}
-                            onChange={(newValue: Date | null) => setSelectedDate(newValue ?? undefined)}
-                            disablePast
-                            enableAccessibleFieldDOMStructure={false}
-                            slots={{ textField: TextField }}
-                          />
-                        </LocalizationProvider>
-                      </div>
-
-                    <p className="text-xs text-gray-500">Select a date to view available time slots below.</p>
+                    <div className="p-1">
+                       <LocalizationProvider dateAdapter={AdapterDateFns}>
+                            <DatePicker
+                              label="Or pick a specific date"
+                              value={selectedDate}
+                              onChange={(newValue: Date | null) => setSelectedDate(newValue ?? undefined)}
+                              disablePast
+                              className="w-full bg-white"
+                              enableAccessibleFieldDOMStructure={false}
+                              slots={{ textField: (params) => <TextField {...params} fullWidth /> }}
+                            />
+                       </LocalizationProvider>
+                    </div>
                   </CardContent>
                 </Card>
 
-                {/* Time Selection */}
-                <Card className="shadow-xl border-0 rounded-2xl sm:rounded-3xl overflow-hidden">
-                  <CardHeader className="bg-gradient-to-r from-green-50 to-blue-50 pb-4 sm:pb-6 p-4 sm:p-6">
-                    <CardTitle className="flex items-center gap-2 sm:gap-3 text-lg sm:text-2xl">
-                      <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-green-500 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
-                        <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-                      </div>
-                      Select Time Slot
-                    </CardTitle>
-                    <CardDescription className="text-sm sm:text-lg mt-1">
-                      {selectedDate ? `Available time slots for ${formatDateShort(selectedDate)}` : 'Select a date to see time slots'}
-                    </CardDescription>
+                {/* Time Selection Card */}
+                <Card className="border-0 shadow-md shadow-slate-200/50">
+                  <CardHeader className="border-b border-slate-50 bg-white pb-4">
+                    <div className="flex items-center justify-between">
+                        <CardTitle className="text-lg text-slate-800 flex items-center gap-2">
+                            <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
+                                <Clock className="w-5 h-5" />
+                            </div>
+                            Select Time
+                        </CardTitle>
+                        {selectedDate && <span className="text-sm font-medium text-slate-500 bg-slate-100 px-3 py-1 rounded-full">{formatDateShort(selectedDate)}</span>}
+                    </div>
                   </CardHeader>
-                  <CardContent className="p-4 sm:p-6">
+                  <CardContent className="p-6">
                     {isLoadingAvailability ? (
-                      <div className="text-center py-6 sm:py-8">
-                        <div className="animate-spin rounded-full h-6 w-6 sm:h-8 sm:w-8 border-b-2 border-blue-600 mx-auto mb-3 sm:mb-4"></div>
-                        <p className="text-gray-600 text-sm sm:text-base">Loading available times...</p>
-                      </div>
+                        <div className="py-12 flex flex-col items-center justify-center gap-3">
+                            <div className="animate-spin h-6 w-6 border-2 border-blue-600 rounded-full border-t-transparent"></div>
+                            <span className="text-slate-400 text-sm">Checking therapist's schedule...</span>
+                        </div>
                     ) : availability.length > 0 ? (
-                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-3">
+                      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
                         {availability.map((slot) => (
                           <button
                             key={slot.time}
                             onClick={() => slot.available && setSelectedTime(slot.time)}
                             disabled={!slot.available}
-                            className={`p-3 sm:p-4 lg:p-5 border-2 rounded-xl sm:rounded-2xl text-center transition-all duration-300 text-sm sm:text-base font-semibold min-h-[60px] sm:min-h-[70px] flex items-center justify-center ${
-                              selectedTime === slot.time
-                                ? 'border-blue-500 bg-blue-50 text-blue-700 shadow-lg scale-105 ring-2 ring-blue-200'
+                            className={`
+                              py-3 px-2 rounded-xl text-sm font-bold transition-all duration-200 border
+                              ${selectedTime === slot.time
+                                ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-200/50 transform scale-105 ring-2 ring-blue-100'
                                 : slot.available
-                                ? 'border-gray-200 hover:border-blue-300 hover:bg-blue-50 active:scale-95 hover:shadow-md'
-                                : 'border-gray-100 bg-gray-50 text-gray-400 cursor-not-allowed opacity-60'
-                            }`}
+                                  ? 'bg-white border-slate-200 text-slate-700 hover:border-blue-400 hover:bg-blue-50/50 hover:text-blue-700'
+                                  : 'bg-slate-50 border-slate-100 text-slate-300 cursor-not-allowed decoration-slice opacity-60'}
+                            `}
                           >
-                            <div className="flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2">
-                              <Clock className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                              <span>{slot.time}</span>
-                            </div>
+                            {slot.time}
                           </button>
                         ))}
                       </div>
                     ) : (
-                      <div className="text-center py-6 sm:py-8">
-                        <Clock className="w-12 h-12 sm:w-16 sm:h-16 text-gray-400 mx-auto mb-3 sm:mb-4" />
-                        <p className="text-gray-600 mb-2 sm:mb-4 text-sm sm:text-base">No available time slots for this date</p>
-                        <p className="text-xs sm:text-sm text-gray-500">Please select a different date</p>
+                      <div className="text-center py-12 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                         <Calendar className="w-10 h-10 mx-auto mb-3 text-slate-300" />
+                         <p className="text-slate-500 font-medium">No slots available for this date.</p>
+                         <p className="text-slate-400 text-sm">Please select another day.</p>
                       </div>
                     )}
-                    {bookingError && 
-                     !bookingError.includes('MongoDB') && 
-                     !bookingError.includes('connect') && 
-                     !bookingError.includes('Database') &&
-                     !bookingError.includes('database') && (
-                      <div className="mt-4 p-3 sm:p-4 bg-red-50 border-l-4 border-red-400 rounded-lg shadow-sm animate-in slide-in-from-top-2 duration-300">
-                        <div className="flex items-start gap-3">
-                          <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                          <div className="flex-1">
-                            <p className="text-red-800 text-xs sm:text-sm font-medium">{bookingError}</p>
-                          </div>
-                        </div>
-                      </div>
+                    
+                    {bookingError && (
+                         <div className="mt-4 p-3 bg-red-50 text-red-700 text-sm rounded-lg flex items-center gap-2">
+                             <AlertCircle className="w-4 h-4"/> {bookingError}
+                         </div>
                     )}
-                    <div className="flex flex-col sm:flex-row justify-between gap-3 sm:gap-4 pt-4 sm:pt-6 border-t border-gray-200">
-                      <Link href={`/therabook/therapists/${therapistId}/book/confirm-therapist`} className="w-full sm:w-auto">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="rounded-xl sm:rounded-2xl px-4 sm:px-6 py-2.5 sm:py-3 w-full sm:w-auto text-sm sm:text-base border-2 hover:bg-gray-50"
-                        >
-                          Back
-                        </Button>
-                      </Link>
-                      <Button 
-                        onClick={next} 
-                        disabled={!canProceedFromStep1} 
-                        size="sm" 
-                        className="rounded-xl sm:rounded-2xl px-4 sm:px-6 py-2.5 sm:py-3 w-full sm:w-auto text-sm sm:text-base font-semibold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all disabled:opacity-50"
-                      >
-                        Continue
-                      </Button>
-                    </div>
+
                   </CardContent>
+                  <div className="p-4 bg-slate-50/80 border-t border-slate-100 flex justify-end">
+                     <Button 
+                        onClick={next} 
+                        disabled={!canProceedFromStep1}
+                        size="lg"
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-8 shadow-lg shadow-blue-200 transition-all hover:-translate-y-0.5"
+                     >
+                        Continue to Format <ChevronRight className="w-4 h-4 ml-2" />
+                     </Button>
+                  </div>
                 </Card>
-              </>
+              </div>
             )}
 
             {/* Step 2: Session Format */}
             {step === 2 && (
-              <Card className="shadow-xl border-0 rounded-2xl sm:rounded-3xl overflow-hidden transition-all duration-300 hover:shadow-2xl">
-                <CardHeader className="bg-gradient-to-r from-blue-50 via-purple-50 to-pink-50 pb-4 sm:pb-6 p-4 sm:p-6 text-center">
-                  <CardTitle className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                    Session Format
-                  </CardTitle>
-                  <CardDescription className="text-sm sm:text-base mt-2">Choose how you'd like to connect</CardDescription>
+              <Card className="border-0 shadow-md shadow-slate-200/50 animate-in fade-in slide-in-from-right-4 duration-500">
+                <CardHeader>
+                  <CardTitle className="text-xl text-slate-900">Choose Session Format</CardTitle>
+                  <CardDescription className="text-slate-500">How would you like to connect with {therapist.name}?</CardDescription>
                 </CardHeader>
-                <CardContent className="p-4 sm:p-6 grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-                  {sessionTypes.map((type) => {
-                    const Icon = type.icon; 
-                    const selected = selectedSessionType === type.id;
+                <CardContent className="space-y-4 p-6">
+                  {sessionTypesWithPricing.map((type) => {
+                    const Icon = type.icon;
+                    const isSelected = selectedSessionType === type.id;
                     return (
-                      <div 
-                        key={type.id} 
-                        onClick={() => setSelectedSessionType(type.id)} 
-                        className={`p-4 sm:p-5 lg:p-6 rounded-xl sm:rounded-2xl border-2 cursor-pointer transition-all duration-300 ${
-                          selected 
-                            ? 'border-blue-500 bg-blue-50 shadow-lg scale-[1.01] sm:scale-[1.02] ring-2 ring-blue-200' 
-                            : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/50 hover:shadow-md active:scale-[0.99] sm:active:scale-[0.98]'
-                        }`}
+                      <div
+                        key={type.id}
+                        onClick={() => setSelectedSessionType(type.id)}
+                        className={`
+                          relative group flex items-start gap-4 p-5 rounded-2xl border-2 cursor-pointer transition-all duration-300
+                          ${isSelected 
+                            ? 'border-blue-600 bg-blue-50/30 shadow-md ring-1 ring-blue-100' 
+                            : 'border-slate-100 bg-white hover:border-blue-200 hover:shadow-sm hover:bg-slate-50/50'}
+                        `}
                       >
-                        <div className="flex items-start gap-3 sm:gap-4">
-                          <div className={`p-2.5 sm:p-3 rounded-lg sm:rounded-xl transition-all duration-300 flex-shrink-0 ${
-                            selected ? 'bg-gradient-to-br from-blue-600 to-purple-600 shadow-md' : 'bg-gray-100'
-                          }`}>
-                            <Icon className={`w-5 h-5 sm:w-6 sm:h-6 transition-colors ${selected ? 'text-white' : 'text-gray-600'}`} />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex flex-col sm:flex-row items-start sm:items-start justify-between gap-2 sm:gap-3">
-                              <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-1.5 sm:mb-2 flex-wrap">
-                                  <h4 className="font-bold text-sm sm:text-base lg:text-lg text-gray-900">{type.name}</h4>
-                                  {type.popular && (
-                                    <Badge className="bg-gradient-to-r from-yellow-400 to-orange-400 text-white text-[10px] sm:text-xs px-1.5 sm:px-2 py-0.5">
-                                      Popular
-                                    </Badge>
-                                  )}
-                                </div>
-                                <p className="text-xs sm:text-sm text-gray-600 leading-relaxed mb-2 sm:mb-0">{type.description}</p>
-                              </div>
-                              <div className="text-left sm:text-right flex-shrink-0 w-full sm:w-auto">
-                                <div className="font-bold text-lg sm:text-xl lg:text-2xl text-blue-700">₹{type.price}</div>
-                                <div className="text-xs sm:text-sm text-gray-500">{type.duration}</div>
-                              </div>
-                            </div>
-                            {selected && (
-                              <div className="mt-3 sm:mt-4 pt-3 sm:pt-4 border-t border-blue-200">
-                                <div className="flex flex-wrap gap-1.5 sm:gap-2">
-                                  {type.features?.map((feature, idx) => (
-                                    <Badge key={idx} variant="outline" className="text-[10px] sm:text-xs bg-white border-blue-200 text-blue-700 px-2 py-0.5">
-                                      {feature}
-                                    </Badge>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                          </div>
+                        <div className={`
+                           p-3 rounded-xl flex-shrink-0 transition-colors
+                           ${isSelected ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'bg-slate-100 text-slate-500 group-hover:bg-blue-100 group-hover:text-blue-600'}
+                        `}>
+                           <Icon className="w-6 h-6" />
                         </div>
+                        
+                        <div className="flex-1 min-w-0">
+                           <div className="flex justify-between items-start mb-1">
+                              <h3 className={`font-bold text-lg ${isSelected ? 'text-blue-900' : 'text-slate-900'}`}>{type.name}</h3>
+                              <span className="font-bold text-blue-700 bg-blue-50 px-2 py-1 rounded-md text-sm">₹{type.price}</span>
+                           </div>
+                           <p className="text-slate-500 text-sm mb-3 leading-relaxed">{type.description}</p>
+                           <div className="flex flex-wrap gap-2">
+                              {type.features.slice(0, 3).map((f, i) => (
+                                 <Badge key={i} variant="secondary" className="bg-white border border-slate-200 text-slate-600 font-normal">
+                                    {f}
+                                 </Badge>
+                              ))}
+                           </div>
+                        </div>
+
+                        {isSelected && (
+                           <div className="absolute top-[-10px] right-[-10px] bg-blue-600 rounded-full p-1 shadow-md animate-in zoom-in duration-200">
+                              <CheckCircle className="w-5 h-5 text-white" />
+                           </div>
+                        )}
                       </div>
                     );
                   })}
-                  <div className="md:col-span-2 flex flex-col sm:flex-row justify-between gap-3 sm:gap-4 pt-4 sm:pt-6 border-t border-gray-200">
-                    <Button 
-                      variant="outline" 
-                      onClick={back} 
-                      className="rounded-xl sm:rounded-2xl px-4 sm:px-6 py-2.5 sm:py-3 w-full sm:w-auto text-sm sm:text-base border-2 hover:bg-gray-50 transition-all"
-                    >
-                      Previous
-                    </Button>
-                    <Button 
-                      onClick={next} 
-                      disabled={!canProceedFromStep2}
-                      className="rounded-xl sm:rounded-2xl px-4 sm:px-6 py-2.5 sm:py-3 w-full sm:w-auto text-sm sm:text-base font-semibold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      Continue
-                    </Button>
+                  
+                  <div className="flex justify-between pt-6 mt-2 border-t border-slate-100">
+                     <Button variant="outline" onClick={back} className="border-slate-200 text-slate-600">Back</Button>
+                     <Button 
+                        onClick={next} 
+                        disabled={!canProceedFromStep2}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-8 shadow-lg shadow-blue-200"
+                     >
+                        Continue to Details <ChevronRight className="w-4 h-4 ml-2" />
+                     </Button>
                   </div>
                 </CardContent>
               </Card>
             )}
 
-            {/* Step 3: Your Details */}
+            {/* Step 3: Details */}
             {step === 3 && (
-              <Card className="shadow-xl border-0 rounded-2xl sm:rounded-3xl overflow-hidden">
-                <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50 pb-4 sm:pb-6 p-4 sm:p-6 text-center">
-                  <CardTitle className="text-xl sm:text-2xl lg:text-3xl font-bold">Your Details</CardTitle>
-                  <CardDescription className="text-xs sm:text-sm mt-1 sm:mt-2">Tell us about yourself</CardDescription>
+              <Card className="border-0 shadow-md shadow-slate-200/50 animate-in fade-in slide-in-from-right-4 duration-500">
+                <CardHeader>
+                  <CardTitle className="text-xl">Patient Details</CardTitle>
+                  <CardDescription>We need a few details to prepare for your session.</CardDescription>
                 </CardHeader>
-                <CardContent className="p-4 sm:p-6 space-y-4 sm:space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
-                    <div className="space-y-2">
-                      <label className="text-xs sm:text-sm font-semibold text-gray-700 block">Full Name *</label>
-                      <input 
-                        className="w-full border-2 border-gray-200 rounded-lg sm:rounded-xl h-11 sm:h-12 px-3 sm:px-4 text-sm sm:text-base focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all" 
-                        value={patientFullName} 
-                        onChange={(e)=>setPatientFullName(e.target.value)} 
-                        placeholder="Enter your full name" 
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-xs sm:text-sm font-semibold text-gray-700 block">Age</label>
-                      <input 
-                        className="w-full border-2 border-gray-200 rounded-lg sm:rounded-xl h-11 sm:h-12 px-3 sm:px-4 text-sm sm:text-base focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all" 
-                        value={patientAge} 
-                        onChange={(e)=>setPatientAge(e.target.value)} 
-                        placeholder="Enter your age" 
-                        inputMode="numeric"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-xs sm:text-sm font-semibold text-gray-700 block">Email Address *</label>
-                      <input 
-                        className="w-full border-2 border-gray-200 rounded-lg sm:rounded-xl h-11 sm:h-12 px-3 sm:px-4 text-sm sm:text-base focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all" 
-                        type="email"
-                        value={patientEmail} 
-                        onChange={(e)=>setPatientEmail(e.target.value)} 
-                        placeholder="Enter your email" 
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-xs sm:text-sm font-semibold text-gray-700 block">Phone Number *</label>
-                      <input 
-                        className="w-full border-2 border-gray-200 rounded-lg sm:rounded-xl h-11 sm:h-12 px-3 sm:px-4 text-sm sm:text-base focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all" 
-                        type="tel"
-                        value={patientPhone} 
-                        onChange={(e)=>setPatientPhone(e.target.value)} 
-                        placeholder="Enter your phone number" 
-                        inputMode="tel"
-                      />
-                    </div>
-                    <div className="md:col-span-2 space-y-2">
-                      <label className="text-xs sm:text-sm font-semibold text-gray-700 block">Primary Concerns *</label>
-                      <textarea 
-                        className="w-full border-2 border-gray-200 rounded-lg sm:rounded-xl px-3 sm:px-4 py-2.5 sm:py-3 text-sm sm:text-base focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all resize-none" 
-                        rows={4} 
-                        value={patientConcerns} 
-                        onChange={(e)=>setPatientConcerns(e.target.value)} 
-                        placeholder="Please describe what you'd like to work on in therapy..." 
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-xs sm:text-sm font-semibold text-gray-700 block">Preferred Language</label>
-                      <input 
-                        className="w-full border-2 border-gray-200 rounded-lg sm:rounded-xl h-11 sm:h-12 px-3 sm:px-4 text-sm sm:text-base focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all" 
-                        value={patientLanguage} 
-                        onChange={(e)=>setPatientLanguage(e.target.value)} 
-                        placeholder="e.g., English, Hindi" 
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-xs sm:text-sm font-semibold text-gray-700 block">Emergency Contact</label>
-                      <input 
-                        className="w-full border-2 border-gray-200 rounded-lg sm:rounded-xl h-11 sm:h-12 px-3 sm:px-4 text-sm sm:text-base focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all" 
-                        value={patientEmergency} 
-                        onChange={(e)=>setPatientEmergency(e.target.value)} 
-                        placeholder="Name and phone number" 
-                      />
-                    </div>
-                    <div className="md:col-span-2 flex items-center gap-2 sm:gap-3 mt-2 sm:mt-4 p-3 sm:p-4 bg-gray-50 rounded-lg sm:rounded-xl">
-                      <input 
-                        id="had-therapy" 
-                        type="checkbox" 
-                        checked={hasTherapyBefore} 
-                        onChange={(e)=>setHasTherapyBefore(e.target.checked)}
-                        className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 border-gray-300 rounded focus:ring-2 focus:ring-blue-500"
-                      />
-                      <label htmlFor="had-therapy" className="text-xs sm:text-sm text-gray-700 cursor-pointer">I have had therapy sessions before</label>
-                    </div>
-                  </div>
-
-                  {/* In-Home fields only when 'Home' is selected */}
-                  {inHomeSelected && (
-                    <div className="mt-4 sm:mt-6 p-4 sm:p-5 border-2 border-orange-200 rounded-xl sm:rounded-2xl bg-orange-50">
-                      <h4 className="font-semibold text-orange-800 mb-2 text-sm sm:text-base">Home Visit Address & Contact</h4>
-                      <p className="text-xs sm:text-sm text-orange-700 mb-4">Please provide the address and contact details for the home visit.</p>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-5">
-                        <div className="md:col-span-2 space-y-2">
-                          <label className="text-xs sm:text-sm font-semibold text-gray-700 block">Address Line 1 *</label>
-                          <input 
-                            className="w-full border-2 border-gray-200 rounded-lg sm:rounded-xl h-11 sm:h-12 px-3 sm:px-4 text-sm sm:text-base focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition-all" 
-                            value={inHomeAddressLine1} 
-                            onChange={(e)=>setInHomeAddressLine1(e.target.value)} 
-                            placeholder="House/Flat, Street" 
-                          />
-                        </div>
-                        <div className="md:col-span-2 space-y-2">
-                          <label className="text-xs sm:text-sm font-semibold text-gray-700 block">Address Line 2</label>
-                          <input 
-                            className="w-full border-2 border-gray-200 rounded-lg sm:rounded-xl h-11 sm:h-12 px-3 sm:px-4 text-sm sm:text-base focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition-all" 
-                            value={inHomeAddressLine2} 
-                            onChange={(e)=>setInHomeAddressLine2(e.target.value)} 
-                            placeholder="Landmark, Area (optional)" 
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs sm:text-sm font-semibold text-gray-700 block">City *</label>
-                          <input 
-                            className="w-full border-2 border-gray-200 rounded-lg sm:rounded-xl h-11 sm:h-12 px-3 sm:px-4 text-sm sm:text-base focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition-all" 
-                            value={inHomeCity} 
-                            onChange={(e)=>setInHomeCity(e.target.value)} 
-                            placeholder="City" 
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs sm:text-sm font-semibold text-gray-700 block">Pincode *</label>
-                          <input 
-                            className="w-full border-2 border-gray-200 rounded-lg sm:rounded-xl h-11 sm:h-12 px-3 sm:px-4 text-sm sm:text-base focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition-all" 
-                            value={inHomePincode} 
-                            onChange={(e)=>{
-                              const val = e.target.value.replace(/[^0-9]/g, '').slice(0,6);
-                              setInHomePincode(val);
-                            }} 
-                            inputMode="numeric" 
-                            placeholder="6-digit pincode" 
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs sm:text-sm font-semibold text-gray-700 block">On-site Contact Name</label>
-                          <input 
-                            className="w-full border-2 border-gray-200 rounded-lg sm:rounded-xl h-11 sm:h-12 px-3 sm:px-4 text-sm sm:text-base focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition-all" 
-                            value={inHomeContactName} 
-                            onChange={(e)=>setInHomeContactName(e.target.value)} 
-                            placeholder="Person at the location" 
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <label className="text-xs sm:text-sm font-semibold text-gray-700 block">On-site Contact Phone *</label>
-                          <input 
-                            className="w-full border-2 border-gray-200 rounded-lg sm:rounded-xl h-11 sm:h-12 px-3 sm:px-4 text-sm sm:text-base focus:border-orange-500 focus:ring-2 focus:ring-orange-200 transition-all" 
-                            value={inHomeContactPhone} 
-                            onChange={(e)=>{
-                              const val = e.target.value.replace(/[^0-9]/g, '').slice(0,13);
-                              setInHomeContactPhone(val);
-                            }} 
-                            inputMode="tel" 
-                            placeholder="10+ digit phone" 
-                          />
-                        </div>
+                <CardContent className="space-y-6 p-6">
+                   
+                   {/* Personal Info Grid */}
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                      <div className="space-y-2">
+                         <label className="text-sm font-semibold text-slate-700">Full Name <span className="text-red-500">*</span></label>
+                         <input 
+                            className="flex h-11 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:border-transparent transition-all"
+                            placeholder="e.g. John Doe"
+                            value={patientFullName}
+                            onChange={(e) => setPatientFullName(e.target.value)}
+                         />
                       </div>
-                      {/* Simple guidance/errors */}
-                      {!canProceedFromStep4 && (
-                        <p className="text-xs sm:text-sm text-red-700 mt-3 sm:mt-4 p-2 sm:p-3 bg-red-50 rounded-lg border border-red-200">Please complete all required fields for home visit (Address Line 1, City, 6-digit Pincode, and Contact Phone).</p>
-                      )}
-                    </div>
-                  )}
-
-                  <div className="flex flex-col sm:flex-row justify-between gap-3 sm:gap-4 mt-6 sm:mt-8 pt-4 sm:pt-6 border-t border-gray-200">
-                    <Button 
-                      variant="outline" 
-                      onClick={back}
-                      className="w-full sm:w-auto rounded-xl sm:rounded-2xl px-4 sm:px-6 py-2.5 sm:py-3 text-sm sm:text-base border-2 hover:bg-gray-50"
-                    >
-                      Previous
-                    </Button>
-                    <Button
-                      className="w-full sm:flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-3 sm:py-4 rounded-xl sm:rounded-2xl text-base sm:text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                      disabled={!canBook || isBooking}
-                      onClick={next}
-                    >
-                      {isBooking ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                          Creating Booking...
-                        </>
-                      ) : (
-                        <>
-                          <CreditCard className="w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3" />
-                          Continue to Payment
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                  {bookingError && 
-                   !bookingError.includes('MongoDB') && 
-                   !bookingError.includes('connect') && 
-                   !bookingError.includes('Database') &&
-                   !bookingError.includes('database') && (
-                    <div className="mt-4 p-3 sm:p-4 bg-red-50 border-l-4 border-red-400 rounded-lg shadow-sm animate-in slide-in-from-top-2 duration-300">
-                      <div className="flex items-start gap-3">
-                        <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                        <div className="flex-1">
-                          <p className="text-red-800 text-xs sm:text-sm font-medium">{bookingError}</p>
-                        </div>
+                      <div className="space-y-2">
+                         <label className="text-sm font-semibold text-slate-700">Age</label>
+                         <input 
+                            className="flex h-11 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 transition-all"
+                            placeholder="e.g. 28"
+                            value={patientAge}
+                            onChange={(e) => setPatientAge(e.target.value)}
+                         />
                       </div>
-                    </div>
-                  )}
+                      <div className="space-y-2">
+                         <label className="text-sm font-semibold text-slate-700">Email Address <span className="text-red-500">*</span></label>
+                         <input 
+                            type="email"
+                            className="flex h-11 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 transition-all"
+                            placeholder="john@example.com"
+                            value={patientEmail}
+                            onChange={(e) => setPatientEmail(e.target.value)}
+                         />
+                      </div>
+                      <div className="space-y-2">
+                         <label className="text-sm font-semibold text-slate-700">Phone Number <span className="text-red-500">*</span></label>
+                         <input 
+                            type="tel"
+                            className="flex h-11 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 transition-all"
+                            placeholder="+91 98765 43210"
+                            value={patientPhone}
+                            onChange={(e) => setPatientPhone(e.target.value)}
+                         />
+                      </div>
+                      <div className="md:col-span-2 space-y-2">
+                         <label className="text-sm font-semibold text-slate-700">Primary Concerns <span className="text-red-500">*</span></label>
+                         <textarea 
+                            className="flex min-h-[120px] w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-600 transition-all resize-none"
+                            placeholder="Briefly describe what you'd like to discuss or work on..."
+                            value={patientConcerns}
+                            onChange={(e) => setPatientConcerns(e.target.value)}
+                         />
+                      </div>
+                   </div>
+
+                   {/* Conditional Home Visit Section */}
+                   {inHomeSelected && (
+                      <div className="bg-amber-50/80 border border-amber-200 rounded-xl p-6 space-y-4 animate-in slide-in-from-top-2">
+                         <div className="flex items-center gap-2 text-amber-900 font-bold border-b border-amber-200 pb-2">
+                            <MapPin className="w-5 h-5 text-amber-600" /> Home Visit Required Details
+                         </div>
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                             <input className="h-11 rounded-lg border border-amber-200 bg-white px-3 text-sm focus:ring-2 focus:ring-amber-400 focus:outline-none" placeholder="Address Line 1 *" value={inHomeAddressLine1} onChange={e=>setInHomeAddressLine1(e.target.value)} />
+                             <input className="h-11 rounded-lg border border-amber-200 bg-white px-3 text-sm focus:ring-2 focus:ring-amber-400 focus:outline-none" placeholder="City *" value={inHomeCity} onChange={e=>setInHomeCity(e.target.value)} />
+                             <input className="h-11 rounded-lg border border-amber-200 bg-white px-3 text-sm focus:ring-2 focus:ring-amber-400 focus:outline-none" placeholder="Pincode (6 digits) *" value={inHomePincode} onChange={e=>setInHomePincode(e.target.value)} />
+                             <input className="h-11 rounded-lg border border-amber-200 bg-white px-3 text-sm focus:ring-2 focus:ring-amber-400 focus:outline-none" placeholder="Contact Person Name" value={inHomeContactName} onChange={e=>setInHomeContactName(e.target.value)} />
+                             <input className="md:col-span-2 h-11 rounded-lg border border-amber-200 bg-white px-3 text-sm focus:ring-2 focus:ring-amber-400 focus:outline-none" placeholder="Contact Phone at Location *" value={inHomeContactPhone} onChange={e=>setInHomeContactPhone(e.target.value)} />
+                         </div>
+                         <p className="text-xs text-amber-700 italic">* Therapist will use these details to reach your location.</p>
+                      </div>
+                   )}
+                   
+                   {bookingError && (
+                         <div className="mt-4 p-3 bg-red-50 text-red-700 text-sm rounded-lg flex items-center gap-2">
+                             <AlertCircle className="w-4 h-4"/> {bookingError}
+                         </div>
+                   )}
+
+                   <div className="flex justify-between pt-6 border-t border-slate-100">
+                     <Button variant="outline" onClick={back} className="border-slate-200 text-slate-600">Back</Button>
+                     <Button 
+                        onClick={next} 
+                        disabled={!canProceedFromStep3 || isBooking}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-8 shadow-lg shadow-blue-200 min-w-[160px]"
+                     >
+                        {isBooking ? (
+                            <><div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div> Creating...</>
+                        ) : (
+                            <>Proceed to Payment <CreditCard className="w-4 h-4 ml-2" /></>
+                        )}
+                     </Button>
+                  </div>
                 </CardContent>
               </Card>
             )}
 
             {/* Step 4: Payment */}
-            {step === 4 && bookingId && (
-              <Card className="shadow-xl border-0 rounded-2xl sm:rounded-3xl overflow-hidden">
-                <CardHeader className="bg-gradient-to-r from-green-50 to-blue-50 pb-4 sm:pb-6 p-4 sm:p-6">
-                  <div className="flex items-center gap-2 sm:gap-3">
-                    <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-r from-green-500 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
-                      <CreditCard className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-lg sm:text-2xl">Secure Payment</CardTitle>
-                      <CardDescription className="text-xs sm:text-base">Complete your booking with secure payment</CardDescription>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-4 sm:p-6 space-y-6">
-                  {paymentError && (
-                    <div className="p-4 bg-red-50 border-l-4 border-red-400 rounded-lg">
-                      <div className="flex items-start gap-3">
-                        <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                        <div className="flex-1">
-                          <p className="text-red-800 text-sm font-medium">{paymentError}</p>
+            {step === 4 && (
+               <Card className="border-0 shadow-lg ring-1 ring-slate-200 animate-in fade-in slide-in-from-right-4 duration-500 overflow-hidden">
+                  <div className="h-2 bg-gradient-to-r from-emerald-400 to-blue-500 w-full" />
+                  <CardHeader className="bg-slate-50 border-b border-slate-100 pb-6 pt-6">
+                     <div className="flex flex-col items-center text-center gap-2">
+                        <div className="bg-emerald-100 p-3 rounded-full mb-2">
+                           <Shield className="w-8 h-8 text-emerald-600" />
                         </div>
-                      </div>
-                    </div>
-                  )}
+                        <CardTitle className="text-2xl text-slate-900">Secure Payment</CardTitle>
+                        <CardDescription className="text-slate-500">
+                            Complete your booking securely via Razorpay
+                        </CardDescription>
+                     </div>
+                  </CardHeader>
+                  <CardContent className="p-8 text-center space-y-8">
+                     
+                     <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm max-w-sm mx-auto">
+                        <p className="text-slate-500 text-sm mb-1">Total Amount Payable</p>
+                        <div className="text-4xl font-bold text-slate-900 flex items-start justify-center gap-1">
+                            <span className="text-lg mt-1 font-medium text-slate-400">₹</span>
+                            {getSelectedPrice() + 5}
+                        </div>
+                     </div>
 
-                  <div className="bg-blue-50 border-l-4 border-blue-600 p-4 rounded-r-lg">
-                    <div className="flex items-start gap-3">
-                      <Shield className="w-6 h-6 text-blue-600 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <h4 className="font-semibold text-blue-900 mb-1">Secure Payment Gateway</h4>
-                        <p className="text-sm text-blue-800">
-                          Your payment is processed securely through Razorpay. We never store your card details.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
+                     {/* Info Alert */}
+                     <div className="max-w-md mx-auto bg-blue-50 text-blue-800 text-sm p-4 rounded-lg flex items-start gap-3 text-left border border-blue-100">
+                        <Sparkles className="w-5 h-5 flex-shrink-0 text-blue-600" />
+                        <div>
+                           <strong>Almost there!</strong> Your slot with {therapist.name} is reserved for 10 minutes. Complete the payment to confirm your booking.
+                        </div>
+                     </div>
 
-                  {gatewayMode && (
-                    <div className="text-xs text-gray-500 text-center">
-                      Payment mode: <span className="font-medium">{gatewayMode}</span>
-                    </div>
-                  )}
+                     {paymentError && (
+                         <div className="max-w-md mx-auto bg-red-50 text-red-700 text-sm p-4 rounded-lg flex items-start gap-3 text-left border border-red-100">
+                            <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                            <div>{paymentError}</div>
+                         </div>
+                     )}
 
-                  <div className="flex flex-col sm:flex-row justify-between gap-3 sm:gap-4 pt-4 sm:pt-6 border-t border-gray-200">
-                    <Button 
-                      variant="outline" 
-                      onClick={back} 
-                      disabled={isProcessingPayment}
-                      className="w-full sm:w-auto rounded-xl sm:rounded-2xl px-4 sm:px-6 py-2.5 sm:py-3 text-sm sm:text-base border-2 hover:bg-gray-50 disabled:opacity-50"
-                    >
-                      Previous
-                    </Button>
-                    <Button
-                      className="w-full sm:flex-1 bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white py-3 sm:py-4 rounded-xl sm:rounded-2xl text-base sm:text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                      disabled={isProcessingPayment}
-                      onClick={handlePayment}
-                    >
-                      {isProcessingPayment ? (
-                        <>
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                          Processing...
-                        </>
-                      ) : (
-                        <>
-                          <CreditCard className="w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3" />
-                          Pay Securely
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+                     <div className="space-y-4">
+                        <Button 
+                            size="lg" 
+                            onClick={handlePayment} 
+                            disabled={isProcessingPayment}
+                            className="w-full max-w-sm bg-emerald-600 hover:bg-emerald-700 text-white shadow-xl shadow-emerald-100 text-lg h-14 rounded-xl transition-all hover:-translate-y-1"
+                        >
+                            {isProcessingPayment ? (
+                                <><div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-3"></div> Processing Payment...</>
+                            ) : 'Pay Now Securely'}
+                        </Button>
+                        
+                        <Button variant="ghost" size="sm" onClick={back} disabled={isProcessingPayment} className="text-slate-400 hover:text-slate-600">
+                            Go Back / Cancel
+                        </Button>
+                     </div>
+                     
+                     {gatewayMode && <p className="text-xs text-slate-300 pt-4">Payment Mode: {gatewayMode}</p>}
+
+                     <div className="flex items-center justify-center gap-4 opacity-50 grayscale pt-4">
+                        <CreditCard className="h-6 w-6" />
+                        <div className="font-bold text-xs border border-slate-400 rounded px-1">UPI</div>
+                        <div className="font-bold text-xs">VISA</div>
+                     </div>
+                  </CardContent>
+               </Card>
             )}
+
           </div>
 
-          {/* Summary Sidebar */}
-          <div className="lg:col-span-1 order-first lg:order-last">
-            <Card className="lg:sticky lg:top-32 shadow-xl lg:shadow-2xl border-0 rounded-2xl sm:rounded-3xl overflow-hidden">
-              <CardHeader className="bg-gradient-to-r from-purple-50 to-pink-50 pb-4 sm:pb-6 p-4 sm:p-6">
-                <CardTitle className="text-base sm:text-lg lg:text-2xl font-bold">Booking Summary</CardTitle>
-              </CardHeader>
-              <CardContent className="p-4 sm:p-6 space-y-3 sm:space-y-4 lg:space-y-6">
-                {/* Therapist Info */}
-                <div className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl sm:rounded-2xl">
-                  <Avatar className="w-12 h-12 sm:w-16 sm:h-16 ring-2 ring-white flex-shrink-0">
-                    <AvatarImage src={therapist.image} alt={therapist.name} />
-                    <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white text-sm sm:text-lg">
-                      {String(therapist.name || '')
-                        .split(' ')
-                        .map((n: string) => n[0])
-                        .join('')}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="min-w-0 flex-1">
-                    <h4 className="font-bold text-base sm:text-lg truncate">{therapist.name}</h4>
-                    <p className="text-gray-600 text-xs sm:text-sm truncate">{therapist.title}</p>
-                    {(therapist as any).rating ? (
-                      <div className="flex items-center mt-1">
-                        <Star className="w-3 h-3 sm:w-4 sm:h-4 text-yellow-400 fill-current flex-shrink-0" />
-                        <span className="ml-1 text-xs sm:text-sm font-medium">{(therapist as any).rating}</span>
-                        {(therapist as any).reviews ? (
-                          <span className="ml-1 text-xs sm:text-sm text-gray-500">({(therapist as any).reviews})</span>
-                        ) : null}
+          {/* RIGHT COLUMN: Sticky Summary Sidebar - Spans 4 cols */}
+          <div className="lg:col-span-4 hidden lg:block">
+             <div className="sticky top-28 space-y-4">
+                <Card className="border-0 shadow-lg ring-1 ring-slate-200 bg-white overflow-hidden rounded-2xl">
+                   <div className="h-1.5 bg-blue-600 w-full" />
+                   <CardHeader className="pb-4 pt-5 border-b border-slate-100">
+                      <CardTitle className="text-lg flex items-center gap-2">
+                          <Info className="w-4 h-4 text-blue-600" /> 
+                          Booking Summary
+                      </CardTitle>
+                   </CardHeader>
+                   <CardContent className="space-y-6 pt-6">
+                      
+                      {/* Therapist Snapshot */}
+                      <div className="flex items-start gap-3">
+                         <Avatar className="h-12 w-12 rounded-xl ring-1 ring-slate-100 shadow-sm">
+                            <AvatarImage src={therapist.image} />
+                            <AvatarFallback>{therapist.name?.[0]}</AvatarFallback>
+                         </Avatar>
+                         <div>
+                            <div className="font-bold text-slate-900 leading-tight">{therapist.name}</div>
+                            <div className="text-xs text-slate-500 font-medium mt-1 bg-slate-100 inline-block px-2 py-0.5 rounded-md">
+                                {therapist.title}
+                            </div>
+                         </div>
                       </div>
-                    ) : null}
-                  </div>
-                </div>
 
-                {/* Session Details */}
-                {selectedSessionType && (
-                  <div className="p-4 bg-blue-50 rounded-2xl border border-blue-100">
-                    <h5 className="font-semibold text-blue-900 mb-2 flex items-center">
-                      <CheckCircle className="w-4 h-4 mr-2" />
-                      Session Type
-                    </h5>
-                    <p className="text-blue-700 font-medium">{getSelectedSessionType()?.name}</p>
-                    <p className="text-blue-600 text-sm">{getSelectedSessionType()?.duration}</p>
-                  </div>
-                )}
-
-                {selectedDate && (
-                  <div className="p-4 bg-green-50 rounded-2xl border border-green-100">
-                    <h5 className="font-semibold text-green-900 mb-2 flex items-center">
-                      <Calendar className="w-4 h-4 mr-2" />
-                      Date
-                    </h5>
-                    <p className="text-green-700 font-medium">{selectedDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
-                  </div>
-                )}
-
-                {selectedTime && (
-                  <div className="p-4 bg-purple-50 rounded-2xl border border-purple-100">
-                    <h5 className="font-semibold text-purple-900 mb-2 flex items-center">
-                      <Timer className="w-4 h-4 mr-2" />
-                      Time
-                    </h5>
-                    <p className="text-purple-700 font-medium">{selectedTime}</p>
-                  </div>
-                )}
-
-                {/* Home visit summary */}
-                {inHomeSelected && (
-                  <div className="p-4 bg-orange-50 rounded-2xl border border-orange-200">
-                    <h5 className="font-semibold text-orange-900 mb-2 flex items-center">
-                      <MapPin className="w-4 h-4 mr-2" />
-                      Home Visit Address
-                    </h5>
-                    <div className="text-orange-800 text-sm">
-                      <div>{inHomeAddressLine1 || '—'}</div>
-                      {inHomeAddressLine2 ? <div>{inHomeAddressLine2}</div> : null}
-                      <div>{[inHomeCity, inHomePincode].filter(Boolean).join(' - ') || '—'}</div>
-                      {inHomeContactPhone ? (
-                        <div className="mt-1">Contact: {inHomeContactName ? `${inHomeContactName} • ` : ''}{inHomeContactPhone}</div>
-                      ) : null}
-                    </div>
-                  </div>
-                )}
-
-                {/* Price Breakdown */}
-                <div className="border-t border-gray-200 pt-4 sm:pt-6">
-                  <div className="space-y-2 sm:space-y-3">
-                    <div className="flex justify-between text-sm sm:text-base lg:text-lg">
-                      <span className="text-gray-700">Session fee</span>
-                      <span className="font-semibold text-gray-900">₹{getSelectedPrice()}</span>
-                    </div>
-                    <div className="flex justify-between text-xs sm:text-sm text-gray-600">
-                      <span>Platform fee</span>
-                      <span>₹5</span>
-                    </div>
-                    <div className="border-t-2 border-gray-300 pt-3 sm:pt-4">
-                      <div className="flex justify-between items-center">
-                        <span className="text-base sm:text-lg lg:text-xl font-bold text-gray-900">Total</span>
-                        <span className="text-2xl sm:text-3xl lg:text-4xl font-bold text-blue-600">₹{getSelectedPrice() + 5}</span>
+                      {/* Selection List */}
+                      <div className="space-y-4">
+                         <div className="group flex justify-between items-center text-sm p-2 rounded-lg hover:bg-slate-50 transition-colors">
+                            <span className="text-slate-500 flex items-center gap-2.5">
+                                <div className="w-6 h-6 rounded-full bg-blue-50 flex items-center justify-center text-blue-600"><Calendar className="w-3.5 h-3.5"/></div>
+                                Date
+                            </span>
+                            <span className="font-semibold text-slate-900">{selectedDate ? formatDateShort(selectedDate) : <span className="text-slate-300">--</span>}</span>
+                         </div>
+                         <div className="group flex justify-between items-center text-sm p-2 rounded-lg hover:bg-slate-50 transition-colors">
+                            <span className="text-slate-500 flex items-center gap-2.5">
+                                <div className="w-6 h-6 rounded-full bg-blue-50 flex items-center justify-center text-blue-600"><Clock className="w-3.5 h-3.5"/></div>
+                                Time
+                            </span>
+                            <span className="font-semibold text-slate-900">{selectedTime || <span className="text-slate-300">--</span>}</span>
+                         </div>
+                         <div className="group flex justify-between items-center text-sm p-2 rounded-lg hover:bg-slate-50 transition-colors">
+                            <span className="text-slate-500 flex items-center gap-2.5">
+                                <div className="w-6 h-6 rounded-full bg-blue-50 flex items-center justify-center text-blue-600"><Video className="w-3.5 h-3.5"/></div>
+                                Type
+                            </span>
+                            <span className="font-semibold text-slate-900 text-right truncate max-w-[120px]">
+                                {getSelectedSessionType()?.name || <span className="text-slate-300">--</span>}
+                            </span>
+                         </div>
                       </div>
-                    </div>
-                  </div>
-                </div>
 
-                {/* CTA varies by step */}
-                {step === 1 && (
-                  <Button 
-                    onClick={next} 
-                    className="w-full mt-3 sm:mt-4 rounded-xl sm:rounded-2xl py-2.5 sm:py-3 text-sm sm:text-base font-semibold"
-                  >
-                    Continue
-                  </Button>
-                )}
-                {step === 2 && (
-                  <Button 
-                    onClick={next} 
-                    disabled={!canProceedFromStep2} 
-                    className="w-full mt-3 sm:mt-4 rounded-xl sm:rounded-2xl py-2.5 sm:py-3 text-sm sm:text-base font-semibold disabled:opacity-50"
-                  >
-                    Continue
-                  </Button>
-                )}
-                {step === 3 && (
-                  <Button 
-                    onClick={next} 
-                    disabled={!canProceedFromStep3} 
-                    className="w-full mt-3 sm:mt-4 rounded-xl sm:rounded-2xl py-2.5 sm:py-3 text-sm sm:text-base font-semibold disabled:opacity-50"
-                  >
-                    Continue
-                  </Button>
-                )}
-                {step === 4 && (
-                  <Button
-                    className="w-full mt-3 sm:mt-4 bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white py-3 sm:py-4 rounded-xl sm:rounded-2xl text-base sm:text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                    disabled={!bookingId || isProcessingPayment}
-                    onClick={handlePayment}
-                  >
-                    {isProcessingPayment ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        Processing...
-                      </>
-                    ) : (
-                      <>
-                        <CreditCard className="w-4 h-4 sm:w-5 sm:h-5 mr-2 sm:mr-3" />
-                        Pay Securely
-                      </>
-                    )}
-                  </Button>
-                )}
+                      {/* Price Breakdown */}
+                      <div className="bg-slate-50 rounded-xl p-5 space-y-3 border border-slate-100">
+                         <div className="flex justify-between text-sm text-slate-600">
+                            <span>Consultation Fee</span>
+                            <span>₹{getSelectedPrice()}</span>
+                         </div>
+                         <div className="flex justify-between text-sm text-slate-600">
+                            <span>Platform Fee</span>
+                            <span>₹5</span>
+                         </div>
+                         <div className="h-px bg-slate-200 my-1" />
+                         <div className="flex justify-between items-center">
+                            <span className="font-bold text-slate-900">Total</span>
+                            <span className="text-xl font-bold text-blue-700">₹{getSelectedPrice() + 5}</span>
+                         </div>
+                      </div>
+                      
+                      {/* Trust Badges */}
+                      <div className="grid grid-cols-2 gap-2 text-[10px] text-slate-400 pt-2">
+                         <div className="flex items-center justify-center gap-1 bg-white border border-slate-100 py-1.5 rounded-md">
+                            <Shield className="w-3 h-3" /> SSL Secure
+                         </div>
+                         <div className="flex items-center justify-center gap-1 bg-white border border-slate-100 py-1.5 rounded-md">
+                            <Heart className="w-3 h-3" /> Verified Pro
+                         </div>
+                      </div>
 
-                {/* Security & Info */}
-                <div className="space-y-2 sm:space-y-3 pt-3 sm:pt-4 border-t border-gray-200">
-                  <div className="flex items-start gap-2 text-xs sm:text-sm text-gray-600">
-                    <Shield className="w-4 h-4 sm:w-5 sm:h-5 text-green-500 flex-shrink-0 mt-0.5" />
-                    <span>Your payment is secure and encrypted</span>
-                  </div>
-                  <div className="flex items-start gap-2 text-xs sm:text-sm text-gray-600">
-                    <Heart className="w-4 h-4 sm:w-5 sm:h-5 text-red-500 flex-shrink-0 mt-0.5" />
-                    <span>Cancel up to 24 hours before your session</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                   </CardContent>
+                </Card>
+             </div>
           </div>
+
         </div>
       </div>
     </div>

@@ -15,6 +15,7 @@ export async function GET(request) {
     const page = parseInt(searchParams.get('page')) || 1;
     const limit = parseInt(searchParams.get('limit')) || 10;
     const specialization = searchParams.get('specialization');
+    const searchQ = searchParams.get('search') || searchParams.get('q') || '';
     const minRating = parseFloat(searchParams.get('minRating')) || 0;
     const maxFee = parseFloat(searchParams.get('maxFee'));
     const sortBy = searchParams.get('sortBy') || 'rating';
@@ -24,6 +25,16 @@ export async function GET(request) {
   // Broad query: do not force isActive=true to be compatible with legacy data
   const query = {};
   if (specialization) query.specializations = { $in: [new RegExp(specialization, 'i')] };
+  if (searchQ) {
+    const rx = new RegExp(searchQ, 'i');
+    query.$or = [
+      { displayName: { $regex: rx } },
+      { fullName: { $regex: rx } },
+      { name: { $regex: rx } },
+      { title: { $regex: rx } },
+      { specializations: { $in: [rx] } },
+    ];
+  }
     if (featuredOnly) query.featured = true;
     if (minRating > 0) query.rating = { $gte: minRating };
     if (maxFee) query.consultationFee = { $lte: maxFee };
@@ -83,13 +94,25 @@ export async function GET(request) {
       const page = parseInt(searchParams.get('page')) || 1;
       const limit = parseInt(searchParams.get('limit')) || 10;
       const specialization = searchParams.get('specialization');
+      const searchQ = searchParams.get('search') || searchParams.get('q') || '';
       const minRating = parseFloat(searchParams.get('minRating')) || 0;
       const maxFee = parseFloat(searchParams.get('maxFee'));
       const sortBy = searchParams.get('sortBy') || 'rating';
       const sortOrder = searchParams.get('sortOrder') === 'asc' ? 1 : -1;
+      const featuredOnly = searchParams.get('featured') === 'true' || searchParams.get('featured') === '1';
 
     const query = {};
     if (specialization) query.specializations = { $in: [new RegExp(specialization, 'i')] };
+    if (searchQ) {
+      const rx = new RegExp(searchQ, 'i');
+      query.$or = [
+        { displayName: { $regex: rx } },
+        { fullName: { $regex: rx } },
+        { name: { $regex: rx } },
+        { title: { $regex: rx } },
+        { specializations: { $in: [rx] } },
+      ];
+    }
       if (featuredOnly) query.featured = true;
       if (minRating > 0) query.rating = { $gte: minRating };
       if (maxFee) query.consultationFee = { $lte: maxFee };

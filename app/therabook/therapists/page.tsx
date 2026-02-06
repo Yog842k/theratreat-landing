@@ -39,6 +39,8 @@ interface ApiTherapist {
   primaryConditions?: string[];
   experience?: number;
   consultationFee?: number;
+  sessionFee?: number;
+  pricing?: Record<string, number> | Array<number | { amount?: number; price?: number; fee?: number }>;
   rating?: number;
   reviewCount?: number;
   languages?: string[];
@@ -316,31 +318,35 @@ export default function TherapistsListingPage() {
               const sessionFormats = rawSessions.map(normalizeSessionType);
               const isOnline = sessionFormats.includes('video');
               if (!city && !area && isOnline) city = 'Online';
-              // Calculate price: use consultation fee if available, otherwise use minimum session type price
+              // Calculate price: prefer pricing array/object from DB, then fallback to consultation/session fee
               const getDisplayPrice = () => {
-                if (t.consultationFee && t.consultationFee > 0) {
-                  return t.consultationFee;
-                }
-                // Fallback: minimum session type price (starting price)
-                const sessionTypePrices: Record<string, number> = {
-                  video: 999,
-                  audio: 499,
-                  'in-clinic': 699,
-                  'at-home': 1299,
-                  clinic: 699,
-                  home: 1299
-                };
-                // If therapist has session formats, use the minimum price from available formats
-                if (sessionFormats.length > 0) {
-                  const availablePrices = sessionFormats
-                    .map(format => sessionTypePrices[format] || 0)
-                    .filter(price => price > 0);
-                  if (availablePrices.length > 0) {
-                    return Math.min(...availablePrices);
+                const pricing = (t as any).pricing;
+                const toNumber = (value: any) => {
+                  if (typeof value === 'number' && Number.isFinite(value)) return value;
+                  if (typeof value === 'string') {
+                    const parsed = Number(value.replace(/[^\d.]/g, ''));
+                    return Number.isFinite(parsed) ? parsed : 0;
                   }
+                  if (value && typeof value === 'object') {
+                    const nested = value.amount ?? value.price ?? value.fee;
+                    if (typeof nested === 'number') return nested;
+                    if (typeof nested === 'string') {
+                      const parsed = Number(nested.replace(/[^\d.]/g, ''));
+                      return Number.isFinite(parsed) ? parsed : 0;
+                    }
+                  }
+                  return 0;
+                };
+                if (Array.isArray(pricing)) {
+                  const values = pricing.map(toNumber).filter((v) => v > 0);
+                  if (values.length) return Math.min(...values);
+                } else if (pricing && typeof pricing === 'object') {
+                  const values = Object.values(pricing).map(toNumber).filter((v) => v > 0);
+                  if (values.length) return Math.min(...values);
                 }
-                // Final fallback: absolute minimum session price
-                return Math.min(...Object.values(sessionTypePrices));
+                if (t.consultationFee && t.consultationFee > 0) return t.consultationFee;
+                if ((t as any).sessionFee && (t as any).sessionFee > 0) return (t as any).sessionFee;
+                return 0;
               };
 
               return {

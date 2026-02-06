@@ -35,7 +35,8 @@ import {
 
 export default function TheraBookHome() {
   const router = useRouter()
-  const [searchQuery, setSearchQuery] = useState('')
+  const headingStyle = { fontFamily: '"Fraunces", "Georgia", serif' } as const
+  const bodyStyle = { fontFamily: '"Manrope", "Segoe UI", sans-serif' } as const
 
   // ... (Logic remains the same)
   const goSearch = (params: Record<string, string | string[]>) => {
@@ -65,17 +66,17 @@ export default function TheraBookHome() {
 
   // UPDATED: Strictly Blue/White/Slate palette
   const sessionTypes = [
-    { type: 'Video Consultation', icon: Video, description: 'Face-to-face video session', price: 'From ₹999', color: 'from-blue-600 to-blue-700', formatId: 'video' },
-    { type: 'Audio Consultation', icon: Phone, description: 'Voice-only session', price: 'From ₹499', color: 'from-sky-500 to-sky-600', formatId: 'audio' },
-    { type: 'Home Care', icon: Home, description: 'At-home therapy sessions', price: 'From ₹1,299', color: 'from-indigo-500 to-indigo-600', formatId: 'at-home' },
-    { type: 'In-Clinic Session', icon: Building, description: 'Face-to-face at clinic', price: 'From ₹699', color: 'from-slate-600 to-slate-700', formatId: 'in-clinic' },
+    { type: 'Video Consultation', icon: Video, description: 'Face-to-face video session', price: 'From INR 999', color: 'from-blue-600 to-blue-700', formatId: 'video' },
+    { type: 'Audio Consultation', icon: Phone, description: 'Voice-only session', price: 'From INR 499', color: 'from-sky-500 to-sky-600', formatId: 'audio' },
+    { type: 'Home Care', icon: Home, description: 'At-home therapy sessions', price: 'From INR 1,299', color: 'from-indigo-500 to-indigo-600', formatId: 'at-home' },
+    { type: 'In-Clinic Session', icon: Building, description: 'Face-to-face at clinic', price: 'From INR 699', color: 'from-slate-600 to-slate-700', formatId: 'in-clinic' },
   ]
 
   const faqs = [
     { question: 'How do I choose the right therapist?', answer: 'Our platform uses smart matching based on your specific needs, location preferences, and therapist specializations. You can filter by specialty, experience, ratings, and availability.' },
     { question: 'Are all therapist profiles verified?', answer: 'Yes, every therapist on our platform undergoes rigorous verification including license validation, background checks, and credential verification before being approved.' },
     { question: 'Do you offer online and in-person sessions?', answer: 'Absolutely! We offer video consultations, audio sessions, chat therapy, and in-clinic appointments based on your preference and therapist availability.' },
-    { question: 'What are the consultation charges?', answer: 'Consultation fees vary by therapist and session type. Video sessions start from ₹999, audio from ₹499, home care from ₹1,299, and in-clinic from ₹699.' },
+    { question: 'What are the consultation charges?', answer: 'Consultation fees vary by therapist and session type. Video sessions start from INR 999, audio from INR 499, home care from INR 1,299, and in-clinic from INR 699.' },
     { question: 'Is my personal information secure?', answer: 'Yes, we use bank-grade 256-bit encryption and are ISO 27001 certified. All data is HIPAA compliant and stored with the highest security standards.' },
     { question: 'Can I reschedule or cancel appointments?', answer: 'Yes, you can reschedule or cancel appointments up to 2 hours before the scheduled time through your dashboard or by contacting support.' },
   ]
@@ -126,6 +127,30 @@ export default function TheraBookHome() {
     fetchFeatured()
   }, [])
 
+  const heroTherapists = featuredTherapists.slice(0, 2).map((t) => {
+    const rawLocation = (t as any).location
+    let city = ''
+    if (typeof rawLocation === 'string') {
+      city = rawLocation.split(',')[0]?.trim() || ''
+    } else if (Array.isArray(rawLocation)) {
+      city = String(rawLocation[0] || '').split(',')[0]?.trim() || ''
+    } else if (rawLocation && typeof rawLocation === 'object') {
+      city =
+        rawLocation.city ||
+        rawLocation.cityName ||
+        rawLocation.town ||
+        rawLocation.formatted ||
+        rawLocation.address ||
+        ''
+    }
+    if (!city) city = 'Online'
+    return {
+      name: t.displayName || 'Therapist',
+      role: t.title || t.specializations?.[0] || 'Therapist',
+      image: t.image || (t as any).profilePhotoUrl || '/api/placeholder/80/80',
+      city,
+    }
+  })
   const handleConditionSearch = (condition: string) => {
     goSearch({ conditions: [condition] })
   }
@@ -137,72 +162,178 @@ export default function TheraBookHome() {
   }
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.6 }} className="min-h-screen bg-slate-50">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.6 }} className="min-h-screen bg-gradient-to-b from-blue-50 via-white to-slate-50 text-slate-900" style={bodyStyle}>
       
       {/* Hero Section */}
-      <section className="relative py-12 md:py-24 px-4 md:px-6 bg-blue-700 overflow-hidden">
-        {/* Abstract Background Shapes */}
-        <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0">
-          <div className="absolute top-[-10%] left-[-10%] w-64 h-64 md:w-96 md:h-96 rounded-full bg-blue-500/20 blur-3xl" />
-          <div className="absolute bottom-[-10%] right-[-10%] w-64 h-64 md:w-96 md:h-96 rounded-full bg-sky-400/20 blur-3xl" />
-        </div>
+      <section className="relative overflow-hidden bg-gradient-to-br from-blue-50 via-white to-blue-100">
+        <div className="absolute -top-32 right-0 h-72 w-72 rounded-full bg-blue-200/50 blur-3xl" />
+        <div className="absolute bottom-[-40%] left-[-10%] h-80 w-80 rounded-full bg-indigo-200/40 blur-3xl" />
+        <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-white/80 to-transparent" />
+        <div className="max-w-6xl mx-auto px-4 md:px-6 py-12 md:py-20 relative">
+          <div className="grid lg:grid-cols-[1.2fr_0.8fr] gap-10 items-center">
+            <div className="space-y-6">
+              <div className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-white/90 px-3 py-1 text-[11px] uppercase tracking-[0.2em] text-blue-700 shadow-sm">
+                <Shield className="w-3.5 h-3.5 text-blue-600" />
+                Verified care, designed around you
+              </div>
+              <h1 style={headingStyle} className="text-4xl md:text-5xl lg:text-6xl font-semibold text-slate-900 leading-tight">
+                Find therapy that fits your life.
+              </h1>
+              <p className="text-base md:text-lg text-slate-600 max-w-xl">
+                Browse trusted professionals, compare session formats, and book in minutes with a search experience built for clarity.
+              </p>
 
-        <div className="max-w-6xl mx-auto text-center relative z-10">
-          <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8 }} className="space-y-4 md:space-y-6">
-            <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold text-white leading-tight">
-              Book trusted therapists<br />
-              <span className="text-blue-200">with confidence</span>
-            </h1>
-            <p className="text-base md:text-xl text-blue-100 max-w-2xl mx-auto px-2">
-              Connect with verified healthcare professionals through our secure platform. Search by specialty, location, or session type.
-            </p>
-          </motion.div>
+              <Card className="border border-blue-100/70 bg-white/90 backdrop-blur p-4 md:p-5 rounded-3xl shadow-[0_18px_40px_-30px_rgba(37,99,235,0.35)]">
+                <EnhancedSearch
+                  onSearch={(params: any) => goSearch((params as Record<string, string | string[]>) || {})}
+                  setCurrentView={() => {}}
+                  variant="hero"
+                  placeholder="Search specialists, conditions, or location..."
+                  showFilters
+                />
+                <div className="mt-4 flex flex-wrap gap-2">
+                  {conditions.slice(0, 4).map((condition) => (
+                    <Button
+                      key={condition}
+                      variant="outline"
+                      size="sm"
+                      className="rounded-full border-blue-100 bg-white/80 text-blue-700 hover:bg-blue-50"
+                      onClick={() => handleConditionSearch(condition)}
+                    >
+                      {condition}
+                    </Button>
+                  ))}
+                </div>
+              </Card>
 
-          <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.8, delay: 0.2 }} className="mt-8 md:mt-12 max-w-3xl mx-auto">
-            <EnhancedSearch
-              onSearch={(params: any) => goSearch((params as Record<string, string | string[]>) || {})}
-              setCurrentView={() => {}}
-              variant="page"
-              placeholder="Search specialists, conditions..."
-              showFilters
-            />
+              <div className="flex flex-wrap gap-4">
+                <div className="rounded-2xl border border-blue-100 bg-white px-4 py-3">
+                  <p className="text-xs uppercase tracking-wide text-slate-500">Avg rating</p>
+                  <p className="text-lg font-semibold text-blue-700">4.9/5</p>
+                </div>
+                <div className="rounded-2xl border border-blue-100 bg-white px-4 py-3">
+                  <p className="text-xs uppercase tracking-wide text-slate-500">Sessions completed</p>
+                  <p className="text-lg font-semibold text-blue-700">12k+</p>
+                </div>
+                <div className="rounded-2xl border border-blue-100 bg-white px-4 py-3">
+                  <p className="text-xs uppercase tracking-wide text-slate-500">Verified therapists</p>
+                  <p className="text-lg font-semibold text-blue-700">3k+</p>
+                </div>
+              </div>
 
-            <div className="flex flex-col sm:flex-row justify-center mt-6 space-y-3 sm:space-y-0 sm:space-x-4">
-              <Button variant="outline" className="w-full sm:w-auto text-blue-700 border-blue-200 bg-white hover:bg-blue-50" onClick={() => goSearch({})}>
-                <Users className="w-4 h-4 mr-2" />
-                Browse All
-              </Button>
-              <Button onClick={goSmartSelector} className="w-full sm:w-auto bg-blue-500 hover:bg-blue-600 text-white border border-transparent shadow-lg hover:shadow-blue-900/20">
-                <HelpCircle className="w-4 h-4 mr-2" />
-                Help Me Choose
-              </Button>
+              <div className="flex flex-col sm:flex-row gap-3">
+                <Button variant="outline" className="w-full sm:w-auto text-blue-700 border-blue-200 bg-white hover:bg-blue-50" onClick={() => goSearch({})}>
+                  <Users className="w-4 h-4 mr-2" />
+                  Browse All
+                </Button>
+                <Button onClick={goSmartSelector} className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-900/20">
+                  <HelpCircle className="w-4 h-4 mr-2" />
+                  Help Me Choose
+                </Button>
+              </div>
             </div>
-          </motion.div>
+
+            <div className="relative">
+              <div className="absolute -top-6 -left-6 h-24 w-24 rounded-full bg-blue-300/40 blur-2xl" />
+              <div className="space-y-4">
+                <Card className="border border-blue-100/70 bg-white/95 backdrop-blur shadow-[0_16px_32px_-24px_rgba(37,99,235,0.35)]">
+                  <CardContent className="p-5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-[11px] uppercase tracking-[0.2em] text-slate-500">TheraMatch</p>
+                        <p className="text-lg font-semibold text-slate-900">Best in the Biz</p>
+                      </div>
+                      <Badge className="bg-emerald-100 text-emerald-700">Online now</Badge>
+                    </div>
+                    <div className="mt-4 space-y-3">
+                      {therapistsLoading ? (
+                        <>
+                          {[0, 1].map((i) => (
+                            <div key={`thera-skel-${i}`} className="flex items-center gap-3 rounded-xl border border-blue-100/70 bg-blue-50/30 px-3 py-2">
+                              <div className="h-10 w-10 rounded-full bg-blue-100/70 animate-pulse" />
+                              <div className="flex-1 space-y-2">
+                                <div className="h-3 w-24 rounded bg-slate-200 animate-pulse" />
+                                <div className="h-2 w-32 rounded bg-slate-100 animate-pulse" />
+                              </div>
+                            </div>
+                          ))}
+                        </>
+                      ) : heroTherapists.length > 0 ? (
+                        heroTherapists.map((item, index) => (
+                          <div key={`${item.name}-${index}`} className="flex items-center gap-3 rounded-xl border border-blue-100/70 bg-blue-50/30 px-3 py-2">
+                            <img
+                              src={item.image}
+                              alt={item.name}
+                              className="h-10 w-10 rounded-full object-cover border border-blue-100 bg-white"
+                              loading="lazy"
+                            />
+                            <div className="flex-1">
+                              <p className="text-sm font-semibold text-slate-900">{item.name}</p>
+                              <p className="text-xs text-slate-500">{item.role} - {item.city}</p>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-xs text-slate-500">
+                          {therapistsError ? 'Unable to load therapists right now.' : 'No therapists available yet.'}
+                        </p>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card className="border border-blue-100/70 bg-white/90">
+                  <CardContent className="p-5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Next available</p>
+                        <p className="text-lg font-semibold text-slate-900">Today, 4:30 PM</p>
+                      </div>
+                      <Badge className="bg-blue-100 text-blue-700">Instant booking</Badge>
+                    </div>
+                    <div className="mt-3 flex items-center gap-3 rounded-xl border border-blue-100/70 bg-blue-50/30 px-3 py-2">
+                      <Calendar className="w-4 h-4 text-slate-500" />
+                      <p className="text-sm text-slate-600">Video session - 45 mins - Confirmation in 2 mins</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
 
       {/* Find Care for Your Needs */}
-      <section className="py-12 md:py-16 px-4 md:px-6 bg-white">
+      <section className="py-12 md:py-16 px-4 md:px-6 bg-gradient-to-b from-white via-blue-50/30 to-white">
         <div className="max-w-6xl mx-auto">
           <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center space-y-3 mb-8 md:mb-12">
-            <h2 className="text-2xl md:text-4xl font-bold text-slate-900">Find Care for Your Needs</h2>
-            <p className="text-sm md:text-lg text-slate-500 max-w-2xl mx-auto">Select a condition to find specialists who can provide targeted treatment</p>
+            <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Start with a focus area</p>
+            <h2 style={headingStyle} className="text-2xl md:text-4xl font-semibold text-slate-900">Care pathways built around you</h2>
+            <p className="text-sm md:text-lg text-slate-600 max-w-2xl mx-auto">Select a concern to instantly filter specialists who match your goals.</p>
           </motion.div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {conditions.map((condition, index) => (
-              <motion.div key={index} initial={{ opacity: 0, y: 15 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: index * 0.05 }} whileHover={{ scale: 1.02 }}>
-                <Button variant="outline" className="w-full h-14 md:h-16 text-xs md:text-sm whitespace-normal text-center border-slate-200 text-slate-700 hover:border-blue-500 hover:text-blue-700 hover:bg-blue-50/50 transition-all duration-300" onClick={() => handleConditionSearch(condition)}>
-                  {condition}
-                </Button>
+              <motion.div key={index} initial={{ opacity: 0, y: 15 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: index * 0.04 }}>
+                <button
+                  type="button"
+                  className="group h-full w-full rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md"
+                  onClick={() => handleConditionSearch(condition)}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm md:text-base font-semibold text-slate-800">{condition}</span>
+                    <ArrowRight className="w-4 h-4 text-slate-400 transition-colors group-hover:text-blue-600" />
+                  </div>
+                  <p className="mt-3 text-xs text-slate-500">View matching therapists</p>
+                </button>
               </motion.div>
             ))}
           </div>
 
           <div className="text-center mt-8 md:mt-10">
-            <Button variant="ghost" className="text-blue-600 hover:text-blue-800 hover:bg-blue-50" onClick={() => goSearch({})}>
-              View More <ArrowRight className="w-4 h-4 ml-2" />
+            <Button variant="outline" className="rounded-full border-slate-200 text-slate-700 hover:border-blue-300 hover:text-blue-700 hover:bg-blue-50" onClick={() => goSearch({})}>
+              Explore all conditions <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           </div>
         </div>
@@ -210,26 +341,31 @@ export default function TheraBookHome() {
 
 
       {/* Our Therapy Services */}
-      <section className="py-12 md:py-16 px-4 md:px-6 bg-slate-50">
+      <section className="py-12 md:py-16 px-4 md:px-6 bg-gradient-to-b from-blue-50/60 via-white to-blue-50/40">
         <div className="max-w-6xl mx-auto">
           <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center space-y-3 mb-8 md:mb-12">
-            <h2 className="text-2xl md:text-4xl font-bold text-slate-900">Our Therapy Services</h2>
-            <p className="text-sm md:text-lg text-slate-500 max-w-2xl mx-auto">Comprehensive services delivered by certified professionals</p>
+            <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Services</p>
+            <h2 style={headingStyle} className="text-2xl md:text-4xl font-semibold text-slate-900">Therapy services for every stage</h2>
+            <p className="text-sm md:text-lg text-slate-600 max-w-2xl mx-auto">Choose from evidence-backed care delivered by certified professionals.</p>
           </motion.div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {therapyServices.map((service, index) => (
-              <motion.div key={index} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: index * 0.1 }} whileHover={{ y: -5 }}>
-                <Card className="h-full hover:shadow-xl hover:shadow-blue-900/5 transition-all duration-300 border border-slate-100 bg-white cursor-pointer group" onClick={() => handleTherapyTypeSearch(service.therapyType)}>
-                  <CardContent className="p-6">
-                    <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${service.color} p-3 mb-4 shadow-md`}>
-                      <service.icon className="w-6 h-6 text-white" />
+              <motion.div key={index} initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: index * 0.08 }} whileHover={{ y: -6 }}>
+                <Card className="group relative h-full overflow-hidden rounded-3xl border border-slate-200/70 bg-white shadow-sm transition-all duration-300 hover:shadow-lg">
+                  <div className="absolute inset-0 bg-gradient-to-br from-white via-white to-blue-50 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                  <CardContent className="relative p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${service.color} p-3 shadow-lg`}>
+                        <service.icon className="w-full h-full text-white" />
+                      </div>
+                      <ArrowRight className="w-5 h-5 text-slate-300 transition-colors group-hover:text-blue-600" />
                     </div>
-                    <h3 className="text-xl font-semibold text-slate-900 mb-2 group-hover:text-blue-700 transition-colors">{service.title}</h3>
-                    <p className="text-slate-500 text-sm leading-relaxed mb-4">{service.description}</p>
-                    <div className="flex justify-end mt-auto">
-                      <ArrowRight className="w-5 h-5 text-slate-300 group-hover:text-blue-600 transition-colors" />
-                    </div>
+                    <h3 style={headingStyle} className="text-xl font-semibold text-slate-900 mb-2">{service.title}</h3>
+                    <p className="text-slate-600 text-sm leading-relaxed mb-4">{service.description}</p>
+                    <Button variant="outline" className="rounded-full border-slate-200 text-slate-700 hover:border-blue-300 hover:text-blue-700 hover:bg-blue-50" onClick={() => handleTherapyTypeSearch(service.therapyType)}>
+                      Explore care
+                    </Button>
                   </CardContent>
                 </Card>
               </motion.div>
@@ -240,10 +376,10 @@ export default function TheraBookHome() {
 
 
       {/* Featured Therapists */}
-      <section className="py-12 md:py-16 px-4 md:px-6 bg-white">
+      <section className="py-12 md:py-16 px-4 md:px-6 bg-gradient-to-b from-white via-blue-50/30 to-white">
         <div className="max-w-6xl mx-auto">
           <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center space-y-3 mb-8 md:mb-12">
-            <h2 className="text-2xl md:text-4xl font-bold text-slate-900">Featured Therapists</h2>
+            <h2 style={headingStyle} className="text-2xl md:text-4xl font-semibold text-slate-900">Featured Therapists</h2>
             <p className="text-sm md:text-lg text-slate-500 max-w-2xl mx-auto">Connect with top-rated, verified healthcare professionals</p>
           </motion.div>
           
@@ -264,7 +400,7 @@ export default function TheraBookHome() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 {featuredTherapists.map((t, index) => (
                   <motion.div key={t._id} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: index * 0.1 }} whileHover={{ y: -5 }}>
-                    <Card className="h-full hover:shadow-lg transition-all duration-300 border-slate-200 bg-white border-t-4 border-t-blue-600">
+                    <Card className="h-full rounded-3xl border border-slate-200/70 bg-white/90 shadow-sm transition-all duration-300 hover:shadow-lg">
                       <CardContent className="p-5 text-center flex flex-col h-full">
                         <div className="relative mb-4 mx-auto">
                           <img 
@@ -333,7 +469,7 @@ export default function TheraBookHome() {
                           }
                           if (!price) price = Math.min(...Object.values(defaults));
                           return price > 0 ? (
-                            <p className="text-xs text-blue-700 font-medium mb-2">From ₹{price.toLocaleString()}</p>
+                            <p className="text-xs text-blue-700 font-medium mb-2">From INR {price.toLocaleString()}</p>
                           ) : null;
                         })()}
 
@@ -353,27 +489,30 @@ export default function TheraBookHome() {
 
 
       {/* Session Types */}
-      <section className="py-12 md:py-16 px-4 md:px-6 bg-gradient-to-b from-slate-50 to-white">
+      <section className="py-12 md:py-16 px-4 md:px-6 bg-gradient-to-b from-white via-blue-50/30 to-white">
         <div className="max-w-6xl mx-auto">
           <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center space-y-3 mb-8 md:mb-12">
-            <h2 className="text-2xl md:text-4xl font-bold text-slate-900">Session Types</h2>
-            <p className="text-sm md:text-lg text-slate-500 max-w-2xl mx-auto">Flexible options to fit your schedule</p>
+            <p className="text-xs uppercase tracking-[0.25em] text-slate-500">Session formats</p>
+            <h2 style={headingStyle} className="text-2xl md:text-4xl font-semibold text-slate-900">Flexible sessions, your way</h2>
+            <p className="text-sm md:text-lg text-slate-600 max-w-2xl mx-auto">Choose the format that fits your lifestyle and schedule.</p>
           </motion.div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {sessionTypes.map((session, index) => (
-              <motion.div key={index} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: index * 0.1 }} whileHover={{ y: -5 }}>
-                <Card className="h-full hover:shadow-lg transition-all duration-300 border-slate-100 bg-white">
-                  <CardContent className="p-6 text-center">
-                    <div className={`w-14 h-14 rounded-full bg-gradient-to-br ${session.color} p-3.5 mx-auto mb-4 shadow-md`}>
+              <motion.div key={index} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: index * 0.08 }} whileHover={{ y: -6 }}>
+                <Card className="group h-full rounded-3xl border border-slate-200/70 bg-white shadow-sm transition-all duration-300 hover:shadow-lg">
+                  <CardContent className="p-6 text-left">
+                    <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${session.color} p-3 mb-4 shadow-lg`}>
                       <session.icon className="w-full h-full text-white" />
                     </div>
-                    <h3 className="text-lg font-bold text-slate-800 mb-2">{session.type}</h3>
-                    <p className="text-sm text-slate-500 mb-4 h-10">{session.description}</p>
-                    <p className="text-lg font-bold text-blue-600 mb-5">{session.price}</p>
-                    <Button variant="outline" className="w-full border-blue-200 text-blue-700 hover:bg-blue-50" onClick={() => handleSessionFormatSearch(session.formatId)}>
-                      Select
-                    </Button>
+                    <h3 className="text-lg font-semibold text-slate-900 mb-1">{session.type}</h3>
+                    <p className="text-sm text-slate-600 mb-4">{session.description}</p>
+                    <div className="flex items-center justify-between">
+                      <span className="text-base font-semibold text-blue-700">{session.price}</span>
+                      <Button variant="outline" size="sm" className="rounded-full border-slate-200 text-slate-700 hover:border-blue-300 hover:text-blue-700 hover:bg-blue-50" onClick={() => handleSessionFormatSearch(session.formatId)}>
+                        Select
+                      </Button>
+                    </div>
                   </CardContent>
                 </Card>
               </motion.div>
@@ -387,8 +526,8 @@ export default function TheraBookHome() {
       <section className="py-12 md:py-16 px-4 md:px-6 bg-blue-50">
         <div className="max-w-6xl mx-auto">
           <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center space-y-3 mb-8 md:mb-12">
-            <h2 className="text-2xl md:text-4xl font-bold text-blue-900">Why Choose TheraBook?</h2>
-            <p className="text-sm md:text-lg text-blue-700/70 max-w-2xl mx-auto">
+            <h2 style={headingStyle} className="text-2xl md:text-4xl font-semibold text-slate-900">Why Choose TheraBook?</h2>
+            <p className="text-sm md:text-lg text-slate-600 max-w-2xl mx-auto">
               Committed to trust, convenience, and professional excellence
             </p>
           </motion.div>
@@ -403,10 +542,10 @@ export default function TheraBookHome() {
               { icon: Award, title: 'Personalized Care', desc: 'Tailored treatment plans based on your goals' }
             ].map((f, index) => (
               <motion.div key={index} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: index * 0.1 }}>
-                <Card className="h-full border-none shadow-sm bg-white hover:bg-blue-50/50 transition-colors">
+                <Card className="h-full border border-slate-200/70 bg-white/90 shadow-sm hover:shadow-md hover:border-blue-200 transition-all">
                   <CardContent className="p-6 flex items-start space-x-4">
                     <div className="flex-shrink-0">
-                      <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
+                      <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center">
                         <f.icon className="w-5 h-5 text-blue-600" />
                       </div>
                     </div>
@@ -424,7 +563,7 @@ export default function TheraBookHome() {
 
 
       {/* Trust Badges */}
-      <section className="py-12 px-4 md:px-6 bg-white border-t border-slate-100">
+      <section className="py-12 px-4 md:px-6 bg-white border-t border-blue-100">
         <div className="max-w-6xl mx-auto text-center">
           <div className="grid grid-cols-2 md:grid-cols-5 gap-6 md:gap-8 items-center justify-center opacity-70 grayscale hover:grayscale-0 transition-all duration-500">
              {[
@@ -445,16 +584,16 @@ export default function TheraBookHome() {
 
 
       {/* How it works */}
-      <section className="py-12 md:py-16 px-4 md:px-6 bg-slate-900 text-white">
+      <section className="py-12 md:py-16 px-4 md:px-6 bg-gradient-to-br from-slate-900 via-slate-900 to-blue-900/70 text-white">
         <div className="max-w-6xl mx-auto">
           <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center space-y-3 mb-12">
-            <h2 className="text-2xl md:text-4xl font-bold">How TheraBook Works</h2>
+            <h2 style={headingStyle} className="text-2xl md:text-4xl font-semibold">How TheraBook Works</h2>
             <p className="text-slate-400 max-w-2xl mx-auto">Simple, secure, and streamlined</p>
           </motion.div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12 relative">
              {/* Connector Line (Desktop Only) */}
-             <div className="hidden md:block absolute top-12 left-[16%] right-[16%] h-0.5 bg-slate-700 z-0" />
+             <div className="hidden md:block absolute top-12 left-[16%] right-[16%] h-0.5 bg-blue-800/60 z-0" />
 
             {[
               { step: '1', title: 'Find', desc: 'Search by specialty or need', icon: Search },
@@ -479,12 +618,12 @@ export default function TheraBookHome() {
 
 
       {/* FAQ */}
-      <section className="py-12 md:py-20 px-4 md:px-6 bg-slate-50">
+      <section className="py-12 md:py-20 px-4 md:px-6 bg-blue-50/40">
         <div className="max-w-3xl mx-auto">
-          <h2 className="text-2xl md:text-3xl font-bold text-center text-slate-900 mb-8">Frequently Asked Questions</h2>
+          <h2 style={headingStyle} className="text-2xl md:text-3xl font-semibold text-center text-slate-900 mb-8">Frequently Asked Questions</h2>
           <Accordion type="single" collapsible className="space-y-3">
             {faqs.map((faq, index) => (
-              <AccordionItem key={index} value={`item-${index}`} className="border border-slate-200 rounded-lg px-4 bg-white shadow-sm data-[state=open]:border-blue-200">
+              <AccordionItem key={index} value={`item-${index}`} className="border border-blue-100/70 rounded-2xl px-4 bg-white/90 shadow-[0_12px_24px_-18px_rgba(37,99,235,0.25)] data-[state=open]:border-blue-300">
                 <AccordionTrigger className="text-left font-semibold text-slate-800 hover:text-blue-600 hover:no-underline py-4">
                   {faq.question}
                 </AccordionTrigger>
@@ -499,3 +638,22 @@ export default function TheraBookHome() {
     </motion.div>
   )
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

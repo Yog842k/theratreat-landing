@@ -7,7 +7,12 @@ export async function GET() {
     // Pending = not verified, not rejected, and not approved in status
     const docs = await col.find({
       $and: [
-        { $or: [{ verified: { $exists: false } }, { verified: false }] },
+        { $or: [
+            { isVerified: { $exists: false } },
+            { isVerified: false },
+            { verified: { $exists: false } },
+            { verified: false }
+        ] },
         { $or: [{ rejected: { $exists: false } }, { rejected: false }] },
         { $or: [{ status: { $exists: false } }, { status: { $ne: "approved" } }] }
       ]

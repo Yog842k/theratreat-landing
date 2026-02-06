@@ -1,6 +1,10 @@
-"use client";
 
-import React, { useState, useEffect } from 'react';
+"use client";
+import TherapistSettingsTab from "./TherapistSettingsTab";
+import BookingList from '../../../components/therapist/BookingList';
+
+import React, { useMemo, useState, useEffect } from 'react';
+import { toast } from 'sonner';
 import { useAuth } from '@/components/auth/NewAuthContext';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -30,30 +34,39 @@ import { PRIMARY_FILTERS } from '@/constants/therabook-filters';
 
 // --- Interfaces ---
 interface TherapistData {
-  profile: {
-    name: string;
-    gender: string;
-    bio: string;
-    languages: string[];
-    degrees: string[];
-    certifications: string[];
-    experience: string;
-    specializations: string[];
-    clinicAddress: string;
-    avatar: string;
-    qualificationCertUrls?: string[];
-    licenseDocumentUrl?: string;
-  };
-  verification: {
-    kyc: string;
-    degree: string;
-    license: string;
-    overall: string;
-  };
+    profile: {
+        name: string;
+        gender: string;
+        bio: string;
+        languages: string[];
+        degrees: string[];
+        certifications: string[];
+        experience: string;
+        specializations: string[];
+        clinicAddress: string;
+        avatar: string;
+        qualificationCertUrls?: string[];
+        licenseDocumentUrl?: string;
+        isVerified?: boolean;
+        verified?: boolean;
+    };
+    bankDetails?: {
+        accountHolder: string;
+        bankName: string;
+        accountNumber: string;
+        ifscCode: string;
+        upiId: string;
+    };
+    verification: {
+        kyc: string;
+        degree: string;
+        license: string;
+        overall: string;
+    };
     services: {
         modes: string[];
         sessionTypes: string[];
-        pricing: { video: number; audio: number; home: number };
+        pricing: { video: number; audio: number; clinic: number; home: number };
         duration: number;
         platforms: string[];
     };
@@ -115,7 +128,7 @@ interface ScheduledSession {
 export default function TherapistDashboardPage() {
   // --- State Logic ---
     const [serviceTypes, setServiceTypes] = useState<string[]>([]);
-    const [pricing, setPricing] = useState<{ video: number; audio: number; home: number }>({ video: 0, audio: 0, home: 0 });
+    const [pricing, setPricing] = useState<{ video: number; audio: number; clinic: number; home: number }>({ video: 0, audio: 0, clinic: 0, home: 0 });
   const [duration, setDuration] = useState<number>(50);
   const [emailNotifications, setEmailNotifications] = useState<boolean>(true);
   const [smsNotifications, setSmsNotifications] = useState<boolean>(true);
@@ -193,11 +206,14 @@ export default function TherapistDashboardPage() {
   const [activeTab, setActiveTab] = useState("profile");
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(new Date());
   const [isLoadingData, setIsLoadingData] = useState(true);
+  const [isLoadingSchedule, setIsLoadingSchedule] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [therapistRaw, setTherapistRaw] = useState<any | null>(null);
+  const [userProfile, setUserProfile] = useState<any | null>(null);
   const [therapistData, setTherapistData] = useState<TherapistData>({
     profile: { name: '', gender: '', bio: '', languages: [], degrees: [], certifications: [], experience: '', specializations: [], clinicAddress: '', avatar: '' },
     verification: { kyc: "Pending", degree: "Pending", license: "Pending", overall: "Pending" },
-    services: { modes: [], sessionTypes: [], pricing: { video: 0, audio: 0, home: 0 }, duration: 50, platforms: ["TheraBook Video"] },
+    services: { modes: [], sessionTypes: [], pricing: { video: 0, audio: 0, clinic: 0, home: 0 }, duration: 50, platforms: ["TheraBook Video"] },
     earnings: { thisMonth: 4800, lastMonth: 5200, totalEarnings: 48000, pendingWithdrawal: 1200, sessionsThisMonth: 40 },
     appointments: { upcoming: [], total: 0, rating: 0, reviews: 0 }
   });
@@ -222,6 +238,15 @@ export default function TherapistDashboardPage() {
 
   const { user, token, isAuthenticated, isLoading, logout } = useAuth();
   const router = useRouter();
+  const authHeaders = token ? { 'Authorization': `Bearer ${token}` } : {};
+  const handleAuthFailure = (message = 'Session expired. Please sign in again.') => {
+    setError(message);
+    logout();
+    router.push('/auth/login');
+  };
+  const handleDbFailure = (message = 'Database unavailable. Please try again shortly.') => {
+    setError(message);
+  };
   const toNumber = (v: unknown, def = 0): number => { const n = typeof v === 'number' ? v : Number((v as any)); return Number.isFinite(n) ? n : def; };
   const formatFixed = (v: unknown, digits = 1): string => toNumber(v, 0).toFixed(digits);
   const formatCurrency = (v: unknown): string => `₹${toNumber(v, 0).toLocaleString('en-IN')}`;
@@ -238,10 +263,58 @@ export default function TherapistDashboardPage() {
         if (Number.isNaN(d.getTime())) return '';
         return new Intl.DateTimeFormat('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: DISPLAY_TZ }).format(d);
     };
+    const normalizeDateValue = (value?: any): string | number | Date | undefined => {
+        if (!value) return undefined;
+        if (typeof value === 'object' && '$date' in value) return value.$date;
+        return value;
+    };
+    const formatDateTime = (value?: any): string => {
+        const raw = normalizeDateValue(value);
+        if (!raw) return '';
+        const d = raw instanceof Date ? raw : new Date(raw);
+        if (Number.isNaN(d.getTime())) return '';
+        return new Intl.DateTimeFormat('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true, timeZone: DISPLAY_TZ }).format(d);
+    };
+    const joinList = (value?: any[], fallback = 'Not specified'): string => {
+        if (!Array.isArray(value) || value.length === 0) return fallback;
+        return value.filter(Boolean).join(', ');
+    };
+    const formatBool = (value: any): string => (value === true ? 'Yes' : value === false ? 'No' : 'Not specified');
+    const formatAgreements = (value: any): string => {
+        if (!value || typeof value !== 'object') return 'Not specified';
+        const entries = Object.entries(value);
+        if (entries.length === 0) return 'Not specified';
+        return entries
+            .map(([k, v]) => `${k}: ${v === true ? 'Yes' : v === false ? 'No' : '-'}`)
+            .join(' | ');
+    };
+    const fullProfile = therapistRaw || {};
+    const contactEmail = userProfile?.email || fullProfile.email || fullProfile.userEmail || user?.email || '';
+    const contactPhone = userProfile?.phone || fullProfile.phone || fullProfile.phoneNumber || user?.phone || '';
+    const pricingText = (() => {
+        const p = therapistData.services.pricing || {};
+        const items = [
+            ['Video', p.video],
+            ['Audio', p.audio],
+            ['Clinic', p.clinic],
+            ['Home', p.home],
+        ].filter(([, v]) => typeof v === 'number' && Number.isFinite(v));
+        return items.length
+            ? items.map(([label, v]) => `${label}: ${formatCurrency(v)}`).join(' | ')
+            : 'Not specified';
+    })();
+    const settingsProfile = useMemo(() => ({
+        ...(therapistRaw || {}),
+        ...(userProfile || {}),
+        ...therapistData,
+        ...therapistData.profile,
+        ...(therapistData.bankDetails ? { bankDetails: therapistData.bankDetails } : {}),
+    }), [therapistRaw, userProfile, therapistData, therapistData.profile, therapistData.bankDetails]);
 
     // --- API Handlers ---
     const handleSaveProfile = async () => {
         if (!resolvedTherapistId) { setError('Therapist ID not found'); return; }
+        if (!token || !isAuthenticated) { handleAuthFailure(); return; }
         try {
             setError(null);
             const payload = {
@@ -254,9 +327,11 @@ export default function TherapistDashboardPage() {
             };
             const res = await fetch(`/api/therapists/${resolvedTherapistId}`, {
                 method: 'PATCH',
-                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                headers: { ...authHeaders, 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
+            if (res.status === 401) { handleAuthFailure(); return; }
+            if (res.status === 503) { handleDbFailure(); return; }
             const data = await res.json();
             if (!res.ok) throw new Error(data?.message || 'Failed to update profile');
             setIsEditingProfile(false);
@@ -270,9 +345,12 @@ export default function TherapistDashboardPage() {
     const fetchTherapistFullProfile = async () => {
         try {
             if (!resolvedTherapistId) return;
+            if (!token || !isAuthenticated) { handleAuthFailure(); return; }
             const res = await fetch(`/api/therapists/${resolvedTherapistId}`, {
-                headers: { 'Authorization': `Bearer ${token}` }
+                headers: { ...authHeaders }
             });
+            if (res.status === 401) { handleAuthFailure(); return; }
+            if (res.status === 503) { handleDbFailure(); return; }
             const json = await res.json().catch(() => ({}));
             if (!res.ok || !json?.success) {
                 console.error('Profile API error:', json);
@@ -281,24 +359,57 @@ export default function TherapistDashboardPage() {
                 }
                 return;
             }
+            // Support both nested and flat therapist data
             const t = json.therapist || {};
-            const name = t.displayName || user?.name || '';
+            setTherapistRaw(t);
+            // If flat, map to expected structure
+            const name = t.fullName || t.displayName || t.name || user?.name || '';
             const gender = t.gender || '';
             const bio = t.bio || '';
-            const languages = t.languages || [];
-            const degrees = Array.isArray(t.education) && t.education.length && typeof t.education[0] === 'string'
-                ? t.education
-                : (Array.isArray(t.education) ? t.education.map((e: any) => `${e.degree || ''}${e.institution ? ' - ' + e.institution : ''}${e.year ? ' (' + e.year + ')' : ''}`.trim()).filter(Boolean) : []);
-            const certifications = Array.isArray(t.certifications) ? t.certifications.map((c: any) => `${c.name || ''}${c.issuer ? ' - ' + c.issuer : ''}${c.year ? ' (' + c.year + ')' : ''}`.trim()).filter(Boolean) : [];
-            const experience = t.experience != null ? `${t.experience}+ years` : '';
-            const specializations = t.specializations || [];
-            const clinicAddress = t.location || '';
-            const avatar = t.image || '';
+            const languages = t.languages || t.preferredLanguages || [];
+            const degrees = Array.isArray(t.degrees) && t.degrees.length
+                ? t.degrees
+                : Array.isArray(t.education) && t.education.length
+                    ? t.education.map((e: any) => [e.degree, e.institution, e.year].filter(Boolean).join(' - ')).filter(Boolean)
+                    : (t.qualification && t.university && t.graduationYear)
+                        ? [`${t.qualification} - ${t.university} (${t.graduationYear})`]
+                        : [];
+            const certifications: string[] = Array.isArray(t.certifications) && t.certifications.length
+                ? t.certifications.map((c: any) => (typeof c === 'string' ? c : [c.name, c.issuer, c.year].filter(Boolean).join(' - '))).filter(Boolean)
+                : [];
+            const experience = t.experience ? (typeof t.experience === 'string' ? t.experience : `${t.experience} years`) : '';
+            const specializations = t.specializations || t.designations || [];
+            const clinicAddress = t.clinicAddress || t.residentialAddress || t.currentCity || t.location || '';
+            const avatar = t.image || t.profilePhotoUrl || '';
+            const qualificationCertUrls = t.qualificationCertUrls || [];
+            const licenseDocumentUrl = t.licenseDocumentUrl || '';
+            const isVerified = t.isApproved || t.verified || false;
             const modes = t.sessionTypes || [];
-            const sessionTypes = t.serviceTypes || [];
-            const pricingVal = t.consultationFee ?? 0;
-            const durationVal = t.sessionDuration || 50;
-
+            const sessionTypes = t.sessionTypes || [];
+            const platforms = t.platforms || t.sessionPlatforms || ['TheraBook Video'];
+            // Use pricing object if available, else fallback to old fields
+            let pricing = t.pricing || {};
+            // Fallback for legacy fields
+            if (Object.keys(pricing).length === 0) {
+                const fallbackVal = t.consultationFee ?? t.sessionFee ?? 0;
+                pricing = { video: fallbackVal, audio: fallbackVal, clinic: fallbackVal, home: fallbackVal };
+            } else {
+                // Ensure all keys exist
+                pricing = {
+                    video: pricing.video ?? t.consultationFee ?? t.sessionFee ?? 0,
+                    audio: pricing.audio ?? t.consultationFee ?? t.sessionFee ?? 0,
+                    clinic: pricing.clinic ?? t.consultationFee ?? t.sessionFee ?? 0,
+                    home: pricing.home ?? t.consultationFee ?? t.sessionFee ?? 0
+                };
+            }
+            const durationVal = t.sessionDurations && t.sessionDurations.length > 0 ? (t.sessionDurations[0].split(' ')[0] || 50) : 50;
+            const bankDetails = t.bankDetails || undefined;
+            const verification = t.verification || {
+                kyc: t.kycStatus || t.kyc || (isVerified ? 'Verified' : 'Pending'),
+                degree: t.degreeStatus || t.degree || (isVerified ? 'Verified' : 'Pending'),
+                license: t.licenseStatus || t.license || (isVerified ? 'Verified' : 'Pending'),
+                overall: isVerified ? 'Verified' : 'Pending'
+            };
             setTherapistData(prev => ({
                 ...prev,
                 profile: {
@@ -312,10 +423,14 @@ export default function TherapistDashboardPage() {
                     specializations,
                     clinicAddress,
                     avatar,
-                    qualificationCertUrls: t.qualificationCertUrls || [],
-                    licenseDocumentUrl: t.licenseDocumentUrl || ''
+                    qualificationCertUrls,
+                    licenseDocumentUrl,
+                    isVerified,
+                    verified: isVerified
                 },
-                services: { ...prev.services, modes, sessionTypes, pricing: pricingVal, duration: durationVal },
+                bankDetails,
+                verification,
+                services: { ...prev.services, modes, sessionTypes, pricing, duration: Number(durationVal), platforms },
                 appointments: { ...prev.appointments, rating: t.rating ?? 0, reviews: t.reviewCount ?? 0 }
             }));
             setServiceTypes(sessionTypes.length ? sessionTypes : modes);
@@ -436,12 +551,17 @@ export default function TherapistDashboardPage() {
                     ...prev,
                     appointments: {
                         ...prev.appointments,
-                        upcoming: result.data.slice(0, 5).map((booking: any, index: number) => ({
-                            id: booking._id || index + 1,
-                            patient: booking.userId?.name || booking.clientId?.name || `Patient ${index + 1}`,
-                            time: booking.timeSlot || booking.sessionTime?.startTime || formatTime(booking.date || booking.sessionDate),
-                            date: formatDate(booking.date || booking.sessionDate),
-                            type: (booking.sessionType || 'video').replace('-', ' ')
+                        // Pass full booking objects for accurate display in BookingList
+                        upcoming: result.data.map((booking: any) => ({
+                            _id: booking._id,
+                            date: booking.date || booking.sessionDate,
+                            timeSlot: booking.timeSlot || booking.sessionTime?.startTime,
+                            sessionType: booking.sessionType || 'video',
+                            status: booking.status || 'pending',
+                            amount: booking.amount || 0,
+                            notes: booking.notes || '',
+                            user: booking.userId || booking.clientId || {},
+                            createdAt: booking.createdAt || '',
                         }))
                     }
                 }));
@@ -531,6 +651,7 @@ export default function TherapistDashboardPage() {
                 if (userRes.ok) {
                     const uData = await userRes.json();
                     const userProfile = uData?.user;
+                    setUserProfile(userProfile || null);
                     const apiGender = userProfile?.gender;
                     setTherapistData(prev => ({
                         ...prev,
@@ -553,14 +674,14 @@ export default function TherapistDashboardPage() {
             try {
                 const results = await Promise.allSettled([
                     fetchDashboardStats(),
+                    fetchTherapistFullProfile(),
                     fetchTodaySessions(),
                     fetchScheduledSessions(selectedDate),
-                    fetchTherapistBookings(),
-                    fetchTherapistFullProfile()
+                    fetchTherapistBookings()
                 ]);
                 results.forEach((result, index) => {
                     if (result.status === 'rejected') {
-                        const apiNames = ['Stats', 'Today Sessions', 'Scheduled', 'Bookings', 'Profile'];
+                        const apiNames = ['Stats', 'Profile', 'Today Sessions', 'Scheduled', 'Bookings'];
                         console.error(`Error loading ${apiNames[index]}:`, result.reason);
                     }
                 });
@@ -579,17 +700,32 @@ export default function TherapistDashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isAuthenticated, token, user?._id, resolvedTherapistId]);
 
+    useEffect(() => {
+        if (!isAuthenticated || !token || !user?._id) return;
+        (async () => {
+            setIsLoadingSchedule(true);
+            await Promise.allSettled([
+                fetchTodaySessions(),
+                fetchScheduledSessions(selectedDate),
+                fetchTherapistBookings()
+            ]);
+            setIsLoadingSchedule(false);
+        })();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeTab, isAuthenticated, token, user?._id, resolvedTherapistId]);
+
     const refreshData = async () => {
         if (!resolvedTherapistId && !user?._id) return;
         setIsLoadingData(true);
         setError(null);
         try {
+            setIsLoadingSchedule(true);
             await Promise.allSettled([
                 fetchDashboardStats(),
+                fetchTherapistFullProfile(),
                 fetchTodaySessions(),
                 fetchScheduledSessions(selectedDate),
-                fetchTherapistBookings(),
-                fetchTherapistFullProfile()
+                fetchTherapistBookings()
             ]);
         } catch (error: any) {
             console.error('Error refreshing data:', error);
@@ -598,6 +734,7 @@ export default function TherapistDashboardPage() {
                 setError('Some data could not be refreshed. Please try again.');
             }
         } finally {
+            setIsLoadingSchedule(false);
             setIsLoadingData(false);
         }
     };
@@ -606,10 +743,12 @@ export default function TherapistDashboardPage() {
     useEffect(() => {
         if (!isAuthenticated || !token || !user?._id) return;
         (async () => {
+            setIsLoadingSchedule(true);
             await fetchScheduledSessions(selectedDate);
+            setIsLoadingSchedule(false);
         })();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedDate]);
+    }, [selectedDate, activeTab]);
 
 
   if (isLoading) {
@@ -772,7 +911,7 @@ export default function TherapistDashboardPage() {
                         <p className="text-slate-500 text-sm mb-4">{therapistData.profile.experience || '0'} Years Experience</p>
 
                         <div className="flex flex-wrap justify-center gap-2 w-full">
-                            {toNumber(dashboardStats.verificationPercentage,0) >= 100 ? (
+                            {(therapistData.profile.isVerified ?? therapistData.profile.verified ?? false) ? (
                                 <Badge className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-100 px-3 py-1 rounded-full">
                                     <CheckCircle className="w-3.5 h-3.5 mr-1.5" /> Verified
                                 </Badge>
@@ -911,332 +1050,260 @@ export default function TherapistDashboardPage() {
                     </CardContent>
                 </Card>
              </div>
+
+             {/* Full Therapist Data */}
+             <Card className="border-slate-100 shadow-sm rounded-2xl">
+                <CardHeader className="border-b border-slate-50">
+                    <CardTitle className="text-lg font-bold text-slate-800">Full Therapist Data</CardTitle>
+                    <CardDescription>Complete profile snapshot from your therapist record</CardDescription>
+                </CardHeader>
+                <CardContent className="pt-6 space-y-6">
+                    <div>
+                        <h4 className="text-sm font-semibold text-slate-900 mb-3">Identity & Contact</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <DetailRow label="Therapist ID" value={resolvedTherapistId || fullProfile._id || '-'} mono />
+                            <DetailRow label="User ID" value={fullProfile.userId || user?._id || '-'} mono />
+                            <DetailRow label="Full Name" value={fullProfile.fullName || therapistData.profile.name || '-'} />
+                            <DetailRow label="Display Name" value={fullProfile.displayName || '-'} />
+                            <DetailRow label="Gender" value={fullProfile.gender || therapistData.profile.gender || '-'} />
+                            <DetailRow label="Date of Birth" value={fullProfile.dateOfBirth || '-'} />
+                            <DetailRow label="Email" value={contactEmail || '-'} />
+                            <DetailRow label="Phone" value={contactPhone || '-'} />
+                            <DetailRow label="Residential Address" value={fullProfile.residentialAddress || fullProfile.clinicAddress || '-'} />
+                            <DetailRow label="Current City" value={fullProfile.currentCity || '-'} />
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 className="text-sm font-semibold text-slate-900 mb-3">Professional Profile</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <DetailRow label="Title" value={fullProfile.title || fullProfile.designation || '-'} />
+                            <DetailRow label="Experience" value={therapistData.profile.experience || '-'} />
+                            <DetailRow label="Workplaces" value={fullProfile.workplaces || '-'} />
+                            <DetailRow label="Online Experience" value={formatBool(fullProfile.onlineExperience)} />
+                            <DetailRow label="Specializations" value={joinList(therapistData.profile.specializations)} />
+                            <DetailRow label="Designations" value={joinList(fullProfile.designations)} />
+                            <DetailRow label="Languages" value={joinList(therapistData.profile.languages)} />
+                            <DetailRow label="Preferred Languages" value={joinList(fullProfile.preferredLanguages)} />
+                            <DetailRow label="Therapy Languages" value={joinList(fullProfile.therapyLanguages)} />
+                            <DetailRow label="Degrees" value={joinList(therapistData.profile.degrees)} />
+                            <DetailRow label="Certifications" value={joinList(therapistData.profile.certifications)} />
+                            <DetailRow label="Qualification" value={fullProfile.qualification || '-'} />
+                            <DetailRow label="University" value={fullProfile.university || '-'} />
+                            <DetailRow label="Graduation Year" value={fullProfile.graduationYear || '-'} />
+                            <DetailRow label="License Number" value={fullProfile.licenseNumber || '-'} />
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 className="text-sm font-semibold text-slate-900 mb-3">Services & Pricing</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <DetailRow label="Session Types" value={joinList(therapistData.services.sessionTypes || fullProfile.sessionTypes)} />
+                            <DetailRow label="Session Modes" value={joinList(therapistData.services.modes || fullProfile.sessionModes)} />
+                            <DetailRow label="Pricing" value={pricingText} />
+                            <DetailRow label="Session Duration" value={`${therapistData.services.duration || 50} min`} />
+                            <DetailRow label="Session Durations" value={joinList(fullProfile.sessionDurations)} />
+                            <DetailRow label="Weekly Sessions" value={fullProfile.weeklySessions || '-'} />
+                            <DetailRow label="Platforms" value={joinList(therapistData.services.platforms || fullProfile.platforms)} />
+                            <DetailRow label="Availability" value={Array.isArray(fullProfile.availability) ? `${fullProfile.availability.length} schedules` : 'Not specified'} />
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 className="text-sm font-semibold text-slate-900 mb-3">Preferences & Filters</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <DetailRow label="Primary Conditions" value={joinList(fullProfile.primaryConditions)} />
+                            <DetailRow label="Primary Filters" value={joinList(fullProfile.primaryFilters)} />
+                            <DetailRow label="Preferred Days" value={joinList(fullProfile.preferredDays)} />
+                            <DetailRow label="Preferred Time Slots" value={joinList(fullProfile.preferredTimeSlots)} />
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 className="text-sm font-semibold text-slate-900 mb-3">Payments & Pricing Flags</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <DetailRow label="Payment Mode" value={fullProfile.paymentMode || '-'} />
+                            <DetailRow label="Consultation Fee" value={typeof fullProfile.consultationFee === 'number' ? formatCurrency(fullProfile.consultationFee) : '-'} />
+                            <DetailRow label="Session Fee" value={typeof fullProfile.sessionFee === 'number' ? formatCurrency(fullProfile.sessionFee) : '-'} />
+                            <DetailRow label="Dynamic Pricing" value={formatBool(fullProfile.dynamicPricing)} />
+                            <DetailRow label="Free First Session" value={formatBool(fullProfile.freeFirstSession)} />
+                            <DetailRow label="Currency" value={fullProfile.currency || 'INR'} />
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 className="text-sm font-semibold text-slate-900 mb-3">Verification & Documents</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <DetailRow label="KYC" value={therapistData.verification?.kyc || '-'} />
+                            <DetailRow label="Degree" value={therapistData.verification?.degree || '-'} />
+                            <DetailRow label="License" value={therapistData.verification?.license || '-'} />
+                            <DetailRow label="Overall" value={therapistData.verification?.overall || '-'} />
+                            <DetailRow label="Qualification Docs" value={therapistData.profile.qualificationCertUrls?.length ? `${therapistData.profile.qualificationCertUrls.length} file(s)` : 'Not uploaded'} />
+                            <DetailRow label="License Document" value={therapistData.profile.licenseDocumentUrl ? 'Uploaded' : 'Not uploaded'} />
+                            <DetailRow label="Resume" value={fullProfile.resumeUrl ? 'Uploaded' : 'Not uploaded'} />
+                            <DetailRow label="Verified" value={formatBool(fullProfile.verified ?? therapistData.profile.isVerified)} />
+                            <DetailRow label="Verified At" value={formatDateTime(fullProfile.verifiedAt) || '-'} />
+                            <DetailRow label="Approved" value={formatBool(fullProfile.isApproved)} />
+                            <DetailRow label="Registration Completed" value={formatBool(fullProfile.registrationCompleted)} />
+                            <DetailRow label="Status" value={fullProfile.status || '-'} />
+                            <DetailRow label="Rejected" value={formatBool(fullProfile.rejected)} />
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 className="text-sm font-semibold text-slate-900 mb-3">Agreements</h4>
+                        <DetailRow label="Agreements" value={formatAgreements(fullProfile.agreements)} />
+                    </div>
+
+                    <div>
+                        <h4 className="text-sm font-semibold text-slate-900 mb-3">Bank Details</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <DetailRow label="Account Holder" value={therapistData.bankDetails?.accountHolder || '-'} />
+                            <DetailRow label="Bank Name" value={therapistData.bankDetails?.bankName || '-'} />
+                            <DetailRow label="Account Number" value={therapistData.bankDetails?.accountNumber || '-'} mono />
+                            <DetailRow label="IFSC" value={therapistData.bankDetails?.ifscCode || '-'} mono />
+                            <DetailRow label="UPI ID" value={therapistData.bankDetails?.upiId || '-'} />
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 className="text-sm font-semibold text-slate-900 mb-3">Timestamps</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <DetailRow label="Created At" value={formatDateTime(fullProfile.createdAt) || '-'} />
+                            <DetailRow label="Updated At" value={formatDateTime(fullProfile.updatedAt) || '-'} />
+                        </div>
+                    </div>
+                </CardContent>
+             </Card>
           </TabsContent>
 
           {/* --- Tab: Settings --- */}
           <TabsContent value="settings" className="space-y-6 animate-in fade-in-50 duration-500">
-             <div className="grid md:grid-cols-3 gap-6">
-                
-                {/* Availability */}
-                <div className="md:col-span-2 space-y-6">
-                    <Card className="border-slate-100 shadow-sm rounded-2xl">
-                        <CardHeader className="border-b border-slate-50 pb-4">
-                            <CardTitle className="text-lg flex items-center gap-2">
-                                <Clock className="w-5 h-5 text-blue-600" /> Weekly Availability
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="pt-6 space-y-3">
-                             {weeklySlots.map((slot) => (
-                                <div key={slot.day} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-white rounded-xl border border-slate-100 hover:border-slate-200 transition-colors gap-3">
-                                    <div className="flex items-center justify-between sm:justify-start gap-4 w-full sm:w-auto">
-                                        <div className="flex items-center gap-3">
-                                            <Switch checked={slot.enabled} onCheckedChange={(c) => handleWeeklySlotChange(slot.day, 'enabled', c)} />
-                                            <span className={`text-sm font-medium ${slot.enabled ? 'text-slate-900' : 'text-slate-400'}`}>{slot.day}</span>
-                                        </div>
-                                    </div>
-                                    
-                                    {slot.enabled && (
-                                        <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                                            <div className="relative">
-                                                <Input 
-                                                    type="time" 
-                                                    value={slot.start} 
-                                                    onChange={(e) => handleWeeklySlotChange(slot.day, 'start', e.target.value)}
-                                                    className="w-28 h-9 text-xs bg-slate-50 border-slate-200 rounded-lg"
-                                                />
-                                            </div>
-                                            <span className="text-slate-300 text-xs">to</span>
-                                            <div className="relative">
-                                                <Input 
-                                                    type="time" 
-                                                    value={slot.end} 
-                                                    onChange={(e) => handleWeeklySlotChange(slot.day, 'end', e.target.value)}
-                                                    className="w-28 h-9 text-xs bg-slate-50 border-slate-200 rounded-lg"
-                                                />
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                             ))}
-                                                         <div className="mt-4 p-3 bg-blue-50 rounded-xl border border-blue-100 space-y-3">
-                                                                <div className="flex items-center justify-between gap-2 flex-wrap">
-                                                                    <p className="text-sm font-semibold text-slate-800">Unavailability / Vacation</p>
-                                                                    <Button type="button" size="sm" variant="outline" className="h-8 text-xs" onClick={() => {
-                                                                        if (!blockStartDate || !blockEndDate) return;
-                                                                        const id = `${Date.now()}`;
-                                                                        setUnavailability(prev => [...prev, { id, startDate: blockStartDate, endDate: blockEndDate, time: blockAllDay ? 'ALL_DAY' : (blockTime || '09:00'), note: blockNote, allDay: blockAllDay }]);
-                                                                        setBlockStartDate(''); setBlockEndDate(''); setBlockTime(''); setBlockNote(''); setBlockAllDay(true);
-                                                                    }}>Add</Button>
-                                                                </div>
-                                                                <div className="flex gap-2 flex-wrap mb-3">
-                                                                    <Button type="button" size="sm" variant="secondary" className="h-7 text-xs" onClick={() => {
-                                                                        const today = new Date().toISOString().split('T')[0];
-                                                                        setBlockStartDate(today);
-                                                                        setBlockEndDate(today);
-                                                                        setBlockAllDay(false);
-                                                                        setBlockTime('14:00');
-                                                                        setBlockNote('');
-                                                                    }}>Quick: 1 hour today</Button>
-                                                                    <Button type="button" size="sm" variant="secondary" className="h-7 text-xs" onClick={() => {
-                                                                        const today = new Date().toISOString().split('T')[0];
-                                                                        setBlockStartDate(today);
-                                                                        setBlockEndDate(today);
-                                                                        setBlockAllDay(true);
-                                                                        setBlockTime('');
-                                                                        setBlockNote('');
-                                                                    }}>Quick: Full day today</Button>
-                                                                </div>
-                                                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
-                                                                    <Input type="date" value={blockStartDate} onChange={(e) => setBlockStartDate(e.target.value)} className="h-9 text-sm border-blue-100" placeholder="Start date" />
-                                                                    <Input type="date" value={blockEndDate} onChange={(e) => setBlockEndDate(e.target.value)} className="h-9 text-sm border-blue-100" placeholder="End date" />
-                                                                    <div className="flex items-center gap-2">
-                                                                        <Switch checked={blockAllDay} onCheckedChange={setBlockAllDay} />
-                                                                        <span className="text-xs text-slate-600">All day</span>
-                                                                    </div>
-                                                                    {!blockAllDay && (
-                                                                        <Input type="time" value={blockTime} onChange={(e) => setBlockTime(e.target.value)} className="h-9 text-sm border-blue-100" placeholder="Time slot" />
-                                                                    )}
-                                                                    <Input placeholder="Note (optional)" value={blockNote} onChange={(e) => setBlockNote(e.target.value)} className="h-9 text-sm border-blue-100 sm:col-span-2 lg:col-span-4" />
-                                                                </div>
-                                                                <div className="space-y-2 max-h-40 overflow-auto">
-                                                                    {unavailability.length === 0 && <p className="text-xs text-slate-500">No blocks added. Use quick buttons or manually set dates above.</p>}
-                                                                    {unavailability.map(item => (
-                                                                        <div key={item.id} className="flex items-center justify-between text-xs bg-white border border-blue-100 rounded-lg px-3 py-2">
-                                                                            <div>
-                                                                                <div className="font-semibold text-slate-800">{item.startDate} → {item.endDate}</div>
-                                                                                <div className="text-slate-500">{item.allDay ? 'All day' : item.time} {item.note ? `• ${item.note}` : ''}</div>
-                                                                            </div>
-                                                                            <Button size="sm" variant="ghost" className="h-7 text-xs text-red-600 hover:bg-red-50" onClick={() => setUnavailability(prev => prev.filter(u => u.id !== item.id))}>Remove</Button>
-                                                                        </div>
-                                                                    ))}
-                                                                </div>
-                                                                <p className="text-xs text-slate-500">💡 Tip: Click "Remove" to reverse any block before saving. For single hour: set same start/end date, turn off "All day", and pick a time.</p>
-                                                         </div>
-                             <Button className="w-full mt-4 bg-slate-900 hover:bg-slate-800 rounded-xl py-6" onClick={handleUpdateAvailability}>Save Availability Schedule</Button>
-                        </CardContent>
-                    </Card>
-                </div>
-
-                {/* Sidebar Options */}
-                <div className="space-y-6">
-                    <Card className="border-slate-100 shadow-sm rounded-2xl">
-                        <CardHeader className="pb-4">
-                             <CardTitle className="text-base font-semibold flex items-center gap-2">
-                                <Video className="w-4 h-4 text-blue-600" /> Service Modes
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-3">
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                                {[{id:'video',label:'Video'},{id:'audio',label:'Audio'},{id:'home',label:'Home Visit'}].map(opt => {
-                                    const active = serviceTypes.includes(opt.id);
-                                    return (
-                                        <Button
-                                            key={opt.id}
-                                            type="button"
-                                            variant={active ? 'default' : 'outline'}
-                                            className={`w-full justify-center rounded-xl ${active ? 'bg-blue-600 text-white hover:bg-blue-700' : 'border-slate-200 text-slate-700 hover:bg-slate-50'}`}
-                                            onClick={() => {
-                                                setServiceTypes(prev => prev.includes(opt.id) ? prev.filter(v => v !== opt.id) : [...prev, opt.id]);
-                                            }}
-                                        >
-                                            {opt.label}
-                                        </Button>
-                                    );
-                                })}
-                            </div>
-                            <p className="text-xs text-slate-500">Choose all modes you offer. These drive pricing and booking options.</p>
-                        </CardContent>
-                    </Card>
-                    <Card className="border-slate-100 shadow-sm rounded-2xl">
-                        <CardHeader className="pb-4">
-                             <CardTitle className="text-base font-semibold flex items-center gap-2">
-                                <DollarSign className="w-4 h-4 text-green-600" /> Consultation Fees
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            {['video','audio','home'].map(mode => (
-                              <div key={mode} className="space-y-2">
-                                <Label className="text-xs uppercase text-slate-500">{mode === 'home' ? 'Home Visit' : mode.charAt(0).toUpperCase()+mode.slice(1)}</Label>
-                                <div className="relative">
-                                  <span className="absolute left-3 top-2.5 text-slate-400 font-medium">₹</span>
-                                  <Input
-                                    type="number"
-                                    value={pricing[mode as 'video'|'audio'|'home'] || 0}
-                                    onChange={e => setPricing(prev => ({ ...prev, [mode]: Number(e.target.value) }))}
-                                    className="pl-7 text-lg font-bold h-11 border-slate-200 rounded-xl"
-                                  />
-                                </div>
-                              </div>
-                            ))}
-                            <div className="flex items-center justify-between text-sm text-slate-500 px-1">
-                                <span>Default Session Duration</span>
-                                <span className="font-medium text-slate-700">{duration} mins</span>
-                            </div>
-                            <Button variant="outline" className="w-full border-blue-200 text-blue-700 hover:bg-blue-50 rounded-xl" onClick={handleUpdateServiceOptions}>
-                                Update Rates
-                            </Button>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="border-slate-100 shadow-sm rounded-2xl">
-                         <CardHeader className="pb-4">
-                             <CardTitle className="text-base font-semibold flex items-center gap-2">
-                                <Bell className="w-4 h-4 text-purple-600" /> Preferences
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="flex items-center justify-between">
-                                <Label className="text-sm font-medium text-slate-700" htmlFor="email-notif">Email Alerts</Label>
-                                <Switch id="email-notif" checked={emailNotifications} onCheckedChange={setEmailNotifications} />
-                            </div>
-                            <Separator className="bg-slate-100" />
-                            <div className="flex items-center justify-between">
-                                <Label className="text-sm font-medium text-slate-700" htmlFor="sms-notif">SMS Alerts</Label>
-                                <Switch id="sms-notif" checked={smsNotifications} onCheckedChange={setSmsNotifications} />
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
-             </div>
+                        {/* --- Redesigned Settings Form --- */}
+                        <div className="max-w-2xl mx-auto p-6 bg-white rounded-lg shadow">
+                            <h2 className="text-2xl font-bold mb-6">Settings</h2>
+                            <TherapistSettingsTab
+                                profile={settingsProfile}
+                                onSave={async (form: any) => {
+                                    setIsLoadingData(true);
+                                    setError(null);
+                                    try {
+                                        if (!resolvedTherapistId) {
+                                            throw new Error('Therapist ID not found');
+                                        }
+                                        // Always send a complete pricing object for all session modes
+                                        const sessionModes = form.sessionModes || ['video', 'audio', 'clinic', 'home'];
+                                        const pricing = {
+                                            video: Number(form.pricing?.video ?? 0),
+                                            audio: Number(form.pricing?.audio ?? 0),
+                                            clinic: Number(form.pricing?.clinic ?? 0),
+                                            home: Number(form.pricing?.home ?? 0)
+                                        };
+                                        const fullName = form.fullName || form.displayName || form.name || '';
+                                        const payload = {
+                                            ...form,
+                                            name: form.name || fullName,
+                                            displayName: form.displayName || fullName,
+                                            fullName,
+                                            sessionModes,
+                                            pricing,
+                                            clinicAddress: form.clinicAddress || form.residentialAddress || form.location,
+                                            location: form.location || form.clinicAddress || form.residentialAddress,
+                                            preferredLanguages: form.preferredLanguages || form.languages || form.therapyLanguages || [],
+                                            languages: form.languages || form.therapyLanguages || form.preferredLanguages || [],
+                                            sessionTypes: form.sessionTypes || form.sessionModes || [],
+                                        };
+                                        const res = await fetch(`/api/therapists/${resolvedTherapistId}`, {
+                                            method: 'PATCH',
+                                            headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                                            body: JSON.stringify(payload)
+                                        });
+                                        const data = await res.json();
+                                        if (!res.ok) throw new Error((data && typeof data === 'object' && 'message' in data) ? (data as any).message : 'Failed to update profile');
+                                        if (data?.therapist) {
+                                            setTherapistRaw(data.therapist);
+                                        }
+                                        await fetchTherapistFullProfile();
+                                        toast.success('Profile updated');
+                                    } catch (e: any) {
+                                        const msg = e?.message || 'Failed to save profile';
+                                        setError(msg);
+                                        toast.error('Update failed', { description: msg });
+                                    } finally {
+                                        setIsLoadingData(false);
+                                    }
+                                }}
+                                saving={isLoadingData}
+                                success={false}
+                                error={error || ""}
+                            />
+                        </div>
           </TabsContent>
 
           {/* --- Tab: Appointments --- */}
           <TabsContent value="appointments" className="space-y-6 animate-in fade-in-50 duration-500">
-             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <h2 className="text-xl font-bold text-slate-800">Schedule</h2>
-                <div className="flex items-center gap-2">
-                    <LocalizationProvider dateAdapter={AdapterDateFns}>
-                         <div className="bg-white rounded-lg shadow-sm border border-slate-200">
-                             <DatePicker 
-                                 value={selectedDate}
-                                 onChange={(v: Date | null) => setSelectedDate(v ?? new Date())}
-                                 slotProps={{ textField: { size: 'small', variant: 'standard', sx: { px: 2, py: 1, '& .MuiInput-underline:before': { borderBottom: 'none' }, '& .MuiInput-underline:after': { borderBottom: 'none' } } } }}
-                             />
-                         </div>
-                    </LocalizationProvider>
-                    <Button variant="outline" size="icon" onClick={refreshData} className="border-slate-200 text-slate-500 bg-white">
-                       <RefreshCw className={`w-4 h-4 ${isLoadingData ? 'animate-spin' : ''}`} />
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <h2 className="text-xl font-bold text-slate-800">Schedule</h2>
+              <div className="flex items-center gap-2">
+                <LocalizationProvider dateAdapter={AdapterDateFns}>
+                  <div className="bg-white rounded-lg shadow-sm border border-slate-200">
+                    <DatePicker 
+                      value={selectedDate}
+                      onChange={(v: Date | null) => setSelectedDate(v ?? new Date())}
+                      slotProps={{ textField: { size: 'small', variant: 'standard', sx: { px: 2, py: 1, '& .MuiInput-underline:before': { borderBottom: 'none' }, '& .MuiInput-underline:after': { borderBottom: 'none' } } } }}
+                    />
+                  </div>
+                </LocalizationProvider>
+                <Button variant="outline" size="icon" onClick={refreshData} className="border-slate-200 text-slate-500 bg-white">
+                  <RefreshCw className={`w-4 h-4 ${isLoadingSchedule ? 'animate-spin' : ''}`} />
+                </Button>
+              </div>
+            </div>
+
+            {/* Today's Sessions */}
+            <div>
+              <h3 className="text-lg font-semibold text-blue-700 mb-2">Today's Sessions</h3>
+              {/* Use TodaySessions component if desired, or keep current UI */}
+              {/* <TodaySessions sessions={todaySessions} /> */}
+              {todaySessions.length > 0 ? (
+                todaySessions.map(session => (
+                  <div key={session.id} className="relative overflow-hidden bg-white p-4 sm:p-5 rounded-2xl shadow-sm shadow-blue-100 border border-blue-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-blue-500"></div>
+                    <div className="flex items-center gap-4 w-full sm:w-auto pl-2">
+                      <Avatar className="h-12 w-12 border-2 border-blue-50">
+                        <AvatarFallback className="bg-blue-100 text-blue-700 font-bold">{session.patientName[0]}</AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <h4 className="font-bold text-slate-900 text-lg">{session.patientName}</h4>
+                        <div className="flex items-center gap-3 text-sm text-slate-500 mt-1">
+                          <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-xs font-medium">{formatTime(session.startTime)}</span>
+                          <span className="capitalize">{session.sessionType}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <Button className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 rounded-full shadow-lg shadow-blue-200 pl-4 pr-6">
+                      <Video className="w-4 h-4 mr-2" /> Join Session
                     </Button>
-                </div>
-             </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-8 text-slate-500">No sessions today.</div>
+              )}
+            </div>
 
-             {/* Today's High Priority */}
-             {todaySessions.length > 0 && (
-                <div className="space-y-3">
-                            <div className="flex items-center gap-2 text-sm font-semibold text-blue-700 uppercase tracking-wider px-1">
-                        <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"></div>
-                        Starting Soon
-                   </div>
-                   {todaySessions.map(session => (
-                        <div key={session.id} className="relative overflow-hidden bg-white p-4 sm:p-5 rounded-2xl shadow-sm shadow-blue-100 border border-blue-100 flex flex-col sm:flex-row items-center justify-between gap-4">
-                            <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-blue-500"></div>
-                            <div className="flex items-center gap-4 w-full sm:w-auto pl-2">
-                                <Avatar className="h-12 w-12 border-2 border-blue-50">
-                                    <AvatarFallback className="bg-blue-100 text-blue-700 font-bold">{session.patientName[0]}</AvatarFallback>
-                                </Avatar>
-                                <div>
-                                    <h4 className="font-bold text-slate-900 text-lg">{session.patientName}</h4>
-                                    <div className="flex items-center gap-3 text-sm text-slate-500 mt-1">
-                                        <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-xs font-medium">{formatTime(session.startTime)}</span>
-                                        <span className="capitalize">{session.sessionType}</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <Button className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 rounded-full shadow-lg shadow-blue-200 pl-4 pr-6">
-                                <Video className="w-4 h-4 mr-2" /> Join Session
-                            </Button>
-                        </div>
-                    ))}
-                </div>
-             )}
-
-             {/* Appointment List */}
-             <Card className="border-slate-100 shadow-sm rounded-2xl overflow-hidden bg-white">
-                <CardHeader className="bg-slate-50/50 border-b border-slate-100 py-4">
-                    <CardTitle className="text-base font-semibold text-slate-700 flex items-center gap-2">
-                        <CalendarIcon className="w-4 h-4" /> Appointments for {formatDate(selectedDate)}
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
-                    {scheduledSessions.length === 0 ? (
-                        <div className="text-center py-16 px-4">
-                            <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                                <CalendarIcon className="w-8 h-8 text-slate-300" />
-                            </div>
-                            <h3 className="text-slate-900 font-medium">No sessions scheduled</h3>
-                            <p className="text-slate-500 text-sm mt-1">Enjoy your free time!</p>
-                        </div>
-                    ) : (
-                        <div>
-                            {/* Desktop Table */}
-                            <div className="hidden md:block">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow className="hover:bg-transparent border-slate-100">
-                                            <TableHead className="w-[30%] pl-6">Patient</TableHead>
-                                            <TableHead>Time</TableHead>
-                                            <TableHead>Type</TableHead>
-                                            <TableHead>Status</TableHead>
-                                            <TableHead className="text-right pr-6">Actions</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {scheduledSessions.map((s) => (
-                                            <TableRow key={s.id} className="border-slate-50 hover:bg-slate-50/50">
-                                                <TableCell className="pl-6 font-medium text-slate-900">
-                                                    <div className="flex items-center gap-3">
-                                                        <Avatar className="h-8 w-8">
-                                                            <AvatarFallback className="bg-slate-100 text-slate-600 text-xs">{s.patientName[0]}</AvatarFallback>
-                                                        </Avatar>
-                                                        {s.patientName}
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell className="text-slate-600 font-medium">
-                                                    {formatTime(s.startTime)}
-                                                </TableCell>
-                                                <TableCell><Badge variant="outline" className="capitalize font-normal text-slate-500 bg-white">{s.sessionType}</Badge></TableCell>
-                                                <TableCell>
-                                                    <Badge className="bg-emerald-50 text-emerald-700 border-transparent font-medium hover:bg-emerald-100 shadow-none">Confirmed</Badge>
-                                                </TableCell>
-                                                <TableCell className="text-right pr-6">
-                                                    <Button variant="ghost" size="sm" className="text-slate-400 hover:text-blue-600 hover:bg-blue-50">Details</Button>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))}
-                                    </TableBody>
-                                </Table>
-                            </div>
-
-                            {/* Mobile Cards */}
-                            <div className="md:hidden divide-y divide-slate-100">
-                                {scheduledSessions.map((s) => (
-                                    <div key={s.id} className="p-4 bg-white active:bg-slate-50 transition-colors">
-                                        <div className="flex justify-between items-start mb-3">
-                                            <div className="flex items-center gap-3">
-                                                <Avatar className="h-10 w-10 border border-slate-100">
-                                                    <AvatarFallback className="bg-slate-50 text-slate-600 font-bold">{s.patientName[0]}</AvatarFallback>
-                                                </Avatar>
-                                                <div>
-                                                    <h4 className="font-semibold text-slate-900">{s.patientName}</h4>
-                                                    <p className="text-xs text-slate-500 capitalize">{s.sessionType} Session</p>
-                                                </div>
-                                            </div>
-                                            <Badge className="bg-emerald-50 text-emerald-700 border-0 text-[10px]">Confirmed</Badge>
-                                        </div>
-                                        <div className="bg-slate-50 rounded-lg p-3 flex items-center justify-between border border-slate-100">
-                                            <div className="flex items-center gap-2 text-sm text-slate-700 font-medium">
-                                                <Clock className="w-4 h-4 text-blue-500" />
-                                                {formatTime(s.startTime)}
-                                            </div>
-                                            <ChevronRight className="w-4 h-4 text-slate-300" />
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                </CardContent>
-             </Card>
+            {/* Booked Appointments List */}
+            <div className="mt-8">
+              <h3 className="text-lg font-semibold text-blue-700 mb-2">Upcoming Bookings</h3>
+              {/* BookingList component for all upcoming bookings */}
+              {/* @ts-ignore: If types mismatch, adjust mapping as needed */}
+              <BookingList
+                loading={isLoadingSchedule}
+                error={error}
+                items={therapistData.appointments.upcoming || []}
+                emptyMsg="No upcoming bookings."
+                title="Upcoming Bookings"
+              />
+            </div>
           </TabsContent>
 
           {/* --- Tab: Verification --- */}
@@ -1340,6 +1407,15 @@ const TabItem = ({ value, icon: Icon, label }: any) => (
     </TabsTrigger>
 );
 
+const DetailRow = ({ label, value, mono }: any) => (
+    <div className="rounded-xl border border-slate-100 bg-slate-50/60 px-4 py-3">
+        <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold mb-1">{label}</div>
+        <div className={`${mono ? 'font-mono text-[13px]' : 'text-sm'} text-slate-700 break-words`}>
+            {value || <span className="text-slate-300 italic">Not specified</span>}
+        </div>
+    </div>
+);
+
 const ProfileField = ({ label, value, isEditing, onChange, type = 'text', options = [], placeholder = '' }: any) => (
     <div className="space-y-1.5 group">
         <Label className="text-[10px] uppercase tracking-wider text-slate-400 font-bold group-hover:text-blue-600 transition-colors">{label}</Label>
@@ -1367,21 +1443,21 @@ const ProfileField = ({ label, value, isEditing, onChange, type = 'text', option
 
 // Icon for recent activity
 function TrendingUpIcon(props: any) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
-      <polyline points="17 6 23 6 23 12" />
-    </svg>
-  )
+    return (
+        <svg
+            {...props}
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+        >
+            <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
+            <polyline points="17 6 23 6 23 12" />
+        </svg>
+    );
 }

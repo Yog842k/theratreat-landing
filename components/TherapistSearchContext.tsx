@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useContext, useMemo, useState, ReactNode, useCallback } from 'react';
 
 interface FilterState {
   conditions?: string[];
@@ -23,19 +23,24 @@ const TherapistSearchContext = createContext<TherapistSearchContextType | undefi
 export function TherapistSearchProvider({ children }: { children: ReactNode }) {
   const [filterState, setFilterStateInternal] = useState<FilterState>({});
 
-  const setFilterState = (filters: FilterState) => {
+  const setFilterState = useCallback((filters: FilterState) => {
     setFilterStateInternal(prev => ({
       ...prev,
       ...filters
     }));
-  };
+  }, []);
 
-  const clearFilterState = () => {
+  const clearFilterState = useCallback(() => {
     setFilterStateInternal({});
-  };
+  }, []);
+
+  const value = useMemo(
+    () => ({ filterState, setFilterState, clearFilterState }),
+    [filterState, setFilterState, clearFilterState]
+  );
 
   return (
-    <TherapistSearchContext.Provider value={{ filterState, setFilterState, clearFilterState }}>
+    <TherapistSearchContext.Provider value={value}>
       {children}
     </TherapistSearchContext.Provider>
   );

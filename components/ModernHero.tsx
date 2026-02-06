@@ -1,14 +1,12 @@
-import { useState } from "react";
 import { Badge } from "./ui/badge";
-import { EnhancedSearch } from "./EnhancedSearch";
+import { Button } from "./ui/button";
 import {
   Brain,
   ShoppingCart,
   BookOpen,
   Calendar,
   Users,
-  Star,
-  Award
+  Star
 } from "lucide-react";
 import clsx from "clsx";
 import { ViewType } from "../constants/app-data";
@@ -18,82 +16,148 @@ interface ModernHeroProps {
 }
 
 export function ModernHero({ setCurrentView }: ModernHeroProps) {
-  const handleSearch = (searchParams: any) => {
-    console.log("Search params:", searchParams);
-    // The search will be handled by the EnhancedSearch component
-  };
-
   return (
-  <section className="relative min-h-[70vh] sm:min-h-[78vh] overflow-hidden">
-      {/* Gradient Background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-blue-500 via-blue-600 to-purple-700" />
-      
-      {/* Main Content */}
-      <div className="relative z-10 max-w-5xl mx-auto px-4 sm:px-6 py-14 sm:py-20">
-        <div className="text-center space-y-8 sm:space-y-12">
-          {/* Badge */}
-          <Badge className="bg-blue-400/20 text-white border-white/30 backdrop-blur-md text-sm sm:text-base md:text-lg px-4 sm:px-5 py-1.5 sm:py-2">
-            Complete Therapy Ecosystem
-          </Badge>
+    <section className="relative min-h-[72vh] sm:min-h-[78vh] overflow-hidden w-full">
+      <div className="absolute inset-0 bg-gradient-to-br from-sky-600 via-blue-700 to-emerald-700" />
+      <div className="absolute inset-0 opacity-60 bg-[radial-gradient(circle_at_20%_10%,rgba(255,255,255,0.35),transparent_40%),radial-gradient(circle_at_80%_10%,rgba(56,189,248,0.35),transparent_45%),radial-gradient(circle_at_10%_80%,rgba(16,185,129,0.35),transparent_45%)]" />
+      <div className="absolute -top-24 right-6 h-52 w-52 rounded-full bg-white/20 blur-3xl" />
+      <div className="absolute -bottom-24 left-6 h-64 w-64 rounded-full bg-emerald-200/30 blur-3xl" />
 
-          {/* Main Heading */}
-          <div className="space-y-8">
-            <h1 className="text-3xl xs:text-4xl md:text-5xl lg:text-7xl font-bold text-white leading-tight max-w-4xl mx-auto tracking-tight">
-              Your One Stop Solution for Therapy, Rehab, Wellness and Recovery
-            </h1>
-            <p className="text-lg sm:text-xl text-white/90 leading-relaxed max-w-3xl mx-auto">
-              Get matched with verified therapist, shop therapy equipments, take quick self-tests and enrol to learn.
-            </p>
-          </div>
+      <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-16 sm:pt-20 lg:pt-24 pb-24 sm:pb-28 lg:pb-32">
+        <div className="grid gap-10 lg:grid-cols-[1.1fr_0.9fr] items-center">
+          <div className="space-y-6 text-left animate-in slide-in-from-left-4">
+            <Badge className="bg-white/15 text-white border-white/30 backdrop-blur-md text-xs sm:text-sm md:text-base px-3 sm:px-4 py-1.5 sm:py-2">
+              Complete Therapy Ecosystem
+            </Badge>
 
-          {/* Enhanced Search Bar */}
-          <div className="max-w-4xl mx-auto">
-            <EnhancedSearch
-              onSearch={handleSearch}
-              setCurrentView={setCurrentView}
-              variant="hero"
-              placeholder="Search therapists, specialties, conditions..."
-              showFilters={true}
-            />
-          </div>
+            <div className="space-y-5">
+              <h1 className="text-3xl xs:text-4xl md:text-5xl lg:text-6xl font-bold text-white leading-tight tracking-tight">
+                Your One-Stop Therapy Platform for Care, Rehab, and Recovery
+              </h1>
+              <p className="text-base sm:text-lg md:text-xl text-white/90 leading-relaxed max-w-2xl">
+                Book verified therapists, explore personalized self-tests, and equip your recovery with trusted tools - all in one calm, guided experience.
+              </p>
+            </div>
 
-          {/* Action Tabs (refactored) */}
-          <HeroActionTabs setCurrentView={setCurrentView} />
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Button
+                size="lg"
+                onClick={() => setCurrentView?.("book")}
+                className="bg-white text-slate-900 hover:bg-white/90 shadow-xl shadow-black/20"
+              >
+                Book a Session
+              </Button>
+              <Button
+                size="lg"
+                variant="outline"
+                onClick={() => setCurrentView?.("therapists")}
+                className="border-white/30 text-white hover:bg-white/10 hover:text-white"
+              >
+                Browse Therapists
+              </Button>
+            </div>
 
-          {/* Team Stats */}
-          <div className="flex flex-col sm:flex-row sm:flex-wrap items-center justify-center gap-4 sm:gap-x-8 text-white/90 mt-4">
-            <div className="flex items-center space-x-3">
-              <div className="flex items-center space-x-1">
+            <div className="flex flex-wrap gap-3 text-xs sm:text-sm text-white/90">
+              {["Video or In-Clinic", "Insurance Friendly", "Progress Tracking"].map((item) => (
+                <div key={item} className="rounded-full border border-white/30 bg-white/10 px-3 py-1">
+                  {item}
+                </div>
+              ))}
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:flex-wrap items-start sm:items-center gap-4 sm:gap-x-8 text-white/90 pt-2">
+              <div className="flex items-center space-x-3">
                 <Users className="w-5 h-5 sm:w-6 sm:h-6" />
-                <span className="text-xl sm:text-2xl font-bold">2,500+</span>
+                <span className="text-lg sm:text-xl font-semibold">2,500+ Verified Therapists</span>
               </div>
-              <span className="text-sm sm:text-base font-medium">Verified Therapists</span>
-            </div>
-            
-            <div className="flex items-center space-x-3">
-              <div className="flex items-center space-x-1">
+              <div className="flex items-center space-x-3">
                 <Star className="w-5 h-5 sm:w-6 sm:h-6 fill-yellow-400 text-yellow-400" />
-                <span className="text-xl sm:text-2xl font-bold">4.9</span>
+                <span className="text-lg sm:text-xl font-semibold">4.9 Average Rating</span>
               </div>
-              <span className="text-sm sm:text-base font-medium">Average Rating</span>
-            </div>
-            
-            <div className="flex items-center space-x-3">
-              <div className="flex items-center space-x-1">
-                <Award className="w-5 h-5 sm:w-6 sm:h-6" />
-                <span className="text-xl sm:text-2xl font-bold">24/7</span>
-              </div>
-              <span className="text-sm sm:text-base font-medium">Support Available</span>
             </div>
           </div>
+
+          <div className="relative grid gap-4 animate-in slide-in-from-right-4">
+            <div className="relative overflow-hidden rounded-3xl border border-white/20 bg-white/10 shadow-2xl">
+              <img
+                src="/images/psychologist.png"
+                alt="Therapist session"
+                className="aspect-[4/3] w-full object-cover"
+                loading="eager"
+                fetchPriority="high"
+                decoding="async"
+              />
+              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.05),rgba(0,0,0,0.35))]" />
+              <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between text-xs text-white/90">
+                <span className="rounded-full bg-white/20 px-3 py-1">Therapy Session</span>
+                <span className="rounded-full bg-white/20 px-3 py-1">Verified Care</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="relative overflow-hidden rounded-2xl border border-white/20 bg-white/10 shadow-xl">
+                <img
+                  src="/images/theraself.png"
+                  alt="Self assessment tools"
+                  className="aspect-[4/5] w-full object-cover"
+                  loading="lazy"
+                  decoding="async"
+                />
+                <div className="absolute inset-0 flex items-end p-3">
+                  <span className="rounded-lg bg-white/20 px-3 py-1 text-xs text-white">Self-Assessment</span>
+                </div>
+              </div>
+              <div className="space-y-4">
+                <div className="rounded-2xl border border-white/20 bg-white/10 p-4 text-white shadow-xl">
+                  <p className="text-xs uppercase tracking-[0.2em] text-white/70">Live Availability</p>
+                  <p className="mt-2 text-lg font-semibold">Next session in 30 minutes</p>
+                  <div className="mt-3 flex items-center gap-2 text-xs text-white/80">
+                    <span className="h-2 w-2 rounded-full bg-emerald-300"></span>
+                    Real-time booking
+                  </div>
+                </div>
+                <div className="relative overflow-hidden rounded-2xl border border-white/20 bg-white/10 shadow-xl">
+                  <img
+                    src="/images/Therastore.png"
+                    alt="Therapy equipment"
+                    className="aspect-[4/3] w-full object-cover"
+                    loading="lazy"
+                    decoding="async"
+                  />
+                  <div className="absolute inset-0 flex items-end p-3">
+                    <span className="rounded-lg bg-white/20 px-3 py-1 text-xs text-white">TheraStore</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="absolute -bottom-6 -left-6 hidden md:flex items-center gap-3 rounded-2xl bg-white/90 px-4 py-3 text-slate-900 shadow-xl">
+              <div className="h-10 w-10 rounded-xl bg-emerald-500/90 text-white flex items-center justify-center font-semibold">
+                4.9
+              </div>
+              <div className="text-sm">
+                <p className="font-semibold">Rated Excellent</p>
+                <p className="text-slate-600">20k+ patient reviews</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-10 sm:mt-12">
+          <HeroActionTabs setCurrentView={setCurrentView} />
         </div>
       </div>
 
       {/* Bottom Wave */}
-      <div className="absolute left-0 right-0 bottom-0" style={{width: '100vw', zIndex: 0}}>
-        <svg viewBox="0 0 1200 80" fill="none" width="100vw" height="80" style={{display: 'block', boxSizing: 'border-box', width: '100vw'}}>
+      <div className="absolute left-0 right-0 w-full pointer-events-none" style={{ zIndex: 0, bottom: -1 }}>
+        <svg
+          viewBox="0 0 1200 140"
+          fill="none"
+          preserveAspectRatio="none"
+          className="block w-full h-[140px]"
+        >
           <path 
-            d="M0,40 C300,80 900,0 1200,40 L1200,80 L0,80 Z" 
+            d="M0,70 C300,140 900,0 1200,70 L1200,140 L0,140 Z" 
             fill="white"
           />
         </svg>

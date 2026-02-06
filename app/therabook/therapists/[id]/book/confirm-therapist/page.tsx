@@ -3,10 +3,10 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, CheckCircle, Star, MapPin, Clock, Shield, ArrowRight } from 'lucide-react';
+import { ArrowLeft, Star, MapPin, Shield, ArrowRight, Check, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/components/auth/NewAuthContext';
 
@@ -63,25 +63,31 @@ export default function ConfirmTherapistPage() {
     router.push(`/therabook/therapists/${therapistId}/book`);
   };
 
+  // --- Loading State ---
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
+          <p className="text-slate-500 font-medium animate-pulse">Preparing details...</p>
         </div>
       </div>
     );
   }
 
+  // --- Error State ---
   if (error || !therapist) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50">
-        <Card className="max-w-md w-full">
-          <CardContent className="pt-6 text-center">
-            <p className="text-red-600 mb-4">{error || 'Therapist not found'}</p>
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+        <Card className="max-w-md w-full border-red-100 shadow-lg">
+          <CardContent className="pt-8 text-center pb-8">
+            <div className="bg-red-50 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-red-500 text-xl font-bold">!</span>
+            </div>
+            <h3 className="text-lg font-semibold text-slate-900 mb-2">Something went wrong</h3>
+            <p className="text-slate-500 mb-6">{error || 'Therapist not found'}</p>
             <Link href="/therabook/therapists">
-              <Button variant="outline">Back to Therapists</Button>
+              <Button variant="outline" className="w-full">Back to Directory</Button>
             </Link>
           </CardContent>
         </Card>
@@ -90,133 +96,148 @@ export default function ConfirmTherapistPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
-        {/* Header */}
-        <div className="mb-6">
-          <Link href={`/therabook/therapists/${therapistId}`}>
-            <Button variant="ghost" size="sm" className="mb-4">
+    <div className="min-h-screen bg-slate-50 pb-20">
+      {/* Top Decorative Bar - now inside stacking context for header */}
+      <div className="relative max-w-3xl mx-auto">
+        <div className="absolute inset-0 h-48 bg-blue-600 w-full z-0 rounded-b-3xl" />
+        <div className="relative z-10 container mx-auto px-4 pt-8 max-w-3xl">
+          {/* Navigation & Progress */}
+          <div className="mb-8 text-white">
+            <Link href={`/therabook/therapists/${therapistId}`} className="inline-flex items-center text-blue-100 hover:text-white transition-colors mb-6">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Profile
-            </Button>
-          </Link>
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-sm font-medium text-blue-600">Step 1 of 6</span>
-            <div className="flex-1 h-2 bg-gray-200 rounded-full overflow-hidden">
-              <div className="h-full bg-blue-600 rounded-full" style={{ width: '16.66%' }}></div>
+            </Link>
+            <div className="flex items-end justify-between mb-2">
+              <h1 className="text-3xl font-bold">Confirm Selection</h1>
+              <span className="text-blue-200 font-medium">Step 1 of 6</span>
+            </div>
+            {/* Progress Bar */}
+            <div className="h-1.5 bg-blue-800/30 rounded-full overflow-hidden backdrop-blur-sm">
+              <div className="h-full bg-white rounded-full transition-all duration-500" style={{ width: '16.66%' }}></div>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Main Content */}
-        <Card className="shadow-xl border-0">
-          <CardHeader className="text-center bg-gradient-to-r from-blue-50 to-purple-50 pb-6">
-            <CardTitle className="text-3xl font-bold text-gray-900 mb-2">
-              Confirm Your Therapist
-            </CardTitle>
-            <CardDescription className="text-lg">
-              Review your selected therapist before proceeding
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="p-8">
-            {/* Therapist Card */}
-            <div className="bg-white rounded-2xl border-2 border-gray-100 p-6 mb-6 hover:shadow-lg transition-shadow">
-              <div className="flex flex-col sm:flex-row gap-6 items-start">
-                <Avatar className="w-24 h-24 ring-4 ring-blue-100">
-                  <AvatarImage src={therapist.image} alt={therapist.name} />
-                  <AvatarFallback className="text-2xl bg-gradient-to-br from-blue-500 to-purple-600 text-white">
-                    {therapist.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
-                  </AvatarFallback>
-                </Avatar>
-                
-                <div className="flex-1 space-y-4">
+      <div className="container mx-auto px-4 pt-8 relative z-10 max-w-3xl">
+        {/* Main Card */}
+        <Card className="shadow-xl border-0 ring-1 ring-slate-200/60 overflow-hidden">
+          <CardContent className="p-0">
+            
+            {/* 1. Therapist Snapshot Section */}
+            <div className="p-6 sm:p-8 border-b border-slate-100">
+              <div className="flex flex-col sm:flex-row gap-6">
+                {/* Avatar Column */}
+                <div className="flex-shrink-0 mx-auto sm:mx-0">
+                  <Avatar className="w-28 h-28 ring-4 ring-white shadow-lg">
+                    <AvatarImage src={therapist.image} alt={therapist.name} className="object-cover" />
+                    <AvatarFallback className="text-3xl bg-blue-100 text-blue-700 font-bold">
+                      {therapist.name.split(' ').map((n: string) => n[0]).join('').slice(0, 2)}
+                    </AvatarFallback>
+                  </Avatar>
+                </div>
+
+                {/* Details Column */}
+                <div className="flex-1 text-center sm:text-left space-y-3">
                   <div>
-                    <h3 className="text-2xl font-bold text-gray-900 mb-1">{therapist.name}</h3>
-                    <p className="text-lg text-gray-600 mb-3">{therapist.title}</p>
-                    
-                    {/* Stats */}
-                    <div className="flex flex-wrap gap-4 mb-4">
-                      {therapist.rating > 0 && (
-                        <div className="flex items-center gap-1">
-                          <Star className="w-5 h-5 text-yellow-500 fill-current" />
-                          <span className="font-semibold">{therapist.rating}</span>
-                          <span className="text-sm text-gray-500">({therapist.reviews} reviews)</span>
-                        </div>
-                      )}
-                      {therapist.location && (
-                        <div className="flex items-center gap-1 text-gray-600">
-                          <MapPin className="w-4 h-4" />
-                          <span className="text-sm">{therapist.location}</span>
-                        </div>
-                      )}
-                      {therapist.price > 0 && (
-                        <div className="flex items-center gap-1 text-gray-600">
-                          <span className="text-sm">Starting at</span>
-                          <span className="font-bold text-blue-600">₹{therapist.price}</span>
-                        </div>
-                      )}
-                    </div>
+                    <h2 className="text-2xl font-bold text-slate-900">{therapist.name}</h2>
+                    <p className="text-slate-500 font-medium">{therapist.title}</p>
+                  </div>
 
-                    {/* Specializations */}
-                    {therapist.specializations && therapist.specializations.length > 0 && (
-                      <div className="flex flex-wrap gap-2">
-                        {therapist.specializations.slice(0, 5).map((spec: string, idx: number) => (
-                          <Badge key={idx} variant="secondary" className="bg-blue-50 text-blue-700">
-                            {spec}
-                          </Badge>
-                        ))}
+                  {/* Metadata Row */}
+                  <div className="flex flex-wrap items-center justify-center sm:justify-start gap-y-2 gap-x-4 text-sm">
+                    {therapist.rating > 0 && (
+                      <div className="flex items-center gap-1 bg-amber-50 px-2 py-1 rounded-md text-amber-700 border border-amber-100">
+                        <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
+                        <span className="font-semibold">{therapist.rating}</span>
+                        <span className="text-amber-600/70">({therapist.reviews})</span>
+                      </div>
+                    )}
+                    {therapist.location && (
+                      <div className="flex items-center gap-1 text-slate-600">
+                        <MapPin className="w-3.5 h-3.5" />
+                        <span>{therapist.location}</span>
                       </div>
                     )}
                   </div>
+
+                  {/* Specializations Pills */}
+                  <div className="flex flex-wrap justify-center sm:justify-start gap-2 pt-1">
+                    {therapist.specializations?.slice(0, 4).map((spec: string, idx: number) => (
+                      <Badge key={idx} variant="secondary" className="bg-slate-100 text-slate-600 hover:bg-slate-200 font-normal border border-slate-200">
+                        {spec}
+                      </Badge>
+                    ))}
+                    {therapist.specializations?.length > 4 && (
+                      <Badge variant="outline" className="text-slate-400 border-slate-200">+{therapist.specializations.length - 4}</Badge>
+                    )}
+                  </div>
+                </div>
+
+                {/* Price Column (Desktop) */}
+                <div className="hidden sm:flex flex-col items-end justify-start border-l border-slate-100 pl-6">
+                  <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Consultation</span>
+                  <span className="text-2xl font-bold text-blue-700">₹{therapist.price}</span>
+                  <span className="text-xs text-slate-500">per session</span>
                 </div>
               </div>
+
+               {/* Price Row (Mobile Only) */}
+               <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between sm:hidden">
+                  <span className="text-slate-600 font-medium">Session Fee</span>
+                  <div className="text-right">
+                    <span className="block text-xl font-bold text-blue-700">₹{therapist.price}</span>
+                  </div>
+               </div>
             </div>
 
-            {/* Confirmation Message */}
-            <div className="bg-blue-50 border-l-4 border-blue-600 p-4 rounded-r-lg mb-6">
-              <div className="flex items-start gap-3">
-                <CheckCircle className="w-6 h-6 text-blue-600 mt-0.5 flex-shrink-0" />
+            {/* 2. Context & Action Section */}
+            <div className="p-6 sm:p-8 bg-slate-50/50 space-y-6">
+              
+              {/* Value Prop / Message */}
+              <div className="flex gap-4 bg-white p-5 rounded-xl border border-blue-100 shadow-sm">
+                <div className="bg-blue-50 w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0">
+                  <Sparkles className="w-5 h-5 text-blue-600" />
+                </div>
                 <div>
-                  <h4 className="font-semibold text-blue-900 mb-1">Ready to book with {therapist.name}?</h4>
-                  <p className="text-sm text-blue-800">
-                    You're about to start the booking process. You'll be able to select your preferred date, time, and session type next.
+                  <h3 className="font-semibold text-slate-900 mb-1">Excellent Choice</h3>
+                  <p className="text-sm text-slate-600 leading-relaxed">
+                    You've selected a highly rated professional. Proceed to schedule your session time and customize your appointment details next.
                   </p>
                 </div>
               </div>
-            </div>
 
-            {/* Security Notice */}
-            <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg mb-6">
-              <Shield className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
-              <div className="text-sm text-gray-700">
-                <p className="font-medium mb-1">Secure & Private</p>
-                <p>Your booking information is encrypted and secure. We never share your personal details with third parties.</p>
+              {/* Trust Badge */}
+              <div className="flex items-center justify-center gap-2 text-xs text-slate-400">
+                <Shield className="w-3.5 h-3.5" />
+                <span>256-bit SSL Secure Booking</span>
+              </div>
+
+              {/* Actions */}
+              <div className="flex flex-col-reverse sm:grid sm:grid-cols-3 gap-3">
+                <Link href={`/therabook/therapists/${therapistId}`} className="sm:col-span-1">
+                  <Button variant="outline" className="w-full h-12 border-slate-200 text-slate-600 hover:bg-slate-100 hover:text-slate-900">
+                    Cancel
+                  </Button>
+                </Link>
+                <Button 
+                  onClick={handleContinue}
+                  className="sm:col-span-2 h-12 bg-blue-600 hover:bg-blue-700 text-white shadow-blue-200 shadow-lg transition-all hover:shadow-xl hover:-translate-y-0.5"
+                >
+                  <span className="mr-2">Continue to Schedule</span>
+                  <ArrowRight className="w-4 h-4" />
+                </Button>
               </div>
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex flex-col sm:flex-row gap-4">
-              <Link href={`/therabook/therapists/${therapistId}`} className="flex-1">
-                <Button variant="outline" className="w-full" size="lg">
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Back to Profile
-                </Button>
-              </Link>
-              <Button 
-                onClick={handleContinue}
-                className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
-                size="lg"
-              >
-                Yes, Continue Booking
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
-            </div>
           </CardContent>
         </Card>
+
+        {/* Bottom Help Text */}
+        <p className="text-center text-slate-400 text-sm mt-8">
+          Need help choosing? <Link href="/support" className="text-blue-600 hover:underline">Chat with support</Link>
+        </p>
       </div>
     </div>
   );
 }
-
-
-
