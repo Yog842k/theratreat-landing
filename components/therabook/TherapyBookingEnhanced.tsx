@@ -320,7 +320,6 @@ export function TherapyBookingEnhanced({ therapistId }: TherapyBookingProps) {
         appointmentDate: selectedDate!.toISOString().split('T')[0],
         appointmentTime: selectedTime,
         sessionType: selectedSessionType,
-        amount: sessionTypesWithPricing.find(t => t.id === selectedSessionType)?.price ?? 0,
         patientFullName,
         patientEmail,
         patientPhone,

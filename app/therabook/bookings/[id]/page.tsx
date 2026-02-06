@@ -1,16 +1,19 @@
 "use client";
 
-
 import React from "react";
 import { useParams } from "next/navigation";
 import { useAuth } from '@/components/auth/NewAuthContext';
 import { bookingService } from '@/lib/booking-service';
 import { useEffect, useState } from "react";
-import { Loader2, AlertCircle, Calendar, Clock, User, Mail, Phone, FileText, CheckCircle, XCircle } from "lucide-react";
+import { Loader2, AlertCircle, Calendar, Clock, User, Mail, Phone, FileText, CheckCircle, XCircle, MapPin } from "lucide-react";
+
 import { Card, CardContent } from '@/components/ui/card';
 
 export default function BookingDetailsPage() {
-  const { id } = useParams();
+  const params = useParams();
+  let id: string | undefined = undefined;
+  if (params && typeof params.id === 'string' && params.id !== null) id = params.id;
+  else if (Array.isArray(params?.id) && params.id[0] !== null) id = params.id[0];
   const { token } = useAuth();
   const [booking, setBooking] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -21,8 +24,12 @@ export default function BookingDetailsPage() {
       setLoading(true);
       setError("");
       try {
-        const data = await bookingService.getBooking(id as string, token);
-        setBooking(data);
+        if (id) {
+          const data = await bookingService.getBooking(id, token);
+          setBooking(data);
+        } else {
+          setError("No booking ID provided.");
+        }
       } catch (e: any) {
         setError(e.message || "Could not load booking details");
       } finally {

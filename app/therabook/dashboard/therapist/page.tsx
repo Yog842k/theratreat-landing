@@ -325,9 +325,11 @@ export default function TherapistDashboardPage() {
                 clinicAddress: editProfileFields.clinicAddress,
                 bio: editProfileFields.bio
             };
+            const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+            if (authHeaders && authHeaders['Authorization']) headers['Authorization'] = authHeaders['Authorization'];
             const res = await fetch(`/api/therapists/${resolvedTherapistId}`, {
                 method: 'PATCH',
-                headers: { ...authHeaders, 'Content-Type': 'application/json' },
+                headers,
                 body: JSON.stringify(payload)
             });
             if (res.status === 401) { handleAuthFailure(); return; }
@@ -346,8 +348,10 @@ export default function TherapistDashboardPage() {
         try {
             if (!resolvedTherapistId) return;
             if (!token || !isAuthenticated) { handleAuthFailure(); return; }
+            const getHeaders: Record<string, string> = {};
+            if (authHeaders && authHeaders['Authorization']) getHeaders['Authorization'] = authHeaders['Authorization'];
             const res = await fetch(`/api/therapists/${resolvedTherapistId}`, {
-                headers: { ...authHeaders }
+                headers: getHeaders
             });
             if (res.status === 401) { handleAuthFailure(); return; }
             if (res.status === 503) { handleDbFailure(); return; }
@@ -1299,7 +1303,15 @@ export default function TherapistDashboardPage() {
               <BookingList
                 loading={isLoadingSchedule}
                 error={error}
-                items={therapistData.appointments.upcoming || []}
+                                items={(therapistData.appointments.upcoming || []).map((item) => ({
+                                    _id: String(item.id),
+                                    date: item.date,
+                                    timeSlot: item.time,
+                                    sessionType: item.type,
+                                    status: 'confirmed', // or map from item if available
+                                    amount: 0, // or map from item if available
+                                    createdAt: '', // or map from item if available
+                                }))}
                 emptyMsg="No upcoming bookings."
                 title="Upcoming Bookings"
               />
