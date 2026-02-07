@@ -3,9 +3,7 @@ import { GoogleGenAI } from "@google/genai";
 
 export const runtime = "nodejs";
 
-type GoogleGenAIInstance = InstanceType<typeof GoogleGenAI>;
-
-async function resolveModel(ai: GoogleGenAIInstance, preferred?: string) {
+async function resolveModel(ai: InstanceType<typeof GoogleGenAI>, preferred?: string) {
   if (preferred) return preferred;
   const pager = await ai.models.list();
   let first: string | undefined;

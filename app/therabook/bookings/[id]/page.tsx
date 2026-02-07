@@ -12,8 +12,14 @@ import { Card, CardContent } from '@/components/ui/card';
 export default function BookingDetailsPage() {
   const params = useParams();
   let id: string | undefined = undefined;
-  if (params && typeof params.id === 'string' && params.id !== null) id = params.id;
-  else if (Array.isArray(params?.id) && params.id[0] !== null) id = params.id[0];
+  if (params && typeof params.id === 'string' && !!params.id) {
+    id = params.id;
+  } else if (Array.isArray(params?.id)) {
+    const first = params.id[0];
+    if (typeof first === 'string' && !!first) {
+      id = first;
+    }
+  }
   const { token } = useAuth();
   const [booking, setBooking] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -25,7 +31,7 @@ export default function BookingDetailsPage() {
       setError("");
       try {
         if (id) {
-          const data = await bookingService.getBooking(id, token);
+          const data = await bookingService.getBooking(id, token ?? undefined);
           setBooking(data);
         } else {
           setError("No booking ID provided.");
@@ -36,7 +42,7 @@ export default function BookingDetailsPage() {
         setLoading(false);
       }
     }
-    if (id) fetchBooking();
+    if (typeof id === 'string') fetchBooking();
   }, [id, token]);
 
   if (loading) return (

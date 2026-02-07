@@ -9,27 +9,18 @@ import {
   Menu, 
   X, 
   Baby, 
-  User, 
-  ScanFace,
   Lock, 
   CheckCircle2,
-  Smartphone,
   ArrowRight,
-  Play,
-  Footprints,
   Eye,
   HeartPulse,
   Sparkles,
-  Zap,
-  Globe,
   Stethoscope,
   Smile,
-  ChevronRight,
-  TrendingUp,
   Target
 } from 'lucide-react';
 
-export default function TheraAI() {
+export default function TheraSelf() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -58,7 +49,7 @@ export default function TheraAI() {
               <Activity className="w-5 h-5" />
             </div>
             <span className={`text-lg font-bold tracking-tight ${scrolled ? 'text-slate-900' : 'text-white'}`}>
-              Thera<span className={scrolled ? 'text-violet-600' : 'text-violet-200'}>AI</span>
+              Thera<span className={scrolled ? 'text-violet-600' : 'text-violet-200'}>Self</span>
             </span>
           </div>
 
@@ -105,19 +96,19 @@ export default function TheraAI() {
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-violet-400 opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2 w-2 bg-violet-300"></span>
                 </span>
-                World's First Multi-Domain AI Rehab Screening
+                Multi-Domain Self Screening
               </div>
 
               <h1 className="text-5xl lg:text-7xl font-extrabold tracking-tight text-white mb-6 leading-[1.1]">
-                AI-Powered Early
+                Early Screening
                 <br />
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-300 via-fuchsia-300 to-indigo-300 drop-shadow-[0_0_10px_rgba(167,139,250,0.5)]">
-                  Rehabilitation Screening
+                  and Practical Guidance
                 </span>
               </h1>
 
               <p className="text-lg text-violet-100/80 mb-8 leading-relaxed max-w-lg">
-                Instant physical, cognitive, developmental, emotional, and sensory screening using your smartphone.
+                Guided cognitive, developmental, emotional, and sensory screening through short, structured questionnaires.
               </p>
 
               <div className="flex flex-col sm:flex-row gap-4 mb-10">
@@ -127,7 +118,7 @@ export default function TheraAI() {
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs font-semibold text-white/80 mb-6">
-                {['5 Domains', '30+ Tests', 'AI Powered', 'GDPR & HIPAA', 'Medical-Grade Privacy', 'AI Screening'].map((item) => (
+                {['4 Domains', '30+ Tests', 'Clinically Guided', 'Actionable Next Steps', 'GDPR & HIPAA', 'Medical-Grade Privacy'].map((item) => (
                   <div key={item} className="flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-3 py-2">
                     <CheckCircle2 className="w-4 h-4 text-violet-200" />
                     <span className="tracking-wide">{item}</span>
@@ -155,13 +146,13 @@ export default function TheraAI() {
              {/* Main Card (Glass) */}
              <div className="absolute top-0 right-[10%] w-[85%] bg-slate-900/60 backdrop-blur-xl rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/20 p-6 z-10">
                 <div className="flex items-center justify-between mb-6">
-                   <div className="flex items-center gap-3">
+                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-violet-500/20 rounded-full flex items-center justify-center text-violet-300 border border-violet-500/30">
-                         <ScanFace className="w-5 h-5" />
+                         <Target className="w-5 h-5" />
                       </div>
                       <div>
-                         <div className="text-sm font-bold text-white">Gait Analysis</div>
-                         <div className="text-xs text-slate-400">Live Tracking</div>
+                         <div className="text-sm font-bold text-white">Wellness Check-In</div>
+                         <div className="text-xs text-slate-400">Self Report</div>
                       </div>
                    </div>
                    <div className="bg-green-500/20 text-green-300 border border-green-500/30 text-xs font-bold px-2 py-1 rounded-md flex items-center gap-1">
@@ -170,10 +161,10 @@ export default function TheraAI() {
                 </div>
                 <div className="relative h-48 bg-slate-950 rounded-2xl overflow-hidden flex items-center justify-center mb-6 border border-white/10 shadow-inner">
                    <div className="absolute inset-0 bg-[linear-gradient(transparent_0%,#4c1d95_50%,transparent_100%)] opacity-30 animate-pulse"></div>
-                   <Activity className="w-24 h-24 text-violet-500 opacity-80" />
+                   <Sparkles className="w-24 h-24 text-violet-500 opacity-80" />
                 </div>
                 <div className="flex justify-between items-center text-sm text-white">
-                   <span className="text-slate-400">Confidence Score</span>
+                   <span className="text-slate-400">Check-In Score</span>
                    <span className="font-bold">98.5%</span>
                 </div>
              </div>
@@ -185,8 +176,8 @@ export default function TheraAI() {
                       <Brain className="w-6 h-6" />
                    </div>
                    <div>
-                      <div className="text-xs text-slate-400 font-bold uppercase">Cognitive</div>
-                      <div className="text-sm font-bold text-slate-900">Normal Limits</div>
+                      <div className="text-xs text-slate-400 font-bold uppercase">Focus</div>
+                      <div className="text-sm font-bold text-slate-900">On Track</div>
                    </div>
                    <CheckCircle2 className="w-5 h-5 text-green-500 ml-2" />
                 </div>
@@ -201,8 +192,8 @@ export default function TheraAI() {
         <div className="max-w-7xl mx-auto">
           <div className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div>
-              <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">Domains TheraAI Covers</h2>
-              <p className="text-slate-500 text-lg">Comprehensive screening across all rehabilitation areas.</p>
+              <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">Domains TheraSelf Covers</h2>
+              <p className="text-slate-500 text-lg">Comprehensive self-screening across key wellbeing areas.</p>
             </div>
             <Link href="/theraself/tests" className="text-violet-700 font-bold flex items-center gap-2 hover:gap-3 transition-all group bg-violet-50 px-5 py-3 rounded-full hover:bg-violet-100">
               View Full Protocol <ArrowRight className="w-4 h-4" />
@@ -211,19 +202,12 @@ export default function TheraAI() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <DomainCard 
-              icon={<Activity />} 
-              title="Physical Function" 
-              desc="Posture, gait, balance, and range of motion analysis"
-              tags={['Posture Scan', 'Gait Analysis', 'Balance Test']}
-              color="bg-violet-100 text-violet-700"
-              className="md:col-span-2"
-            />
-             <DomainCard 
               icon={<Brain />} 
               title="Cognitive Function" 
               desc="Memory, attention, processing speed, and executive function"
-              tags={['Memory Screening', 'Attention Test', 'Processing Speed']}
+              tags={['Focus & Attention', 'Memory Check', 'Processing Speed']}
               color="bg-fuchsia-100 text-fuchsia-700"
+              className="md:col-span-2"
             />
             <DomainCard 
               icon={<Baby />} 
@@ -258,8 +242,8 @@ export default function TheraAI() {
 
         <div className="max-w-7xl mx-auto px-6 relative z-10">
           <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold text-white mb-2">How TheraAI Works</h2>
-            <p className="text-violet-200">Simple, fast, and accurate screening in 5 steps.</p>
+            <h2 className="text-3xl font-bold text-white mb-2">How TheraSelf Works</h2>
+            <p className="text-violet-200">Simple, clear, and supportive screening in 5 steps.</p>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-5 gap-8 relative">
@@ -270,8 +254,8 @@ export default function TheraAI() {
                 <div className="w-16 h-16 rounded-full bg-slate-900 border-2 border-violet-500 text-violet-300 flex items-center justify-center font-bold text-lg mb-4 shadow-[0_0_20px_rgba(139,92,246,0.3)] group-hover:scale-110 group-hover:bg-violet-600 group-hover:text-white transition-all duration-300">
                   1
                 </div>
-                <h3 className="text-base font-bold text-white mb-1">Scan with Camera</h3>
-                <p className="text-violet-200/70 text-xs">Use your smartphone camera for AI analysis.</p>
+                <h3 className="text-base font-bold text-white mb-1">Choose a Screening</h3>
+                <p className="text-violet-200/70 text-xs">Pick the area you want to explore.</p>
               </div>
 
               <div className="relative z-10 flex flex-col items-center text-center group">
@@ -286,16 +270,16 @@ export default function TheraAI() {
                 <div className="w-16 h-16 rounded-full bg-slate-900 border-2 border-violet-500 text-violet-300 flex items-center justify-center font-bold text-lg mb-4 shadow-[0_0_20px_rgba(139,92,246,0.3)] group-hover:scale-110 group-hover:bg-violet-600 group-hover:text-white transition-all duration-300">
                   3
                 </div>
-                <h3 className="text-base font-bold text-white mb-1">AI Analyzes</h3>
-                <p className="text-violet-200/70 text-xs">TheraAI processes your data.</p>
+                <h3 className="text-base font-bold text-white mb-1">Review Results</h3>
+                <p className="text-violet-200/70 text-xs">Get clear, readable summaries.</p>
               </div>
 
               <div className="relative z-10 flex flex-col items-center text-center group">
                 <div className="w-16 h-16 rounded-full bg-slate-900 border-2 border-violet-500 text-violet-300 flex items-center justify-center font-bold text-lg mb-4 shadow-[0_0_20px_rgba(139,92,246,0.3)] group-hover:scale-110 group-hover:bg-violet-600 group-hover:text-white transition-all duration-300">
                   4
                 </div>
-                <h3 className="text-base font-bold text-white mb-1">Get Scores</h3>
-                <p className="text-violet-200/70 text-xs">Receive functional scores & risk levels.</p>
+                <h3 className="text-base font-bold text-white mb-1">Get Guidance</h3>
+                <p className="text-violet-200/70 text-xs">Actionable tips for next steps.</p>
               </div>
 
               <div className="relative z-10 flex flex-col items-center text-center group">
@@ -314,12 +298,12 @@ export default function TheraAI() {
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-14">
             <h2 className="text-3xl font-bold text-slate-900 mb-3">For Everyone in Your Family</h2>
-            <p className="text-slate-600 text-lg">TheraAI serves every generation.</p>
+            <p className="text-slate-600 text-lg">TheraSelf serves every generation.</p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <AudienceCard title="For Parents" subtitle="Guide childhood milestones" items={['Track child milestones', 'Early intervention', 'Development screening']} />
-            <AudienceCard title="For Adults" subtitle="Stay ahead of stress & posture" items={['Mental health screening', 'Posture & ergonomics', 'Stress management']} />
+            <AudienceCard title="For Adults" subtitle="Stay ahead of stress & focus" items={['Mental health screening', 'Focus & routines', 'Stress management']} />
             <AudienceCard title="For Elderly" subtitle="Support safe independence" items={['Fall risk assessment', 'Cognitive screening', 'Mobility tracking']} />
           </div>
         </div>
@@ -329,16 +313,16 @@ export default function TheraAI() {
       <section className="py-24 bg-white relative z-10">
         <div className="max-w-7xl mx-auto px-6">
           <div className="text-center mb-16">
-              <h2 className="text-3xl font-bold text-slate-900 mb-2">Early Detection Benefits</h2>
-              <p className="text-slate-600">Catch issues before they become problems.</p>
+              <h2 className="text-3xl font-bold text-slate-900 mb-2">Screening Benefits</h2>
+              <p className="text-slate-600">Spot patterns early and take confident next steps.</p>
             </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <BenefitCard title="Posture Issues" desc="Detect forward head and rounded shoulders early." icon={<User />} />
-            <BenefitCard title="Gait Irregularities" desc="Identify walking pattern problems." icon={<Footprints />} />
-            <BenefitCard title="Development Delays" desc="Catch milestone delays in children." icon={<Baby />} />
-            <BenefitCard title="Cognitive Decline" desc="Early signs of memory issues." icon={<Brain />} />
-            <BenefitCard title="Mental Health Risk" desc="Depression and anxiety screening." icon={<HeartPulse />} />
-            <BenefitCard title="Sensory Processing" desc="Identify sensory integration needs." icon={<Eye />} />
+            <BenefitCard title="Stress Awareness" desc="Spot early signs of stress buildup." icon={<HeartPulse />} />
+            <BenefitCard title="Focus & Attention" desc="Identify attention patterns over time." icon={<Target />} />
+            <BenefitCard title="Development Insights" desc="Track milestone patterns for children." icon={<Baby />} />
+            <BenefitCard title="Cognitive Patterns" desc="Notice memory and processing trends." icon={<Brain />} />
+            <BenefitCard title="Mood Check-Ins" desc="Monitor mood shifts and triggers." icon={<Smile />} />
+            <BenefitCard title="Sensory Preferences" desc="Understand sensory sensitivities." icon={<Eye />} />
           </div>
         </div>
       </section>
@@ -358,8 +342,8 @@ export default function TheraAI() {
             </div>
             <div className="p-4">
               <ShieldCheck className="w-10 h-10 mx-auto mb-4 text-violet-400 drop-shadow-[0_0_15px_rgba(139,92,246,0.6)]" />
-              <div className="font-bold text-xl mb-1">AI Safety Certified</div>
-              <div className="text-slate-400 text-sm">Validated screening models</div>
+              <div className="font-bold text-xl mb-1">Privacy First</div>
+              <div className="text-slate-400 text-sm">Transparent, consent-based data use</div>
             </div>
         </div>
       </section>
@@ -374,7 +358,7 @@ export default function TheraAI() {
             
             <div className="relative z-10">
               <h2 className="text-3xl md:text-5xl font-bold mb-6 text-white drop-shadow-md">Start Your Health Screening Today</h2>
-              <p className="text-violet-100 mb-10 max-w-lg mx-auto text-lg">Free, fast, and accurate AI-powered screening in minutes.</p>
+              <p className="text-violet-100 mb-10 max-w-lg mx-auto text-lg">Free, fast, and clear screening in minutes.</p>
               <div className="flex flex-col sm:flex-row justify-center gap-4">
                 <Link href="/theraself/tests" className="bg-white text-violet-900 px-8 py-4 rounded-xl font-bold hover:bg-violet-50 transition shadow-[0_0_20px_rgba(255,255,255,0.4)]">
                   Start Assessment Now

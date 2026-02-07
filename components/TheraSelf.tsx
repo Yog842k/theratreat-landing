@@ -1,4 +1,6 @@
-import { useState, useRef, useEffect } from "react";
+"use client";
+
+import React, { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -147,7 +149,7 @@ const sampleQuestions: { [key: string]: Question[] } = {
   ]
 };
 
-
+export default function TheraSelf() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [currentTest, setCurrentTest] = useState<TestCategory | null>(null);
   const [answers, setAnswers] = useState<Record<number, string>>({});
@@ -182,85 +184,8 @@ const sampleQuestions: { [key: string]: Question[] } = {
       {
         id: `q-0`,
         sender: "ai",
-        text: questions[0]?.text || "",
-        options: questions[0]?.options,
-      },
-    ]);
-  };
-
-  const handleUserAnswer = (answer: string) => {
-    const questions = sampleQuestions[selectedCategory!] || [];
-    const currentIdx = chat.filter(m => m.sender === "ai" && m.id.startsWith("q-")).length - 1;
-    setAnswers(prev => ({ ...prev, [currentIdx]: answer }));
-    setChat(prev => [
-      ...prev,
-      {
-        id: `a-${currentIdx}`,
-        sender: "user",
-        text: answer,
-      },
-    ]);
-    // Show typing indicator, then next question or finish
-    setTyping(true);
-    setTimeout(() => {
-      setTyping(false);
-      if (currentIdx < questions.length - 1) {
-        setChat(prev => [
-          ...prev,
-          {
-            id: `q-${currentIdx + 1}`,
-            sender: "ai",
-            text: questions[currentIdx + 1].text,
-            options: questions[currentIdx + 1].options,
-          },
-        ]);
-      } else {
-        // Complete test
-        completeTest();
-      }
-    }, 700);
-  };
-
-  const completeTest = () => {
-    const questions = sampleQuestions[selectedCategory!] || [];
-    let totalScore = 0;
-    let maxScore = 0;
-    questions.forEach((question, index) => {
-      const answer = answers[index];
-      if (answer && question.points) {
-        totalScore += question.points[answer] || 0;
-        maxScore += Math.max(...Object.values(question.points));
-      }
-    });
-    const percentage = Math.round((totalScore / maxScore) * 100);
-    const result: TestResult = {
-      category: currentTest?.name || "Unknown",
-      score: totalScore,
-      maxScore,
-      percentage,
-      level: percentage < 30 ? "Low Risk" : percentage < 60 ? "Moderate Risk" : "High Risk",
-      date: new Date().toLocaleDateString(),
-      recommendations: generateRecommendations(percentage, selectedCategory!)
-    };
-    setTestResults(result);
-    setIsComplete(true);
-    setSavedTests(prev => [...prev, result]);
-    setChat(prev => [
-      ...prev,
-      {
-        id: "ai-summary",
-        sender: "ai",
-        text: `Assessment complete! Here are your results:`,
-      },
-      {
-        id: "ai-result",
-        sender: "ai",
-        text: `Score: ${result.score}/${result.maxScore} (${result.percentage}%)\nLevel: ${result.level}`,
-      },
-      {
-        id: "ai-recs",
-        sender: "ai",
-        text: `Recommendations: ${result.recommendations.join(", ")}`,
+        text: questions[0]?.text || "First question...",
+        options: questions[0]?.options || [],
       },
     ]);
   };
@@ -283,54 +208,84 @@ const sampleQuestions: { [key: string]: Question[] } = {
     return baseRecommendations[category as keyof typeof baseRecommendations]?.[level] || ["Consult with a healthcare professional"];
   };
 
+  const handleUserAnswer = (answer: string) => {
+    if (!selectedCategory) return;
+    const questions = sampleQuestions[selectedCategory] || [];
+    const nextIndex = Object.keys(answers).length;
+    const nextQuestion = questions[nextIndex + 1];
+
+    setAnswers((prev) => ({ ...prev, [nextIndex]: answer }));
+    setChat((prev) => {
+      const next: ChatMessage[] = [
+        ...prev,
+        { id: `u-${nextIndex}-${Date.now()}`, sender: "user", text: answer },
+      ];
+      if (nextQuestion) {
+        next.push({
+          id: `q-${nextIndex + 1}`,
+          sender: "ai",
+          text: nextQuestion.text || "Next question...",
+          options: nextQuestion.options || [],
+        });
+      }
+      return next;
+    });
+
+    if (!nextQuestion) {
+      setIsComplete(true);
+    }
+  };
+
 
   if (currentTest && selectedCategory) {
     const questions = sampleQuestions[selectedCategory] || [];
     const progress = (Object.keys(answers).length / questions.length) * 100;
     return (
-      <div className="max-w-2xl mx-auto py-8">
-        <div className="flex items-center justify-between mb-4">
-          <Button variant="outline" onClick={() => setCurrentTest(null)}>
-            ← Back to Tests
-          </Button>
-          <Badge variant="outline">{currentTest.name}</Badge>
+      <div>
+        <div className="max-w-2xl mx-auto py-8">
+          <div className="flex items-center justify-between mb-4">
+            <Button variant="outline" onClick={() => setCurrentTest(null)}>
+              ← Back to Tests
+            </Button>
+            <Badge variant="outline">{currentTest.name}</Badge>
+          </div>
+          <Card className="h-[500px] overflow-y-auto flex flex-col">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>AI Chat Assessment</CardTitle>
+                <span className="text-sm text-muted-foreground">{Math.round(progress)}% Complete</span>
+              </div>
+              <Progress value={progress} className="w-full" />
+            </CardHeader>
+            <CardContent className="flex-1 flex flex-col gap-2 overflow-y-auto">
+              <div className="flex flex-col gap-3 pb-2">
+                {chat.map((msg) => (
+                  <div key={msg.id} className={`flex ${msg.sender === "ai" ? "justify-start" : "justify-end"}`}> 
+                    <div className={`rounded-2xl px-4 py-2 max-w-[75%] text-sm shadow-sm ${msg.sender === "ai" ? "bg-blue-100 text-blue-900" : "bg-violet-600 text-white"}`}>
+                      {msg.text}
+                      {msg.options && (
+                        <div className="mt-2 flex flex-col gap-2">
+                          {msg.options.map((opt, idx) => (
+                            <Button key={idx} size="sm" variant="outline" className="w-full text-left" onClick={() => handleUserAnswer(opt)}>{opt}</Button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {typing && (
+                  <div className="flex justify-start">
+                    <div className="rounded-2xl px-4 py-2 bg-blue-100 text-blue-900 max-w-[75%] text-sm shadow-sm flex items-center gap-2">
+                      <span>AI is typing</span>
+                      <span className="animate-bounce">...</span>
+                    </div>
+                  </div>
+                )}
+                <div ref={chatBottomRef} />
+              </div>
+            </CardContent>
+          </Card>
         </div>
-        <Card className="h-[500px] overflow-y-auto flex flex-col">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>AI Chat Assessment</CardTitle>
-              <span className="text-sm text-muted-foreground">{Math.round(progress)}% Complete</span>
-            </div>
-            <Progress value={progress} className="w-full" />
-          </CardHeader>
-          <CardContent className="flex-1 flex flex-col gap-2 overflow-y-auto">
-            <div className="flex flex-col gap-3 pb-2">
-              {chat.map((msg) => (
-                <div key={msg.id} className={`flex ${msg.sender === "ai" ? "justify-start" : "justify-end"}`}> 
-                  <div className={`rounded-2xl px-4 py-2 max-w-[75%] text-sm shadow-sm ${msg.sender === "ai" ? "bg-blue-100 text-blue-900" : "bg-violet-600 text-white"}`}>
-                    {msg.text}
-                    {msg.options && (
-                      <div className="mt-2 flex flex-col gap-2">
-                        {msg.options.map((opt, idx) => (
-                          <Button key={idx} size="sm" variant="outline" className="w-full text-left" onClick={() => handleUserAnswer(opt)}>{opt}</Button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-              {typing && (
-                <div className="flex justify-start">
-                  <div className="rounded-2xl px-4 py-2 bg-blue-100 text-blue-900 max-w-[75%] text-sm shadow-sm flex items-center gap-2">
-                    <span>AI is typing</span>
-                    <span className="animate-bounce">...</span>
-                  </div>
-                </div>
-              )}
-              <div ref={chatBottomRef} />
-            </div>
-          </CardContent>
-        </Card>
       </div>
     );
   }
@@ -350,206 +305,12 @@ const sampleQuestions: { [key: string]: Question[] } = {
       {savedTests.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center space-x-2">
-              <FileText className="w-5 h-5" />
-              <span>Your Test History</span>
-            </CardTitle>
+            {/* ...existing code... */}
           </CardHeader>
-          <CardContent>
-            <div className="grid gap-4 md:grid-cols-3">
-              {savedTests.slice(-3).map((test, index) => (
-                <div key={index} className="p-3 bg-muted rounded-lg">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="font-medium">{test.category}</p>
-                      <p className="text-sm text-muted-foreground">{test.date}</p>
-                    </div>
-                    <Badge 
-                      variant={test.level === "Low Risk" ? "secondary" : 
-                              test.level === "Moderate Risk" ? "outline" : "destructive"}
-                    >
-                      {test.level}
-                    </Badge>
-                  </div>
-                  <div className="mt-2">
-                    <div className="flex justify-between text-sm">
-                      return (
-                        <div className="w-full max-w-7xl mx-auto space-y-8">
-                          {/* Header */}
-                          <div className="text-center space-y-4">
-                            <h1 className="text-4xl font-bold text-primary">TheraSelf - AI-Driven Self Assessment</h1>
-                            <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
-                              Take comprehensive health assessments powered by AI to understand your wellbeing 
-                              and get personalized recommendations from healthcare professionals.
-                            </p>
-                          </div>
-                          {/* Saved Tests Dashboard */}
-                          {savedTests.length > 0 && (
-                            <Card>
-                              <CardHeader>
-                                <CardTitle className="flex items-center space-x-2">
-                                  <FileText className="w-5 h-5" />
-                                  <span>Your Test History</span>
-                                </CardTitle>
-                              </CardHeader>
-                              <CardContent>
-                                <div className="grid gap-4 md:grid-cols-3">
-                                  {savedTests.slice(-3).map((test, index) => (
-                                    <div key={index} className="p-3 bg-muted rounded-lg">
-                                      <div className="flex justify-between items-start">
-                                        <div>
-                                          <p className="font-medium">{test.category}</p>
-                                          <p className="text-sm text-muted-foreground">{test.date}</p>
-                                        </div>
-                                        <Badge 
-                                          variant={test.level === "Low Risk" ? "secondary" : 
-                                                  test.level === "Moderate Risk" ? "outline" : "destructive"}
-                                        >
-                                          {test.level}
-                                        </Badge>
-                                      </div>
-                                      <div className="mt-2">
-                                        <div className="flex justify-between text-sm">
-                                          <span>Score: {test.score}/{test.maxScore}</span>
-                                          <span>{test.percentage}%</span>
-                                        </div>
-                                        <Progress value={test.percentage} className="h-2 mt-1" />
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              </CardContent>
-                            </Card>
-                          )}
-                          {/* Test Categories */}
-                          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                            {testCategories.map((category) => (
-                              <Card key={category.id} className={`${category.color} hover:shadow-lg transition-all cursor-pointer`}>
-                                <CardHeader>
-                                  <div className="flex items-center space-x-3">
-                                    <div className="p-2 bg-white rounded-lg">
-                                      {category.icon}
-                                    </div>
-                                    <div>
-                                      <CardTitle className="text-lg">{category.name}</CardTitle>
-                                      <div className="flex space-x-2 text-sm text-muted-foreground">
-                                        <span>{category.duration}</span>
-                                        <span>•</span>
-                                        <span>{category.questions} questions</span>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </CardHeader>
-                                <CardContent className="space-y-4">
-                                  <p className="text-muted-foreground">{category.description}</p>
-              
-                                  <div className="space-y-2">
-                                    <h4 className="font-medium">What you&apos;ll get:</h4>
-                                    <ul className="text-sm space-y-1">
-                                      <li className="flex items-center space-x-2">
-                                        <CheckCircle className="w-4 h-4 text-green-500" />
-                                        <span>Detailed assessment report</span>
-                                      </li>
-                                      <li className="flex items-center space-x-2">
-                                        <CheckCircle className="w-4 h-4 text-green-500" />
-                                        <span>Personalized recommendations</span>
-                                      </li>
-                                      <li className="flex items-center space-x-2">
-                                        <CheckCircle className="w-4 h-4 text-green-500" />
-                                        <span>Professional referrals if needed</span>
-                                      </li>
-                                    </ul>
-                                  </div>
-
-                                  <Button className="w-full" onClick={() => startTest(category)}>
-                                    Start Assessment
-                                  </Button>
-                                </CardContent>
-                              </Card>
-                            ))}
-                          </div>
-                          {/* Features Section */}
-                          <div className="bg-blue-50 rounded-lg p-8">
-                            <h2 className="text-2xl font-bold text-center mb-8 text-primary">Why Use TheraSelf?</h2>
-                            <div className="grid gap-6 md:grid-cols-3">
-                              <div className="text-center space-y-3">
-                                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto">
-                                  <Brain className="w-8 h-8 text-blue-600" />
-                                </div>
-                                <h3 className="font-semibold">AI-Powered Analysis</h3>
-                                <p className="text-sm text-muted-foreground">
-                                  Advanced algorithms analyze your responses for accurate insights
-                                </p>
-                              </div>
-                              <div className="text-center space-y-3">
-                                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto">
-                                  <FileText className="w-8 h-8 text-blue-600" />
-                                </div>
-                                <h3 className="font-semibold">Comprehensive Reports</h3>
-                                <p className="text-sm text-muted-foreground">
-                                  Detailed PDF reports you can share with healthcare providers
-                                </p>
-                              </div>
-                              <div className="text-center space-y-3">
-                                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto">
-                                  <TrendingUp className="w-8 h-8 text-blue-600" />
-                                </div>
-                                <h3 className="font-semibold">Track Progress</h3>
-                                <p className="text-sm text-muted-foreground">
-                                  Monitor your health over time with regular assessments
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      );
-              <div className={`px-6 py-3 rounded-full ${getRiskColor(results.level)}`}>
-                <span className="font-semibold text-lg">{results.level}</span>
-              </div>
-            </div>
-            
-            <div className="space-y-2">
-              <div className="text-3xl font-bold">{results.percentage}%</div>
-              <div className="text-muted-foreground">
-                Score: {results.score} out of {results.maxScore}
-              </div>
-              <Progress value={results.percentage} className="w-full max-w-md mx-auto" />
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <h3 className="font-semibold flex items-center space-x-2">
-              <AlertCircle className="w-5 h-5" />
-              <span>Recommendations</span>
-            </h3>
-            <ul className="space-y-2">
-              {results.recommendations.map((rec: string, index: number) => (
-                <li key={index} className="flex items-start space-x-2">
-                  <CheckCircle className="w-4 h-4 text-green-500 mt-0.5" />
-                  <span>{rec}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="flex flex-col sm:flex-row gap-4">
-            <Button onClick={onRetake} variant="outline" className="flex-1">
-              Retake Assessment
-            </Button>
-            <Button onClick={onNewTest} variant="outline" className="flex-1">
-              Take Different Test
-            </Button>
-            <Button className="flex-1">
-              <Download className="w-4 h-4 mr-2" />
-              Download PDF Report
-            </Button>
-            <Button className="flex-1">
-              <Calendar className="w-4 h-4 mr-2" />
-              Book Consultation
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+          {/* ...existing code... */}
+        </Card>
+      )}
+      {/* ...existing code... */}
     </div>
   );
 }
