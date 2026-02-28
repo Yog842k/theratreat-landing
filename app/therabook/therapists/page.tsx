@@ -1,31 +1,8 @@
 'use client'
-import React, { useState, useEffect } from 'react';
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { 
-  Star, 
-  MapPin,
-  Monitor,
-  Building,
-  Heart,
-  Languages,
-  Search,
-  Filter,
-  Clock,
-  Users,
-  Video,
-  Phone,
-  Home,
-  Brain
-} from "lucide-react";
-import Link from "next/link";
-import { useSearchParams, useRouter } from "next/navigation";
-import { SmartBookingButton } from '@/components/SmartBookingButton';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from "next/navigation";
 import { helpMeChooseCategoryToSearch } from '@/constants/helpmechoose-mapping';
-import { SearchResultsComponent, TherapistData } from '@/components/therabook/SearchResultsComponent';
+import { TherapistData } from '@/components/therabook/SearchResultsComponent';
 import { AdvancedTherapistSearch } from '@/components/therabook/AdvancedTherapistSearch';
 
 interface ApiTherapist {
@@ -59,33 +36,36 @@ interface ApiTherapist {
   availabilityText?: string;
 }
 
+type InitialFilters = {
+  conditions?: string[];
+  therapyTypes?: string[];
+  sessionFormats?: string[];
+  ageGroups?: string[];
+  searchQuery?: string;
+  city?: string;
+  area?: string;
+};
+
 export default function TherapistsListingPage() {
   const [allTherapists, setAllTherapists] = useState<ApiTherapist[]>([]);
-  const [filteredTherapists, setFilteredTherapists] = useState<ApiTherapist[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string|null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedLocation, setSelectedLocation] = useState('');
-  const [selectedSpecialty, setSelectedSpecialty] = useState('');
-  const [selectedSessionType, setSelectedSessionType] = useState('');
-  const [selectedPrimaryFilter, setSelectedPrimaryFilter] = useState('');
-  const [selectedCondition, setSelectedCondition] = useState('');
-  const [selectedTherapyType, setSelectedTherapyType] = useState('');
-  const [sortBy, setSortBy] = useState('rating');
-  
-  const searchParams = useSearchParams();
-  const router = useRouter();
+  const [initialFilters, setInitialFilters] = useState<InitialFilters>({});
+  const [therapistIdFilter, setTherapistIdFilter] = useState<string | null>(null);
 
-  // Handle URL parameters on component mount
+  const searchParams = useSearchParams();
+
+  // Handle URL parameters on component mount/change
   useEffect(() => {
     const search = searchParams?.get('search') || '';
     const condition = searchParams?.get('condition') || '';
     const therapy = searchParams?.get('therapy') || '';
     const locationParam = searchParams?.get('location') || '';
     const specialtyParam = searchParams?.get('specialty') || '';
-	  const sessionType = searchParams?.get('sessionType') || '';
-	  const category = searchParams?.get('category') || '';
-	  const source = searchParams?.get('source') || '';
+    const sessionType = searchParams?.get('sessionType') || '';
+    const category = searchParams?.get('category') || '';
+    const source = searchParams?.get('source') || '';
+    const therapistId = searchParams?.get('therapist') || '';
     
     // Handle smart selector results
     const q0 = searchParams?.get('q0') || ''; // Therapy type from smart selector
@@ -119,102 +99,52 @@ export default function TherapistsListingPage() {
       };
       finalSessionType = sessionTypeMapping[q1] || q1;
     }
-    
-    setSearchQuery(finalSearchQuery);
-    setSelectedSessionType(finalSessionType);
-    setSelectedLocation(locationParam);
-    setSelectedSpecialty(specialtyParam);
-    
-    // Apply initial filters
-    filterTherapists(finalSearchQuery, locationParam, specialtyParam, finalSessionType);
+
+    const getAll = (key: string) => searchParams?.getAll(key) || [];
+    const conditions = getAll('conditions').filter(Boolean);
+    const therapyTypes = [
+      ...getAll('therapyTypes'),
+      ...getAll('therapyType'),
+    ].filter(Boolean);
+    const sessionFormats = [
+      ...getAll('sessionFormats'),
+      ...getAll('sessionFormat'),
+      ...getAll('sessionType'),
+    ].filter(Boolean);
+
+    const mergedTherapyTypes = Array.from(new Set([
+      ...therapyTypes,
+      ...(specialtyParam ? [specialtyParam] : []),
+    ].filter(Boolean)));
+
+    const mergedSessionFormats = Array.from(new Set([
+      ...sessionFormats,
+      ...(finalSessionType ? [finalSessionType] : []),
+    ].filter(Boolean)));
+
+    const parseLocation = (value: string) => {
+      const raw = (value || "").trim();
+      if (!raw || raw.toLowerCase() === 'all') return { city: "", area: "" };
+      if (raw.toLowerCase().replace(/\s+/g, "-") === "near-me") return { city: "near-me", area: "" };
+      const parts = raw.split(",").map((p) => p.trim()).filter(Boolean);
+      return {
+        city: parts[0] || raw,
+        area: parts.length > 1 ? parts.slice(1).join(", ") : "",
+      };
+    };
+
+    const { city, area } = parseLocation(locationParam);
+
+    setInitialFilters({
+      searchQuery: finalSearchQuery || undefined,
+      conditions: conditions.length ? conditions : undefined,
+      therapyTypes: mergedTherapyTypes.length ? mergedTherapyTypes : undefined,
+      sessionFormats: mergedSessionFormats.length ? mergedSessionFormats : undefined,
+      city: city || undefined,
+      area: area || undefined,
+    });
+    setTherapistIdFilter(therapistId || null);
   }, [searchParams]);
-
-  const filterTherapists = (search: string, location: string, specialty: string, sessionType: string) => {
-    let filtered = [...allTherapists];
-
-    // Normalize 'all' selections to empty (no filter)
-    const norm = (v: string) => (v || '').trim().toLowerCase();
-    const loc = norm(location) === 'all' ? '' : location;
-    const spec = norm(specialty) === 'all' ? '' : specialty;
-    const sess = norm(sessionType) === 'all' ? '' : sessionType;
-
-    const extractLocationString = (locVal: ApiTherapist['location']): string => {
-      if (!locVal) return '';
-      if (typeof locVal === 'string') return locVal;
-      if (Array.isArray(locVal)) return locVal.filter(Boolean).join(', ');
-      if (typeof locVal === 'object') {
-        const city = (locVal as any).city || (locVal as any).cityName || '';
-        const area = (locVal as any).area || (locVal as any).locality || '';
-        const formatted = (locVal as any).formatted || (locVal as any).address || '';
-        if (city || area) return [city, area].filter(Boolean).join(', ');
-        return formatted || '';
-      }
-      return '';
-    };
-
-    const extractSessionTypes = (val: ApiTherapist['sessionTypes']): string[] => {
-      if (!val) return [];
-      if (Array.isArray(val)) return val as string[];
-      if (typeof val === 'string') return [val];
-      return [];
-    };
-
-    if (search) {
-      filtered = filtered.filter(therapist => 
-        (therapist.displayName || '').toLowerCase().includes(search.toLowerCase()) ||
-        (therapist.specializations || []).some(s => s.toLowerCase().includes(search.toLowerCase())) ||
-        (therapist.conditions || therapist.primaryConditions || []).some(c => c.toLowerCase().includes(search.toLowerCase())) ||
-        (therapist.therapyTypes || []).some(t => t.toLowerCase().includes(search.toLowerCase()))
-      );
-    }
-
-    if (loc) {
-      filtered = filtered.filter((therapist) => extractLocationString(therapist.location).toLowerCase().includes(loc.toLowerCase()));
-    }
-
-    if (spec) {
-      filtered = filtered.filter(therapist => (therapist.specializations || []).some(s => s.toLowerCase().includes(spec.toLowerCase())));
-    }
-
-    if (sess) {
-      filtered = filtered.filter((therapist) => extractSessionTypes(therapist.sessionTypes).some((type: string) => type.toLowerCase().includes(sess.toLowerCase())));
-    }
-
-    // Filter by primary filter
-    if (selectedPrimaryFilter) {
-      filtered = filtered.filter(therapist => 
-        (therapist.primaryFilters || []).includes(selectedPrimaryFilter)
-      );
-    }
-
-    // Filter by condition
-    if (selectedCondition) {
-      filtered = filtered.filter(therapist => 
-        (therapist.conditions || therapist.primaryConditions || []).some(c => 
-          c.toLowerCase().includes(selectedCondition.toLowerCase())
-        )
-      );
-    }
-
-    // Filter by therapy type
-    if (selectedTherapyType) {
-      filtered = filtered.filter(therapist => 
-        (therapist.therapyTypes || therapist.specializations || []).some(t => 
-          t.toLowerCase().includes(selectedTherapyType.toLowerCase())
-        )
-      );
-    }
-
-    // Sort results
-    if (sortBy === 'rating') {
-      filtered.sort((a, b) => (b.rating||0) - (a.rating||0));
-    } else if (sortBy === 'price') {
-      filtered.sort((a, b) => (a.consultationFee||0) - (b.consultationFee||0));
-    } else if (sortBy === 'experience') {
-      filtered.sort((a, b) => (b.experience||0) - (a.experience||0));
-    }
-    setFilteredTherapists(filtered);
-  };
 
   // Load therapists from API (runs once on mount)
   useEffect(() => {
@@ -236,7 +166,6 @@ export default function TherapistsListingPage() {
         const list: ApiTherapist[] = (json.data?.therapists || []);
         console.log('[TherapistsPage] Therapists count:', list.length);
         setAllTherapists(list);
-        setFilteredTherapists(list);
       } catch(e:any) {
         console.error('[TherapistsPage] Fetch error:', e?.message || e);
         setError(e.message);
@@ -245,19 +174,27 @@ export default function TherapistsListingPage() {
     load();
   }, []);
 
-  useEffect(() => {
-    filterTherapists(searchQuery, selectedLocation, selectedSpecialty, selectedSessionType);
-  }, [searchQuery, selectedLocation, selectedSpecialty, selectedSessionType, sortBy]);
+  const visibleTherapists = useMemo(() => {
+    if (!therapistIdFilter) return allTherapists;
+    const matched = allTherapists.filter((t) => String(t._id) === String(therapistIdFilter));
+    return matched.length ? matched : allTherapists;
+  }, [allTherapists, therapistIdFilter]);
 
-  const getSessionIcon = (type: string) => {
-    switch (type.toLowerCase()) {
-      case 'video': return <Video className="w-4 h-4" />;
-      case 'audio': return <Phone className="w-4 h-4" />;
-      case 'in-clinic': return <Building className="w-4 h-4" />;
-      case 'home visit': return <Home className="w-4 h-4" />;
-      default: return <Monitor className="w-4 h-4" />;
-    }
-  };
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <div className="text-sm text-gray-600">Loading therapists...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <div className="text-sm text-red-600">Unable to load therapists: {error}</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -265,7 +202,9 @@ export default function TherapistsListingPage() {
         {/* Advanced Header and Filter Sidebar */}
         <div className="mb-8">
           <AdvancedTherapistSearch
-            therapists={(filteredTherapists || []).map((t): TherapistData => {
+            key={searchParams?.toString() || "therapists"}
+            initialFilters={initialFilters}
+            therapists={(visibleTherapists || []).map((t): TherapistData => {
               // Map current API data to TherapistData; keep consistent with below
               const parseLocation = (locVal: any): { city: string; area: string } => {
                 let city = '';

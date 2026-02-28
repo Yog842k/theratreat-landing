@@ -134,9 +134,11 @@ export async function POST(request: NextRequest) {
     }
 
     const base = Number(booking.totalAmount || manualAmount || 0);
-  const platformFee = Number(process.env.RAZORPAY_PLATFORM_FEE || 5); // Configurable platform fee
-  const tax = Number(process.env.RAZORPAY_TAX || 10); // Configurable tax
-  const grossAmount = base + platformFee + tax;
+    // By default, charge only the session amount and split 5% to platform.
+    // Optional add-ons can be configured via env if needed.
+    const platformFee = Number(process.env.RAZORPAY_PLATFORM_FEE || 0);
+    const tax = Number(process.env.RAZORPAY_TAX || 0);
+    const grossAmount = base + platformFee + tax;
   
   // Fetch therapist or clinic for commission rule
   let therapist: any = null;
@@ -149,11 +151,8 @@ export async function POST(request: NextRequest) {
     clinic = await database.findOne('clinics', { _id: booking.clinicId });
   }
   
-  // Determine commission - check therapist first, then clinic, then use default
-  const defaultCommissionPercent = Number(process.env.RAZORPAY_DEFAULT_COMMISSION_PERCENT || 15) / 100; // 15% default
-  const commissionPercent = therapist?.defaultCommissionPercent ?? 
-                            clinic?.defaultCommissionPercent ?? 
-                            defaultCommissionPercent;
+  // Hard-fixed platform commission: 5% of the gross amount
+  const commissionPercent = 0.05;
   
   const commissionAmount = Number((grossAmount * commissionPercent).toFixed(2));
   const providerAmount = Number((grossAmount - commissionAmount).toFixed(2));

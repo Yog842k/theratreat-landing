@@ -44,6 +44,7 @@ export default function TestAssessmentPage() {
   const [flowAnswers, setFlowAnswers] = useState<Record<number, string>>({});
   const [childName, setChildName] = useState<string>("");
   const [ageYears, setAgeYears] = useState<number | undefined>(undefined);
+  const [isForChild, setIsForChild] = useState(true);
   const [error, setError] = useState<string>("");
   const [finishing, setFinishing] = useState(false);
   const [finished, setFinished] = useState(false);
@@ -70,28 +71,29 @@ export default function TestAssessmentPage() {
     return [] as Array<{ section: string; text: string; options: string[] }>;
   }, [test]);
 
+  const introQuestions = useMemo<FlowQuestion[]>(() => [
+    {
+      text: isForChild ? "Before we begin, what is the child's name?" : "Before we begin, what is your name?",
+      kind: "text",
+      placeholder: "Type the name",
+      inputMode: "text",
+    },
+    {
+      text: isForChild ? "How old is the child (in years)?" : "How old are you (in years)?",
+      kind: "text",
+      placeholder: "e.g., 4",
+      inputMode: "numeric",
+    },
+  ], [isForChild]);
+
   const flowQuestions = useMemo<FlowQuestion[]>(() => {
     const base = questionsFlat.map((q) => ({
       text: q.text,
       options: q.options,
       kind: "options" as const,
     }));
-    return [
-      {
-        text: "Before we begin, what is the child's name?",
-        kind: "text",
-        placeholder: "Type the name",
-        inputMode: "text",
-      },
-      {
-        text: "How old is the child (in years)?",
-        kind: "text",
-        placeholder: "e.g., 4",
-        inputMode: "numeric",
-      },
-      ...base,
-    ];
-  }, [questionsFlat]);
+    return [...introQuestions, ...base];
+  }, [questionsFlat, introQuestions]);
 
   // Only scroll to bottom when a new AI message is added (not after user answers), but do not force bottom alignment
   const prevChatLength = useRef(0);
@@ -114,6 +116,35 @@ export default function TestAssessmentPage() {
   useEffect(() => {
     flowAnswersRef.current = flowAnswers;
   }, [flowAnswers]);
+
+  const seedChat = (titleText: string, questions: Array<{ text: string; options: string[] }>) => {
+    const flowSeed: FlowQuestion[] = [
+      ...introQuestions,
+      ...questions.map((q) => ({
+        text: q.text,
+        options: q.options,
+        kind: "options" as const,
+      })),
+    ];
+    setChat([
+      {
+        id: "intro",
+        sender: "ai",
+        text: `Welcome to the ${titleText || "Assessment"}! Let's begin.`,
+      },
+      flowSeed[0]
+        ? {
+            id: `q-0`,
+            sender: "ai",
+            text: flowSeed[0].text,
+            options: flowSeed[0].options,
+            kind: flowSeed[0].kind,
+            placeholder: flowSeed[0].placeholder,
+            inputMode: flowSeed[0].inputMode,
+          }
+        : undefined,
+    ].filter(Boolean) as any);
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -142,43 +173,7 @@ export default function TestAssessmentPage() {
         } else if (json?.questions?.length) {
           questions = json.questions.map((t: string) => ({ text: t, options: ["Not at all", "Several days", "More than half the days", "Nearly every day"], section: "" }));
         }
-        const flowSeed: FlowQuestion[] = [
-          {
-            text: "Before we begin, what is the child's name?",
-            kind: "text",
-            placeholder: "Type the name",
-            inputMode: "text",
-          },
-          {
-            text: "How old is the child (in years)?",
-            kind: "text",
-            placeholder: "e.g., 4",
-            inputMode: "numeric",
-          },
-          ...questions.map((q: any) => ({
-            text: q.text,
-            options: q.options,
-            kind: "options" as const,
-          })),
-        ];
-        setChat([
-          {
-            id: "intro",
-            sender: "ai",
-            text: `Welcome to the ${json?.title || json?.name || "Assessment"}! Let's begin.`,
-          },
-          flowSeed[0]
-            ? {
-                id: `q-0`,
-                sender: "ai",
-                text: flowSeed[0].text,
-                options: flowSeed[0].options,
-                kind: flowSeed[0].kind,
-                placeholder: flowSeed[0].placeholder,
-                inputMode: flowSeed[0].inputMode,
-              }
-            : undefined,
-        ].filter(Boolean) as any);
+        seedChat(json?.title || json?.name || "Assessment", questions);
       } catch (e) {
         setTest(null);
       } finally {
@@ -188,9 +183,25 @@ export default function TestAssessmentPage() {
     load();
   }, [id]);
 
+  useEffect(() => {
+    if (!test) return;
+    if (Object.keys(flowAnswersRef.current).length > 0) return;
+    let questions: any[] = [];
+    if (test?.questionSets?.length) {
+      questions = test.questionSets.flatMap((s: any) => s.questions.map((q: any) => ({ ...q, section: s.name })));
+    } else if (test?.questions?.length) {
+      questions = test.questions.map((t: string) => ({ text: t, options: ["Not at all", "Several days", "More than half the days", "Nearly every day"], section: "" }));
+    }
+    setChildName("");
+    setAgeYears(undefined);
+    setInputValue("");
+    seedChat(test?.title || test?.name || "Assessment", questions);
+  }, [isForChild, test, introQuestions]);
+
   const total = flowQuestions.length;
   const progress = total ? Math.round((Object.keys(flowAnswers).length / total) * 100) : 0;
   const currentQuestionIndex = chat.filter(m => m.sender === "ai" && m.id.startsWith("q-")).length - 1;
+  const canToggleSubject = !finished && !finishing && Object.keys(flowAnswers).length === 0;
 
   const handleUserAnswer = (answer: string, questionIndex: number) => {
     if (typing || finishing || finished) return;
@@ -447,11 +458,29 @@ export default function TestAssessmentPage() {
                 </div>
               </div>
                 <div className="hidden sm:flex items-center gap-2 text-xs text-slate-500">
-                  <span className="inline-flex h-2.5 w-2.5 rounded-full bg-violet-400 animate-pulse" />
-                  Live
+                    <span className="inline-flex h-2.5 w-2.5 rounded-full bg-violet-400 animate-pulse" />
+                    Live
+                  </div>
                 </div>
+              <div className="px-5 pb-3">
+                <label className="flex items-center gap-3 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={isForChild}
+                    onChange={(e) => {
+                      if (!canToggleSubject) return;
+                      setIsForChild(e.target.checked);
+                    }}
+                    disabled={!canToggleSubject}
+                    className="h-4 w-4 rounded border-slate-300 text-violet-600 focus:ring-violet-500"
+                  />
+                  This assessment is for a child
+                </label>
+                {!canToggleSubject && (
+                  <p className="mt-1 text-xs text-slate-400">Start a new assessment to change this.</p>
+                )}
               </div>
-            <div className="max-h-[520px] min-h-[320px] overflow-y-auto p-5" style={{scrollbarGutter:'stable'}}>
+              <div className="max-h-[520px] min-h-[320px] overflow-y-auto p-5" style={{scrollbarGutter:'stable'}}>
             {chat.map((msg) => (
               <div key={msg.id} className={`flex flex-col ${msg.sender === "ai" ? "items-start" : "items-end"} gap-2 group animate-in fade-in slide-in-from-bottom-4 duration-500 fill-mode-backwards`}>
                 {/* Avatar Label */}

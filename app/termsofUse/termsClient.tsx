@@ -13,7 +13,7 @@ import {
 export default function TermsOfUseClient({ setCurrentView }: { setCurrentView?: (v: string) => void }) {
   const [openSections, setOpenSections] = useState<string[]>(["overview"]);
   const toggleSection = (id: string) => setOpenSections(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
-  const lastUpdated = "December 15, 2024";
+  const lastUpdated = "December 28 February 2026";
   const effectiveDate = "January 1, 2025";
 
   return (
@@ -75,7 +75,7 @@ export default function TermsOfUseClient({ setCurrentView }: { setCurrentView?: 
         </div>
 
         <div className="mt-8 p-4 bg-gray-50 rounded-lg text-center text-sm text-gray-600">
-          <p>These terms constitute a legally binding agreement between you and TheraTreat Technologies Private Limited. For questions or concerns, contact <strong>legal@theratreat.com</strong></p>
+          <p>These terms constitute a legally binding agreement between you and TheraTreat Health Private Limited. For questions or concerns, contact <strong>support@theratreat.com</strong></p>
         </div>
       </div>
     </div>
@@ -135,7 +135,6 @@ const TERMS_SECTIONS = [
     icon: <Stethoscope className="w-5 h-5" />,
     content: (
       <div className="space-y-6 text-xs leading-relaxed">
-        <div className="border border-blue-200 rounded-lg p-4 bg-blue-50 space-y-2"><h4 className="font-semibold text-blue-800 flex items-center gap-2 text-sm"><Stethoscope className="w-4 h-4" />TheraBook</h4><p><strong>Session Types:</strong> Video, audio, in‑clinic, home visit.</p><p><strong>Minimum Duration:</strong> 45 minutes.</p><div><strong>Cancellation:</strong><ul className="ml-4 list-disc space-y-1"><li>Video/Audio/In‑Clinic: Free ≥2h prior</li><li>Home: Free ≥3h prior</li><li>50% refund if inside window</li><li>No refund for late / no‑show</li></ul></div><p><strong>Emergency:</strong> Not for emergencies—contact local services.</p></div>
         <div className="border border-purple-200 rounded-lg p-4 bg-purple-50 space-y-2"><h4 className="font-semibold text-purple-800 flex items-center gap-2 text-sm"><Brain className="w-4 h-4" />TheraSelf</h4><p>AI assessments are informational—not diagnosis. Data may be anonymized to improve models.</p></div>
         <div className="border border-green-200 rounded-lg p-4 bg-green-50 space-y-2"><h4 className="font-semibold text-green-800 flex items-center gap-2 text-sm"><ShoppingCart className="w-4 h-4" />TheraStore</h4><p><strong>Returns:</strong> 30-day most items; medical devices 7-day; supplements unopened only.</p><p><strong>Shipping:</strong> Standard 5–7d / Express 2–3d / Same-day select cities.</p></div>
         <div className="border border-orange-200 rounded-lg p-4 bg-orange-50 space-y-2"><h4 className="font-semibold text-orange-800 flex items-center gap-2 text-sm"><GraduationCap className="w-4 h-4" />TheraLearn</h4><p>Lifetime course access (unless stated). Refund within 7 days if &lt;25% completed. 70% instructor revenue share.</p></div>
@@ -149,7 +148,6 @@ const TERMS_SECTIONS = [
     content: (
       <div className="space-y-4 text-xs">
         <div><h4 className="font-semibold text-sm mb-1">Accepted Methods</h4><div className="grid grid-cols-2 md:grid-cols-4 gap-2"><span className="bg-gray-50 p-2 rounded text-center">UPI</span><span className="bg-gray-50 p-2 rounded text-center">Cards</span><span className="bg-gray-50 p-2 rounded text-center">Net Banking</span><span className="bg-gray-50 p-2 rounded text-center">Wallets</span></div></div>
-        <div><h4 className="font-semibold text-sm mb-1">Commission</h4><ul className="space-y-1"><li>TheraBook: 15%</li><li>TheraStore: 5–15%</li><li>TheraLearn: 30% platform / 70% instructor</li></ul></div>
         <div><h4 className="font-semibold text-sm mb-1">Refunds</h4><ul className="space-y-1"><li>Processed 3–5 business days</li><li>Original payment method</li><li>Gateway fees may apply</li></ul></div>
         <div className="bg-blue-50 border border-blue-200 p-4 rounded"><h4 className="font-semibold text-blue-800 mb-1 text-sm">Security</h4><p className="text-[11px] text-blue-700">256‑bit TLS, PCI DSS; no full card storage.</p></div>
       </div>
@@ -221,10 +219,25 @@ const TERMS_SECTIONS = [
       <div className="space-y-4 text-xs">
         <div className="border rounded p-3"><h5 className="font-semibold mb-1">Changes & Notice</h5><ul className="space-y-1"><li>30‑day notice for material updates</li><li>Email + in‑app banners</li><li>Archive of prior versions on request</li></ul></div>
         <div className="grid md:grid-cols-2 gap-4">
-          <div className="border rounded p-3"><h5 className="font-semibold mb-2 flex items-center gap-2"><Mail className="w-4 h-4 text-blue-500" />Email</h5><ul className="space-y-1"><li>support@theratreat.com</li><li>legal@theratreat.com</li><li>disputes@theratreat.com</li><li>privacy@theratreat.com</li></ul></div>
-          <div className="border rounded p-3"><h5 className="font-semibold mb-2 flex items-center gap-2"><Phone className="w-4 h-4 text-green-500" />Phone</h5><ul className="space-y-1"><li>+91-XXXXXXXXXX (Customer)</li><li>+91-XXXXXXXXXX (Professional)</li></ul></div>
+          <div className="border rounded p-3">
+            <h5 className="font-semibold mb-2 flex items-center gap-2">
+              <Mail className="w-4 h-4 text-blue-500" />
+              Email
+            </h5>
+            <ul className="space-y-1">
+              <li>support@theratreat.com</li>
+            </ul>
+          </div>
+          <div className="border rounded p-3">
+            <h5 className="font-semibold mb-2 flex items-center gap-2">
+              <Phone className="w-4 h-4 text-green-500" />
+              Phone
+            </h5>
+            <ul className="space-y-1">
+              <li>+91-8446602680 (Customer)</li>
+            </ul>
+          </div>
         </div>
-        <div className="bg-green-50 border border-green-200 p-4 rounded"><h5 className="font-semibold text-green-800 mb-1">Company Info</h5><p>TheraTreat Technologies Private Limited • CIN U72200MH2024PTC[XXXXXX]</p></div>
       </div>
     )
   }

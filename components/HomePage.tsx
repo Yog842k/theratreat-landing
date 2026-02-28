@@ -1,900 +1,439 @@
-import { useEffect, useState } from "react";
+﻿"use client"
+
+import { useState, useEffect } from "react";
 import { Button } from "./ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Card, CardContent } from "./ui/card";
 import { Badge } from "./ui/badge";
-import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "./ui/carousel";
-import { ModernHero } from "./ModernHero";
-import {  coreModules } from "../constants/app-data"; // removed platformStats per request
 import { ViewType } from "../constants/app-data";
-import { motion} from "framer-motion";
-import { getIconByKey } from "./ui/IconSelector";
-
-import { 
-  Calendar,
-  Brain,
-  ShoppingCart,
-  BookOpen,
-  CheckCircle,
-  Users,
-  Award,
-  Video,
-  Stethoscope,
-  ArrowRight,
-  Play,
-  Clock,
-  Star,
-  Shield,
-  Zap,
-  Heart,
-  Activity,
-  Monitor,
-  Thermometer,
-  User,
-  MapPin,
-  GraduationCap,
-  TrendingUp,
-  Globe,
-  Lock,
-  UserCheck,
-  Phone,
-  MessageCircle,
-  FileCheck,
-  Building,
-  Verified,
-  Target,
-  Lightbulb,
-  HeartHandshake,
-  BadgeCheck
-} from "lucide-react"; // Removed Quote (only used in testimonials)
-
+import { motion } from "motion/react";
+import {
+  Calendar, Brain, ShoppingCart, CheckCircle, 
+  ArrowRight, Shield, Heart, Activity, Lock, 
+  UserCheck, Target, Sparkles, GraduationCap, Clock, LineChart, Lightbulb,
+  HeartHandshake
+} from "lucide-react";
 interface HomePageProps {
   setCurrentView: (view: ViewType) => void;
 }
 
+// Organic, slow-moving blurred shapes for a calming background
+const AmbientBackground = () => (
+  <div className="absolute inset-0 overflow-hidden pointer-events-none z-0">
+    <motion.div
+      className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] rounded-full bg-blue-200/50 blur-[100px]"
+      animate={{ x: [0, 50, 0], y: [0, 30, 0] }}
+      transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
+    />
+    <motion.div
+      className="absolute bottom-[-10%] right-[-5%] w-[600px] h-[600px] rounded-full bg-teal-100/40 blur-[120px]"
+      animate={{ x: [0, -40, 0], y: [0, -50, 0] }}
+      transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
+    />
+    <motion.div
+      className="absolute top-[40%] left-[60%] w-[400px] h-[400px] rounded-full bg-purple-100/30 blur-[100px]"
+      animate={{ scale: [1, 1.1, 1], opacity: [0.5, 0.8, 0.5] }}
+      transition={{ duration: 12, repeat: Infinity, ease: "easeInOut" }}
+    />
+  </div>
+);
+
+// Futuristic grid + scanline overlay
+const FuturisticOverlay = () => (
+  <div className="absolute inset-0 pointer-events-none z-0">
+    <div className="absolute inset-0 opacity-[0.25] bg-[linear-gradient(to_right,rgba(59,130,246,0.18)_1px,transparent_1px),linear-gradient(to_bottom,rgba(59,130,246,0.18)_1px,transparent_1px)] bg-[size:48px_48px]" />
+    <motion.div
+      className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-blue-400/10 to-transparent"
+      animate={{ y: ["0%", "85%", "0%"] }}
+      transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
+    />
+    <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_30%,rgba(14,165,233,0.15),transparent_40%)]" />
+    <div className="absolute inset-0 opacity-40 bg-[linear-gradient(135deg,transparent_40%,rgba(59,130,246,0.06)_50%,transparent_60%)]" />
+  </div>
+);
+
+// Subtle circuit lines
+const CircuitLines = () => (
+  <div className="absolute inset-0 pointer-events-none z-0">
+    <div className="absolute left-10 top-20 h-[420px] w-px bg-gradient-to-b from-transparent via-blue-300/60 to-transparent" />
+    <div className="absolute right-16 top-10 h-[520px] w-px bg-gradient-to-b from-transparent via-sky-300/60 to-transparent" />
+    <div className="absolute left-10 top-20 h-px w-[260px] bg-gradient-to-r from-blue-300/60 to-transparent" />
+    <div className="absolute right-16 top-44 h-px w-[220px] bg-gradient-to-l from-sky-300/60 to-transparent" />
+    <motion.div
+      className="absolute left-10 top-56 h-2 w-2 rounded-full bg-blue-400 shadow-[0_0_20px_rgba(59,130,246,0.8)]"
+      animate={{ y: [0, 120, 0] }}
+      transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+    />
+    <motion.div
+      className="absolute right-16 top-32 h-2 w-2 rounded-full bg-sky-400 shadow-[0_0_20px_rgba(56,189,248,0.8)]"
+      animate={{ y: [0, 140, 0] }}
+      transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
+    />
+  </div>
+);
+
 export function HomePage({ setCurrentView }: HomePageProps) {
-  type FeaturedTherapist = {
-    _id?: string;
-    displayName: string;
-    name?: string;
-    title?: string;
-    rating?: number;
-    image?: string;
-    specializations?: string[];
-  };
-
-  type TheraSelfTest = {
-    _id?: string;
-    title?: string;
-    name?: string;
-    icon?: string;
-    questions?: string[];
-    questionSets?: Array<{ name: string; questions: Array<{ text: string; options: string[] }> }>;
-  };
-
-  const [featuredTherapists, setFeaturedTherapists] = useState<FeaturedTherapist[]>([]);
-  const [featuredLoading, setFeaturedLoading] = useState(false);
-  const [theraSelfTests, setTheraSelfTests] = useState<TheraSelfTest[]>([]);
-  const [, setTheraSelfLoading] = useState(false);
+  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
-    const loadFeatured = async () => {
-      setFeaturedLoading(true);
-      try {
-        const res = await fetch('/api/therapists?featured=true&limit=6&sortBy=featuredOrder&sortOrder=asc', { cache: 'no-store' });
-        if (res.ok) {
-          const json = await res.json().catch(() => null);
-          const list: FeaturedTherapist[] = json?.data?.therapists || [];
-          if (list.length) {
-            setFeaturedTherapists(list);
-            setFeaturedLoading(false);
-            return;
-          }
-        }
-        const resTop = await fetch('/api/therapists?limit=6&sortBy=rating&sortOrder=desc', { cache: 'no-store' });
-        if (resTop.ok) {
-          const jsonTop = await resTop.json().catch(() => null);
-          const listTop: FeaturedTherapist[] = jsonTop?.data?.therapists || [];
-          if (listTop.length) setFeaturedTherapists(listTop);
-        }
-      } catch (_) {
-      } finally {
-        setFeaturedLoading(false);
-      }
+    const handleMouseMove = (e: MouseEvent) => {
+      setMousePosition({ x: e.clientX, y: e.clientY });
     };
-
-    const loadTheraSelfTests = async () => {
-      setTheraSelfLoading(true);
-      try {
-        const res = await fetch('/api/theraself/tests', { cache: 'no-store' });
-        if (res.ok) {
-          const json = await res.json().catch(() => []);
-          const list: TheraSelfTest[] = Array.isArray(json) ? json : [];
-          setTheraSelfTests(list.slice(0, 3));
-        }
-      } catch (_) {
-      } finally {
-        setTheraSelfLoading(false);
-      }
-    };
-
-    loadFeatured();
-    loadTheraSelfTests();
+    window.addEventListener("mousemove", handleMouseMove);
+    return () => window.removeEventListener("mousemove", handleMouseMove);
   }, []);
 
-  const fallbackFeatured: FeaturedTherapist[] = [
-    { displayName: "Dr. Sarah Johnson", title: "Clinical Psychology", rating: 4.9, image: "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=120&h=120&fit=crop&crop=face" },
-    { displayName: "Dr. Michael Chen", title: "Physical Therapy", rating: 4.8, image: "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=120&h=120&fit=crop&crop=face" },
-    { displayName: "Dr. Emily Rodriguez", title: "Speech Therapy", rating: 4.9, image: "https://images.unsplash.com/photo-1594824388875-fb4d2b3d7518?w=120&h=120&fit=crop&crop=face" }
-  ];
-
-  const fallbackAssessments = [
-    { title: "Depression Assessment", questionsCount: 21, duration: "10 min", icon: Brain },
-    { title: "Anxiety Scale", questionsCount: 18, duration: "8 min", icon: Heart },
-    { title: "Stress Evaluation", questionsCount: 25, duration: "12 min", icon: Activity }
-  ];
-
-  const getAssessmentIcon = (test: TheraSelfTest | (typeof fallbackAssessments)[number]) => {
-    if (typeof (test as any).icon === "string") {
-      const IconComp = getIconByKey((test as any).icon);
-      return IconComp || Brain;
-    }
-    return (test as any).icon || Brain;
-  };
-
-  const getAssessmentQuestions = (test: TheraSelfTest | (typeof fallbackAssessments)[number]) => {
-    if (typeof (test as any).questionsCount === "number") return (test as any).questionsCount;
-    if (Array.isArray((test as TheraSelfTest).questionSets) && (test as TheraSelfTest).questionSets!.length) {
-      return (test as TheraSelfTest).questionSets!.reduce((sum, set) => sum + (Array.isArray(set.questions) ? set.questions.length : 0), 0);
-    }
-    if (Array.isArray((test as TheraSelfTest).questions)) return (test as TheraSelfTest).questions!.length;
-    return undefined;
-  };
-
-  const getAssessmentDuration = (test: TheraSelfTest | (typeof fallbackAssessments)[number], count?: number) => {
-    if ((test as any).duration) return (test as any).duration as string;
-    if (typeof count === "number" && count > 0) {
-      const minutes = Math.max(5, Math.round(count * 0.6));
-      return `${minutes} min`;
-    }
-    return "Quick check";
-  };
-
-  // Why TheraTreat highlights
-  const whyTheraTreatHighlights = [
+  const onboardingSteps = [
     {
-      icon: Globe,
-      title: "One-Stop Therapy Hub",
-      description: "From booking therapy sessions to accessing self-help tools and resources - everything you need for well-being is available in one trusted place.",
-      gradient: "from-blue-500 to-blue-600"
+      step: "01",
+      title: "Establish Your Baseline",
+      desc: "Take a quick AI-assisted self-assessment to map your current well-being.",
+      icon: Brain,
+      color: "text-blue-600",
+      bg: "bg-blue-100",
+      action: () => setCurrentView("self-test")
     },
     {
+      step: "02",
+      title: "Meet Your Expert",
+      desc: "Get intelligently matched with a verified professional tailored to your specific needs.",
       icon: UserCheck,
-      title: "Verified Professionals",
-      description: "Every Therapist and healthcare expert is certified, licensed, and verified, so you can be assured that you're receiving Quality care.",
-      gradient: "from-green-500 to-green-600"
+      color: "text-blue-600",
+      bg: "bg-blue-100",
+      action: () => setCurrentView("book")
     },
     {
-      icon: Lightbulb,
-      title: "Personalised Care",
-      description: "Flexible therapy options, transparent pricing, and tailored recommendations to make your care journey smooth and suited to your unique needs.",
-      gradient: "from-purple-500 to-purple-600"
-    },
-    {
-      icon: Lock,
-      title: "Secure & Confidential",
-      description: "Your health data and therapy sessions are always private, with strict security measures ensuring that your personal information stays protected.",
-      gradient: "from-red-500 to-red-600"
-    },
-    {
-      icon: Target,
-      title: "Evidence-Based Practice",
-      description: "TheraTreat integrates clinical tools, progress tracking, and measurables, ensuring you see real results rather than vague promises.",
-      gradient: "from-orange-500 to-orange-600"
-    },
-    {
-      icon: HeartHandshake,
-      title: "Community & Support",
-      description: "Beyond therapy, join awareness drives, knowledge sharing to build a supportive healing network.",
-      gradient: "from-pink-500 to-pink-600"
+      step: "03",
+      title: "Follow Your Plan",
+      desc: "Access your prescribed exercises, curated equipment, and daily learning resources.",
+      icon: LineChart,
+      color: "text-blue-600",
+      bg: "bg-blue-100",
+      action: () => setCurrentView("self-test")
     }
   ];
 
-  // Trust & Compliance Framework
-  const complianceFeatures = [
-    {
-      icon: BadgeCheck,
-      title: "ISO Certified",
-      description: "Our platform follows international quality and management standards, ensuring consistency and reliability."
-    },
-    {
-      icon: Shield,
-      title: "HIPAA Compliant",
-      description: "Every step of data handling and storage is aligned with global standards for protecting sensitive health information."
-    },
-    {
-      icon: FileCheck,
-      title: "DPDP & GDPR Ready",
-      description: "Fully compliant with India's Digital Personal Data Protection Act and global GDPR norms to safeguard your rights."
-    },
-    {
-      icon: Lock,
-      title: "256-Bit Encryption",
-      description: "We use bank-grade encryption for every session, transaction, and data exchange."
-    },
-    {
-      icon: UserCheck,
-      title: "Verified Onboarding",
-      description: "Only licensed, background-checked professionals are onboarded to ensure safety and credibility."
-    },
-    {
-      icon: Monitor,
-      title: "Continuous Monitoring",
-      description: "Regular audits, system checks, and security updates guarantee that your data and sessions remain safe over time."
-    }
-  ];
-
-  const services = [
+  const personalToolkit = [
     {
       id: "book",
       icon: Calendar,
-      title: "TheraBook",
-      subtitle: "Professional Healthcare Consultations",
-      description: "Connect with trusted therapists, anytime, anywhere. TheraBook helps you find and book verified healthcare professionals for online or offline sessions. With secure booking, flexible scheduling, and smart therapist matching, you can start your therapy journey with confidence.",
-      features: [
-        "Video, audio, in-clinic, and Home consultations",
-        "Verified therapists across multiple specialties",
-        "Smart matching & calendar booking system",
-        "Secure payments and confidentiality guaranteed"
-      ],
-      stats: "2,500+ Verified Therapists",
-      bookingText: "Book a Consultation",
-      exploreText: "Browse Therapists",
-      gradient: "from-blue-500 to-blue-600",
-      bgColor: "bg-blue-50",
-      preview: {
-        title: "TheraBook Sessions",
-        tag: "Therapy Session Image"
-      },
-      theme: {
-        titleGradient: "from-blue-600 to-blue-500",
-        badge: "bg-blue-50 text-blue-700 border-blue-200",
-        outline: "border-blue-200 text-blue-600 hover:bg-blue-50 hover:border-blue-300",
-        shadow: "hover:shadow-blue-200",
-        pill: "border border-blue-200 bg-blue-100/70 text-blue-700",
-        dot: "bg-blue-500",
-        mediaBorder: "border-blue-100",
-        check: "text-blue-500"
-      }
+      title: "Your Sessions",
+      subtitle: "Upcoming & Past Consultations",
+      description: "Manage your video, audio, or in-clinic sessions. Thera AI ensures you are always paired with the right specialist.",
+      color: "text-blue-600",
+      bgLight: "bg-blue-100",
+      status: "Ready to schedule",
+      features: ["Smart matching", "Reschedule anytime", "Pre-session notes"]
     },
     {
       id: "self-test",
       icon: Brain,
-      title: "TheraSelf",
-      subtitle: "AI-Powered Self Assessment",
-      description: "Understand yourself better with science-backed insights. TheraSelf offers intelligent self-assessments to educate oneself across mental, physical, and emotional health categories. Instantly receive personalized recommendations, progress reports, and next steps you can share with a therapist.",
-      features: [
-        "Multiple self-assessment categories",
-        "AI-powered analysis & easy-to-read reports",
-        "Personalized therapy/treatment recommendations",
-        "Private, secure, and downloadable results"
-      ],
-      stats: "50,000+ Assessments Completed",
-      bookingText: "Start Assessment",
-      exploreText: "View Categories",
-      gradient: "from-purple-500 to-purple-600",
-      bgColor: "bg-purple-50",
-      preview: {
-        title: "TheraSelf Insights",
-        tag: "Assessment Image"
-      },
-      theme: {
-        titleGradient: "from-purple-600 to-purple-500",
-        badge: "bg-purple-50 text-purple-700 border-purple-200",
-        outline: "border-purple-200 text-purple-600 hover:bg-purple-50 hover:border-purple-300",
-        shadow: "hover:shadow-purple-200",
-        pill: "border border-purple-200 bg-purple-100/70 text-purple-700",
-        dot: "bg-purple-500",
-        mediaBorder: "border-purple-100",
-        check: "text-purple-500"
-      }
+      title: "Your Assessments",
+      subtitle: "Track Your Progress",
+      description: "Review your past assessments and take new ones to see how your baseline improves over time.",
+      color: "text-blue-600",
+      bgLight: "bg-blue-100",
+      status: "Assessment pending",
+      features: ["Instant insights", "Share with therapist", "Trend analysis"]
     },
     {
       id: "store",
       icon: ShoppingCart,
-      title: "TheraStore",
-      subtitle: "Therapeutic Equipment & Wellness Supplies",
-      description: "Everything you need for therapy, rehab & wellness in one place. TheraStore makes it simple to order professional Therapy equipment, tools, and wellness supplies with assured quality and fast delivery.",
-      features: [
-        "Curated Therapist-recommended Equipments",
-        "Easy online ordering with secure payments",
-        "Fast delivery with live order tracking",
-        "Verified quality standards and returns policy"
-      ],
-      stats: "10,000+ Products Available",
-      bookingText: "Shop Now",
-      exploreText: "Browse Categories",
-      gradient: "from-green-500 to-green-600",
-      bgColor: "bg-green-50",
-      preview: {
-        title: "TheraStore Essentials",
-        tag: "Equipment Image"
-      },
-      theme: {
-        titleGradient: "from-green-600 to-green-500",
-        badge: "bg-green-50 text-green-700 border-green-200",
-        outline: "border-green-200 text-green-600 hover:bg-green-50 hover:border-green-300",
-        shadow: "hover:shadow-green-200",
-        pill: "border border-green-200 bg-green-100/70 text-green-700",
-        dot: "bg-green-500",
-        mediaBorder: "border-green-100",
-        check: "text-green-500"
-      }
+      title: "Your Prescribed Gear",
+      subtitle: "Therapeutic Equipment",
+      description: "Access the specific wellness products and rehab tools recommended directly by your therapist for your recovery stage.",
+      color: "text-blue-600",
+      bgLight: "bg-blue-100",
+      status: "Personalized store",
+      features: ["Therapist approved", "Targeted for you", "Doorstep delivery"]
     },
     {
       id: "learn",
-      icon: BookOpen,
-      title: "TheraLearn",
-      subtitle: "Professional Development Hub",
-      description: "Grow your skills. Advance your career. Learn More about Therapy. TheraLearn is a dedicated learning hub for healthcare professionals, Patients, and students. Access expert-led workshops, certification courses, and live learning sessions to keep your skills future-ready.",
-      features: [
-        "Expert-led courses & workshops",
-        "Professional certification programs",
-        "Interactive live sessions & webinars",
-        "Career development & networking opportunities"
-      ],
-      stats: "500+ Learning Resources",
-      bookingText: "Enroll Now",
-      exploreText: "View Courses",
-      gradient: "from-orange-500 to-orange-600",
-      bgColor: "bg-orange-50",
-      preview: {
-        title: "TheraLearn Courses",
-        tag: "Learning Image"
-      },
-      theme: {
-        titleGradient: "from-orange-600 to-orange-500",
-        badge: "bg-orange-50 text-orange-700 border-orange-200",
-        outline: "border-orange-200 text-orange-600 hover:bg-orange-50 hover:border-orange-300",
-        shadow: "hover:shadow-orange-200",
-        pill: "border border-orange-200 bg-orange-100/70 text-orange-700",
-        dot: "bg-orange-500",
-        mediaBorder: "border-orange-100",
-        check: "text-orange-500"
-      }
+      icon: GraduationCap,
+      title: "Your Learning Path",
+      subtitle: "Guided Education",
+      description: "Resources, guides, and courses curated specifically for your condition and wellness goals.",
+      color: "text-blue-600",
+      bgLight: "bg-blue-100",
+      status: "0% completed",
+      features: ["Condition specific", "Paced for you", "Expert led"]
     }
   ];
 
   return (
-    <motion.div 
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.6 }}
-      className="space-y-0"
-    >
-      {/* Modern Hero Section */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8, delay: 0.2 }}
-      >
-        <ModernHero setCurrentView={setCurrentView} />
-      </motion.div>
+    <div className="w-full bg-gradient-to-br from-slate-50 via-blue-50/60 to-slate-100 overflow-hidden font-sans text-slate-800">
+      
+      {/* HERO SECTION */}
+      <section className="relative min-h-[95vh] flex items-center overflow-hidden bg-gradient-to-b from-[#F5FAFF] via-blue-50 to-slate-50">
+        <AmbientBackground />
+        <FuturisticOverlay />
+        <CircuitLines />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(59,130,246,0.12),transparent_45%)] pointer-events-none" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_0%,rgba(14,165,233,0.14),transparent_35%)] pointer-events-none" />
 
-      {/* Core Services Sections */}
-      <section className="space-y-12 sm:space-y-16 lg:space-y-24">
-        <motion.div 
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.8 }}
-          className="text-center space-y-3 sm:space-y-4 lg:space-y-5 max-w-7xl mx-auto px-3 sm:px-4 lg:px-6"
-        >
-          <motion.div
-            className="flex items-center justify-center"
-            initial={{ opacity: 0, scale: 0.9 }}
-            whileInView={{ opacity: 1, scale: 1 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.1 }}
-          >
-            <Badge className="bg-white text-slate-700 border border-slate-200 shadow-sm px-3 sm:px-4 py-1 text-xs sm:text-sm font-semibold uppercase tracking-[0.2em]">
-              TheraTreat Modules
-            </Badge>
-          </motion.div>
-          <motion.h2 
-            className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent tracking-tight"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.2 }}
-          >
-            Our Core Services
-          </motion.h2>
-          <motion.p 
-            className="text-sm sm:text-base md:text-lg lg:text-xl text-slate-600 max-w-3xl mx-auto px-2"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.4 }}
-          >
-            Comprehensive healthcare solutions designed to meet all your medical needs in one integrated platform
-          </motion.p>
-        </motion.div>
-
-        {services.map((service, index) => (
-          <motion.div 
-            key={service.id} 
-            className={`${service.bgColor} py-8 sm:py-12 lg:py-16 relative overflow-hidden`}
-            initial={{ opacity: 0, y: 100 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-150px" }}
-            transition={{ 
-              duration: 0.8, 
-              delay: index * 0.2,
-              ease: [0.25, 0.46, 0.45, 0.94]
-            }}
-          >
-            <div className={`pointer-events-none absolute -top-16 right-4 h-56 w-56 rounded-full bg-gradient-to-br ${service.gradient} opacity-20 blur-3xl`} />
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_10%_10%,rgba(255,255,255,0.6),transparent_40%)]" />
-            <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 relative">
-              <div className={`grid gap-6 sm:gap-8 lg:gap-10 lg:grid-cols-2 items-start lg:items-center ${index % 2 === 1 ? 'lg:grid-cols-2' : ''}`}> 
-                {/* Content Side */}
-                <motion.div 
-                  className={`space-y-4 sm:space-y-5 lg:space-y-6 ${index % 2 === 1 ? 'lg:order-2' : ''}`}
-                  initial={{ opacity: 0, x: index % 2 === 0 ? -50 : 50 }}
-                  whileInView={{ opacity: 1, x: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.8, delay: 0.3 }}
-                >
-                  <div className="space-y-3 sm:space-y-4">
-                    <motion.div 
-                      className="flex items-center flex-wrap gap-2 sm:gap-3"
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      whileInView={{ opacity: 1, scale: 1 }}
-                      viewport={{ once: true }}
-                      transition={{ duration: 0.6, delay: 0.4 }}
-                    >
-                      <motion.div 
-                        className={`p-2 sm:p-3 rounded-xl bg-gradient-to-br ${service.gradient} text-white shadow-lg`}
-                        whileHover={{ 
-                          scale: 1.1, 
-                          rotate: 5,
-                          boxShadow: "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)",
-                          transition: { duration: 0.2 }
-                        }}
-                        whileTap={{ scale: 0.95 }}
-                      >
-                        <service.icon className="w-6 h-6 sm:w-7 sm:h-7 lg:w-8 lg:h-8" />
-                      </motion.div>
-                      <Badge variant="secondary" className={`px-3 sm:px-4 py-1 sm:py-1.5 text-xs sm:text-sm font-medium ${service.theme.badge} hover:opacity-90 transition-colors`}>
-                        {service.stats}
-                      </Badge>
-                    </motion.div>
-                    
-                    <motion.div 
-                      className="space-y-1 sm:space-y-2"
-                      initial={{ opacity: 0, y: 20 }}
-                      whileInView={{ opacity: 1, y: 0 }}
-                      viewport={{ once: true }}
-                      transition={{ duration: 0.6, delay: 0.6 }}
-                    >
-                      <h3 className={`text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r ${service.theme.titleGradient} bg-clip-text text-transparent tracking-tight`}>{service.title}</h3>
-                      <p className="text-sm sm:text-base lg:text-lg text-slate-600 font-medium">{service.subtitle}</p>
-                    </motion.div>
-                    
-                    <motion.p 
-                      className="text-xs sm:text-sm lg:text-base leading-relaxed text-slate-700"
-                      initial={{ opacity: 0, y: 20 }}
-                      whileInView={{ opacity: 1, y: 0 }}
-                      viewport={{ once: true }}
-                      transition={{ duration: 0.6, delay: 0.7 }}
-                    >
-                      {service.description}
-                    </motion.p>
-                  </div>
-
-                  {/* Features */}
-                  <motion.div 
-                    className="space-y-2 sm:space-y-3"
-                    initial={{ opacity: 0 }}
-                    whileInView={{ opacity: 1 }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 0.6, delay: 0.8 }}
-                  >
-                    {service.features.map((feature, featureIndex) => (
-                      <motion.div 
-                        key={featureIndex}
-                        className="flex items-start gap-2"
-                        initial={{ opacity: 0, x: -20 }}
-                        whileInView={{ opacity: 1, x: 0 }}
-                        viewport={{ once: true }}
-                        transition={{ duration: 0.4, delay: 0.8 + featureIndex * 0.1 }}
-                      >
-                        <CheckCircle className={`w-4 h-4 sm:w-5 sm:h-5 ${service.theme.check} flex-shrink-0 mt-0.5`} />
-                        <span className="text-slate-700 text-xs sm:text-sm lg:text-base">{feature}</span>
-                      </motion.div>
-                    ))}
-                  </motion.div>
-
-                  {/* Action Buttons */}
-                  <motion.div 
-                    className="flex flex-col sm:flex-row gap-2 sm:gap-3 lg:gap-4 pt-2 sm:pt-3 lg:pt-4"
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    viewport={{ once: true }}
-                    transition={{ duration: 0.6, delay: 1 }}
-                  >
-                    <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="w-full sm:w-auto">
-                      <Button 
-                        onClick={() => setCurrentView(service.id as ViewType)}
-                        className={`w-full sm:w-auto bg-gradient-to-r ${service.gradient} text-white hover:shadow-xl ${service.theme.shadow} transition-all duration-300 text-xs sm:text-sm lg:text-base font-semibold`}
-                        size="default"
-                      >
-                        {service.bookingText}
-                        <ArrowRight className="ml-1 sm:ml-2 w-4 h-4 sm:w-5 sm:h-5" />
-                      </Button>
-                    </motion.div>
-                    <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} className="w-full sm:w-auto">
-                      <Button 
-                        variant="outline" 
-                        onClick={() => setCurrentView(service.id as ViewType)}
-                        className={`w-full sm:w-auto border-2 ${service.theme.outline} transition-all duration-300 text-xs sm:text-sm lg:text-base font-semibold`}
-                        size="default"
-                      >
-                        {service.exploreText}
-                      </Button>
-                    </motion.div>
-                  </motion.div>
-                </motion.div>
-
-                {/* Visual Side */}
-                <motion.div 
-                  className={`${index % 2 === 1 ? 'lg:order-1' : ''}`}
-                  initial={{ opacity: 0, x: index % 2 === 0 ? 50 : -50 }}
-                  whileInView={{ opacity: 1, x: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.8, delay: 0.5 }}
-                >
-                  <div className="space-y-4">
-                  {service.id === "book" && (
-                    <Card className={`p-3 sm:p-4 lg:p-6 border-2 ${service.theme.mediaBorder} shadow-2xl bg-white ${service.theme.shadow} transition-shadow duration-300`}>
-                      <div className="space-y-3 sm:space-y-4">
-                        <div className="flex items-center justify-between">
-                          <Badge variant="secondary" className={`text-xs sm:text-sm font-medium ${service.theme.badge}`}>
-                            Featured Therapists
-                          </Badge>
-                          <motion.div 
-                            className={`p-1.5 sm:p-2 rounded-full bg-gradient-to-br ${service.gradient} shadow-md`}
-                            whileHover={{ rotate: 360, scale: 1.1 }}
-                            transition={{ duration: 0.5 }}
-                          >
-                            <service.icon className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
-                          </motion.div>
-                        </div>
-                        <Carousel className="w-full">
-                          <CarouselContent>
-                            {(featuredTherapists.length ? featuredTherapists : fallbackFeatured).map((therapist, idx) => (
-                              <CarouselItem key={idx}>
-                                <div className="text-center space-y-2 p-2 sm:p-4">
-                                  <div className="relative inline-block">
-                                    <img
-                                      src={therapist.image || 'https://via.placeholder.com/120x120.png?text=Therapist'}
-                                      alt={therapist.displayName || 'Therapist'}
-                                      className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full mx-auto object-cover border-4 ${service.theme.mediaBorder} shadow-lg`}
-                                    />
-                                    <div className="absolute -bottom-1 -right-1 w-5 h-5 sm:w-6 sm:h-6 bg-green-500 rounded-full border-2 border-white"></div>
-                                  </div>
-                                  <div>
-                                    <h4 className="font-bold text-sm sm:text-base text-blue-600">{therapist.displayName || therapist.name}</h4>
-                                    <p className="text-xs sm:text-sm text-slate-600">{(therapist.specializations && therapist.specializations[0]) || therapist.title || (therapist as any).specialty}</p>
-                                    <div className="flex items-center justify-center space-x-1 mt-2">
-                                      <Star className="w-3 h-3 sm:w-4 sm:h-4 fill-yellow-400 text-yellow-400" />
-                                      <span className="text-xs sm:text-sm font-semibold text-slate-700">{therapist.rating?.toFixed?.(1) ?? therapist.rating ?? '4.9'}</span>
-                                    </div>
-                                  </div>
-                                </div>
-                              </CarouselItem>
-                            ))}
-                          </CarouselContent>
-                          <CarouselPrevious className="left-1 sm:left-2 h-6 w-6 sm:h-8 sm:w-8" />
-                          <CarouselNext className="right-1 sm:right-2 h-6 w-6 sm:h-8 sm:w-8" />
-                        </Carousel>
-                        <p className="text-xs sm:text-sm text-slate-600 text-center font-medium">
-                          {service.stats} and growing
-                        </p>
-                      </div>
-                    </Card>
-                  )}
-
-                  {service.id === "self-test" && (
-                    <Card className={`p-3 sm:p-4 lg:p-6 border-2 ${service.theme.mediaBorder} shadow-2xl bg-white ${service.theme.shadow} transition-shadow duration-300`}>
-                      <div className="space-y-3 sm:space-y-4">
-                        <div className="flex items-center justify-between">
-                          <Badge variant="secondary" className={`text-xs sm:text-sm font-medium ${service.theme.badge}`}>
-                            Popular Assessments
-                          </Badge>
-                          <motion.div 
-                            className={`p-1.5 sm:p-2 rounded-full bg-gradient-to-br ${service.gradient} shadow-md`}
-                            whileHover={{ rotate: 360, scale: 1.1 }}
-                            transition={{ duration: 0.5 }}
-                          >
-                            <service.icon className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
-                          </motion.div>
-                        </div>
-                        <Carousel className="w-full">
-                          <CarouselContent>
-                            {(theraSelfTests.length ? theraSelfTests.slice(0, 3) : fallbackAssessments.slice(0, 3)).map((assessment, idx) => {
-                              const IconComp = getAssessmentIcon(assessment);
-                              const questionCount = getAssessmentQuestions(assessment);
-                              const duration = getAssessmentDuration(assessment, questionCount);
-                              const title = (assessment as any).title || (assessment as any).name || 'Assessment';
-                              const key = String((assessment as any)._id || (assessment as any).slug || idx);
-                              return (
-                              <CarouselItem key={key}>
-                                <div className="text-center space-y-2 p-2 sm:p-4">
-                                  <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl bg-gradient-to-br from-purple-100 to-purple-50 p-3 sm:p-4 mx-auto shadow-md border border-purple-200">
-                                    <IconComp className="w-6 h-6 sm:w-8 sm:h-8 text-purple-600" />
-                                  </div>
-                                  <div>
-                                    <h4 className="font-bold text-sm sm:text-base text-purple-600">{title}</h4>
-                                    <p className="text-xs sm:text-sm text-slate-600">{questionCount ? `${questionCount} questions` : 'Assessment'}</p>
-                                    <div className="inline-flex items-center justify-center space-x-1 mt-2 bg-purple-50 rounded-full px-2 sm:px-3 py-1">
-                                      <Clock className="w-3 h-3 text-purple-600" />
-                                      <span className="text-xs sm:text-sm text-purple-600 font-medium">{duration}</span>
-                                    </div>
-                                  </div>
-                                </div>
-                              </CarouselItem>
-                            );})}
-                          </CarouselContent>
-                          <CarouselPrevious className="left-1 sm:left-2 h-6 w-6 sm:h-8 sm:w-8" />
-                          <CarouselNext className="right-1 sm:right-2 h-6 w-6 sm:h-8 sm:w-8" />
-                        </Carousel>
-                        <p className="text-xs sm:text-sm text-slate-600 text-center font-medium">
-                          {service.stats} and growing
-                        </p>
-                      </div>
-                    </Card>
-                  )}
-
-                  {service.id === "store" && (
-                    <Card className={`p-3 sm:p-4 lg:p-6 border-2 ${service.theme.mediaBorder} shadow-2xl bg-white ${service.theme.shadow} transition-shadow duration-300`}>
-                      <div className="space-y-3 sm:space-y-4">
-                        <div className="flex items-center justify-between">
-                          <Badge variant="secondary" className={`text-xs sm:text-sm font-medium ${service.theme.badge}`}>
-                            Featured Products
-                          </Badge>
-                          <motion.div 
-                            className={`p-1.5 sm:p-2 rounded-full bg-gradient-to-br ${service.gradient} shadow-md`}
-                            whileHover={{ rotate: 360, scale: 1.1 }}
-                            transition={{ duration: 0.5 }}
-                          >
-                            <service.icon className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
-                          </motion.div>
-                        </div>
-                        <Carousel className="w-full">
-                          <CarouselContent>
-                            {[
-                              { name: "Digital Stethoscope", price: "Rs 12,999", rating: 4.8, icon: Stethoscope },
-                              { name: "Blood Pressure Monitor", price: "Rs 3,499", rating: 4.7, icon: Monitor },
-                              { name: "Digital Thermometer", price: "Rs 899", rating: 4.9, icon: Thermometer }
-                            ].map((product, idx) => (
-                              <CarouselItem key={idx}>
-                                <div className="text-center space-y-2 p-2 sm:p-4">
-                                  <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl bg-gradient-to-br from-green-100 to-green-50 p-3 sm:p-4 mx-auto shadow-md border border-green-200">
-                                    <product.icon className="w-6 h-6 sm:w-8 sm:h-8 text-green-600" />
-                                  </div>
-                                  <div>
-                                    <h4 className="font-bold text-sm sm:text-base text-green-600">{product.name}</h4>
-                                    <p className="text-xs sm:text-sm font-bold text-green-700 bg-green-50 rounded-full px-2 sm:px-3 py-1 inline-block">{product.price}</p>
-                                    <div className="flex items-center justify-center space-x-1 mt-2">
-                                      <Star className="w-3 h-3 sm:w-4 sm:h-4 fill-yellow-400 text-yellow-400" />
-                                      <span className="text-xs sm:text-sm font-semibold text-slate-700">{product.rating}</span>
-                                    </div>
-                                  </div>
-                                </div>
-                              </CarouselItem>
-                            ))}
-                          </CarouselContent>
-                          <CarouselPrevious className="left-1 sm:left-2 h-6 w-6 sm:h-8 sm:w-8" />
-                          <CarouselNext className="right-1 sm:right-2 h-6 w-6 sm:h-8 sm:w-8" />
-                        </Carousel>
-                        <p className="text-xs sm:text-sm text-slate-600 text-center font-medium">
-                          {service.stats} and growing
-                        </p>
-                      </div>
-                    </Card>
-                  )}
-
-                  {service.id === "learn" && (
-                    <Card className={`p-3 sm:p-4 lg:p-6 border-2 ${service.theme.mediaBorder} shadow-2xl bg-white ${service.theme.shadow} transition-shadow duration-300`}>
-                      <div className="space-y-3 sm:space-y-4">
-                        <div className="flex items-center justify-between">
-                          <Badge variant="secondary" className={`text-xs sm:text-sm font-medium ${service.theme.badge}`}>
-                            Popular Courses
-                          </Badge>
-                          <motion.div 
-                            className={`p-1.5 sm:p-2 rounded-full bg-gradient-to-br ${service.gradient} shadow-md`}
-                            whileHover={{ rotate: 360, scale: 1.1 }}
-                            transition={{ duration: 0.5 }}
-                          >
-                            <service.icon className="w-3 h-3 sm:w-4 sm:h-4 text-white" />
-                          </motion.div>
-                        </div>
-                        <Carousel className="w-full">
-                          <CarouselContent>
-                            {[
-                              { name: "Advanced Physical Therapy", students: 1247, rating: 4.8, icon: Award },
-                              { name: "Pediatric Psychology", students: 892, rating: 4.9, icon: Users },
-                              { name: "Digital Health Tools", students: 654, rating: 4.7, icon: Video }
-                            ].map((course, idx) => (
-                              <CarouselItem key={idx}>
-                                <div className="text-center space-y-2 p-2 sm:p-4">
-                                  <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl bg-gradient-to-br from-orange-100 to-orange-50 p-3 sm:p-4 mx-auto shadow-md border border-orange-200">
-                                    <course.icon className="w-6 h-6 sm:w-8 sm:h-8 text-orange-600" />
-                                  </div>
-                                  <div>
-                                    <h4 className="font-bold text-sm sm:text-base text-orange-600">{course.name}</h4>
-                                    <p className="text-xs sm:text-sm text-slate-600">{course.students} students</p>
-                                    <div className="flex items-center justify-center space-x-1 mt-2">
-                                      <Star className="w-3 h-3 sm:w-4 sm:h-4 fill-yellow-400 text-yellow-400" />
-                                      <span className="text-xs sm:text-sm font-semibold text-slate-700">{course.rating}</span>
-                                    </div>
-                                  </div>
-                                </div>
-                              </CarouselItem>
-                            ))}
-                          </CarouselContent>
-                          <CarouselPrevious className="left-1 sm:left-2 h-6 w-6 sm:h-8 sm:w-8" />
-                          <CarouselNext className="right-1 sm:right-2 h-6 w-6 sm:h-8 sm:w-8" />
-                        </Carousel>
-                        <p className="text-xs sm:text-sm text-slate-600 text-center font-medium">
-                          {service.stats} and growing
-                        </p>
-                      </div>
-                    </Card>
-                  )}
-                  </div>
-                </motion.div>
+        <div className="relative max-w-7xl mx-auto px-6 py-24 z-10 w-full">
+          <div className="grid lg:grid-cols-2 gap-16 items-center">
+            
+            {/* Left Content */}
+            <motion.div 
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, ease: "easeOut" }}
+              className="space-y-8"
+            >
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/70 text-blue-800 rounded-full border border-blue-200 shadow-sm backdrop-blur relative">
+                <span className="absolute -inset-0.5 rounded-full border border-blue-300/40 pointer-events-none" />
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+                </span>
+                <span className="text-sm font-semibold tracking-wide">Setup Profile (Step 1 of 3)</span>
               </div>
-            </div>
-          </motion.div>
-        ))}
-      </section>
 
-      {/* Why TheraTreat Section */}
-      <section className="mt-12 sm:mt-16 py-8 sm:py-12 lg:py-16 bg-gradient-to-br from-blue-50 via-white to-blue-50 relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_50%,rgba(59,130,246,0.05),transparent_50%)]"></div>
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 relative z-10">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.8 }}
-            className="text-center space-y-2 sm:space-y-3 lg:space-y-4 mb-8 sm:mb-10 lg:mb-16"
-          >
-            <motion.h2 
-              className="text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent tracking-tight"
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-            >
-              Why TheraTreat?
-            </motion.h2>
-            <motion.p 
-              className="text-sm sm:text-base md:text-lg lg:text-xl text-slate-600 max-w-4xl mx-auto px-2"
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6, delay: 0.4 }}
-            >
-              TheraTreat isn't just another therapy platform - it's a complete ecosystem designed to make therapy accessible, trustworthy, and effective.
-            </motion.p>
-          </motion.div>
+              <div className="space-y-6">
+                <h1 className="text-5xl lg:text-7xl font-extrabold tracking-tight text-blue-950 leading-[1.1]">
+                  Your personalized wellness <br/>
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-700 via-blue-600 to-teal-500">
+                    starts right here.
+                  </span>
+                </h1>
+                <p className="text-xl text-slate-700 leading-relaxed max-w-lg font-medium">
+                  From your first assessment to matching you with the right expert. Let's build a care plan tailored entirely for you.
+                </p>
+              </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
-            {whyTheraTreatHighlights.map((highlight, index) => (
-              <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 50 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.6, delay: index * 0.1 }}
-                whileHover={{ y: -5, transition: { duration: 0.2 } }}
-              >
-                <Card className="h-full hover:shadow-2xl transition-all duration-300 border-2 border-blue-100 hover:border-blue-200 bg-white group">
-                  <CardContent className="p-4 sm:p-5 lg:p-6">
-                    <motion.div
-                      className={`w-12 h-12 sm:w-14 sm:h-14 rounded-xl bg-gradient-to-br ${highlight.gradient} p-3 sm:p-3.5 mb-3 sm:mb-4 shadow-lg`}
-                      whileHover={{ 
-                        scale: 1.1, 
-                        rotate: 5,
-                        boxShadow: "0 25px 50px -12px rgb(0 0 0 / 0.25)",
-                        transition: { duration: 0.2 }
-                      }}
-                    >
-                      <highlight.icon className="w-full h-full text-white" />
-                    </motion.div>
-                    <h3 className="text-lg sm:text-xl font-bold text-blue-600 mb-2 sm:mb-3 group-hover:text-blue-700 transition-colors">
-                      {highlight.title}
-                    </h3>
-                    <p className="text-xs sm:text-sm lg:text-base text-slate-600 leading-relaxed">
-                      {highlight.description}
-                    </p>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
+              <div className="flex flex-col sm:flex-row gap-5 pt-4">
+                <Button 
+                  size="lg" 
+                  onClick={() => setCurrentView("self-test")}
+                  className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-10 py-7 text-lg font-semibold shadow-lg shadow-blue-500/20 transition-all hover:-translate-y-1 border-0"
+                >
+                  Start Initial Assessment
+                  <ArrowRight className="w-5 h-5 ml-2" />
+                </Button>
+                <Button 
+                  size="lg" 
+                  variant="outline"
+                  onClick={() => setCurrentView("self-test")}
+                  className="bg-white border-slate-200 text-blue-900 rounded-full px-10 py-7 text-lg font-semibold shadow-sm hover:bg-blue-50 hover:border-blue-100 transition-all hover:-translate-y-1"
+                >
+                  <Sparkles className="w-5 h-5 mr-2 text-blue-600" />
+                  See how AI helps
+                </Button>
+              </div>
 
-      {/* Trust & Compliance Section */}
-      <section className="mt-12 sm:mt-16 py-8 sm:py-12 lg:py-16 bg-gradient-to-br from-slate-50 via-blue-50 to-slate-50 relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_70%_50%,rgba(59,130,246,0.05),transparent_50%)]"></div>
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 relative z-10">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.8 }}
-            className="text-center space-y-2 sm:space-y-3 lg:space-y-4 mb-8 sm:mb-10 lg:mb-16"
-          >
-            <motion.div
-              className="flex items-center justify-center space-x-2 sm:space-x-3 mb-3 sm:mb-4"
-              initial={{ opacity: 0, scale: 0.8 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-            >
-              <Shield className="w-6 h-6 sm:w-8 sm:h-8 lg:w-10 lg:h-10 text-blue-600" />
-              <h2 className="text-lg sm:text-2xl md:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent tracking-tight">We Prioritize Trust & Compliance</h2>
+              <div className="flex items-center gap-5 pt-10 border-t border-blue-100/70 text-sm font-semibold text-slate-600 bg-white/60 p-4 rounded-xl backdrop-blur-sm relative overflow-hidden">
+                <div className="absolute inset-y-0 right-0 w-24 bg-gradient-to-l from-blue-100/60 to-transparent" />
+                <span className="flex items-center gap-2"><Lock className="w-4 h-4 text-blue-600" /> 100% Private</span>
+                <span className="flex items-center gap-2"><Shield className="w-4 h-4 text-blue-600" /> HIPAA Compliant</span>
+                <span className="flex items-center gap-2"><Clock className="w-4 h-4 text-blue-600" /> Takes ~5 mins</span>
+              </div>
             </motion.div>
-            <motion.p 
-              className="text-sm sm:text-base md:text-lg lg:text-xl text-slate-600 max-w-3xl mx-auto px-2"
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6, delay: 0.4 }}
-            >
-              Your health deserves nothing less than the highest standards of safety and privacy.
-            </motion.p>
-          </motion.div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 lg:gap-6">
-            {complianceFeatures.map((feature, index) => (
+            {/* Right Visual - Personal Dashboard Mockup */}
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 1, delay: 0.2, ease: "easeOut" }}
+              className="relative hidden lg:block"
+            >
+              {/* Floating HUD chips */}
               <motion.div
-                key={index}
-                initial={{ opacity: 0, y: 50 }}
+                className="absolute -top-6 -left-8 bg-white/80 border border-blue-200 rounded-2xl px-4 py-3 shadow-lg backdrop-blur-sm flex items-center gap-2"
+                animate={{ y: [0, -10, 0] }}
+                transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
+              >
+                <div className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                <span className="text-xs font-semibold text-blue-900">Neural Match: 98%</span>
+              </motion.div>
+              <motion.div
+                className="absolute -bottom-8 right-2 bg-white/80 border border-blue-200 rounded-2xl px-4 py-3 shadow-lg backdrop-blur-sm flex items-center gap-2"
+                animate={{ y: [0, 12, 0] }}
+                transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
+              >
+                <Sparkles className="w-4 h-4 text-blue-600" />
+                <span className="text-xs font-semibold text-blue-900">AI Insights Active</span>
+              </motion.div>
+
+              <div className="relative w-full aspect-square max-w-lg mx-auto bg-white/90 border border-blue-100 rounded-[40px] shadow-2xl p-10 flex flex-col gap-5 backdrop-blur-sm overflow-hidden">
+                <div className="absolute inset-0 opacity-30 bg-[radial-gradient(circle_at_30%_20%,rgba(59,130,246,0.12),transparent_35%)]" />
+                <div className="absolute inset-0 border border-blue-300/30 rounded-[40px]" />
+                
+                {/* Mockup Header */}
+                <div className="flex justify-between items-center mb-5 pb-5 border-b border-slate-100">
+                  <div>
+                    <h3 className="text-xl font-bold text-blue-950">Your Action Plan</h3>
+                    <p className="text-sm font-medium text-slate-500">Updated <span className="text-blue-600">just now</span></p>
+                  </div>
+                  <div className="w-14 h-14 rounded-full bg-slate-100 flex items-center justify-center border-4 border-white shadow-md">
+                    <img src={`https://api.dicebear.com/7.x/notionists/svg?seed=user&backgroundColor=e2e8f0`} alt="Avatar" className="w-full h-full rounded-full" />
+                  </div>
+                </div>
+
+                {/* Journey Snapshot */}
+                <div className="rounded-3xl border border-blue-100 bg-white/70 p-5 shadow-sm">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.2em] text-slate-400 font-semibold">Today</p>
+                      <h4 className="text-lg font-bold text-blue-950">Journey Snapshot</h4>
+                    </div>
+                    <div className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-600/10 text-blue-700 border border-blue-200">
+                      1 of 3 done
+                    </div>
+                  </div>
+                  <div className="h-2 rounded-full bg-slate-100 overflow-hidden mb-5">
+                    <div className="h-full w-1/3 bg-gradient-to-r from-blue-500 to-teal-400" />
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="bg-gradient-to-br from-white to-blue-50/70 p-5 rounded-2xl border border-blue-100 shadow-sm flex items-start gap-4">
+                      <div className="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-md">
+                        <CheckCircle className="w-5 h-5" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <h5 className="text-base font-bold text-slate-900">Complete Self-Assessment</h5>
+                          <span className="text-xs font-semibold text-emerald-700 bg-emerald-100 px-2 py-1 rounded-full">Completed</span>
+                        </div>
+                        <p className="text-sm text-slate-600 mt-1 font-medium">Baseline captured and ready for matching.</p>
+                      </div>
+                    </div>
+
+                    <div className="bg-white/80 p-5 rounded-2xl border border-blue-100 flex items-start gap-4">
+                      <div className="w-10 h-10 rounded-2xl bg-blue-100 text-blue-700 flex items-center justify-center">
+                        <Calendar className="w-5 h-5" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <h5 className="text-base font-bold text-slate-900">Schedule Consultation</h5>
+                          <span className="text-xs font-semibold text-blue-700 bg-blue-100 px-2 py-1 rounded-full">Next up</span>
+                        </div>
+                        <p className="text-sm text-slate-600 mt-1 font-medium">Pick a time that fits your week.</p>
+                      </div>
+                    </div>
+
+                    <div className="bg-slate-50/70 p-5 rounded-2xl border border-slate-100 flex items-start gap-4 opacity-80">
+                      <div className="w-10 h-10 rounded-2xl bg-slate-200 text-slate-500 flex items-center justify-center">
+                        <Lock className="w-5 h-5" />
+                      </div>
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <h5 className="text-base font-bold text-slate-600">Access Prescribed Plan</h5>
+                          <span className="text-xs font-semibold text-slate-500 bg-slate-200 px-2 py-1 rounded-full">Locked</span>
+                        </div>
+                        <p className="text-sm text-slate-500 mt-1 font-medium">Unlocks after your first session.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
+      {/* ONBOARDING STEPS */}
+      <section className="py-24 border-y border-blue-100/80 bg-gradient-to-b from-white to-blue-50/40 relative">
+        <div className="absolute inset-0 bg-[linear-gradient(120deg,rgba(59,130,246,0.06),transparent_40%)] pointer-events-none" />
+        <div className="absolute inset-x-8 top-16 h-px bg-gradient-to-r from-transparent via-blue-300/60 to-transparent" />
+        <div className="absolute inset-x-0 top-0 h-24 bg-[linear-gradient(to_bottom,rgba(59,130,246,0.08),transparent)]" />
+        <div className="max-w-7xl mx-auto px-6 relative z-10">
+          <div className="text-center mb-20 max-w-xl mx-auto">
+            <h2 className="text-3xl lg:text-4xl font-bold text-blue-950 tracking-tight">How your journey unfolds</h2>
+            <p className="text-lg text-slate-600 mt-3 font-medium">Three simple steps to craft your personal well-being plan.</p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-10 relative">
+            {/* Connecting Line */}
+            <div className="hidden md:block absolute top-10 left-[15%] right-[15%] h-1 bg-gradient-to-r from-blue-100 via-blue-200 to-blue-100 z-0" />
+            <div className="hidden md:block absolute top-6 left-[10%] right-[10%] h-px bg-gradient-to-r from-transparent via-blue-400/70 to-transparent z-0" />
+
+            {onboardingSteps.map((step, idx) => (
+              <motion.div 
+                key={idx}
+                initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ duration: 0.6, delay: index * 0.1 }}
-                whileHover={{ y: -3, transition: { duration: 0.2 } }}
+                transition={{ delay: idx * 0.2 }}
+                className="relative z-10 flex flex-col items-center text-center group cursor-pointer"
+                onClick={step.action}
               >
-                <Card className="h-full hover:shadow-xl transition-all duration-300 border-2 border-green-200 hover:border-green-300 bg-white group">
-                  <CardContent className="p-4 sm:p-5 lg:p-6">
-                    <motion.div 
-                      className="flex items-center space-x-2 sm:space-x-3 mb-3 sm:mb-4"
-                      whileHover={{ scale: 1.05, transition: { duration: 0.2 } }}
+                <div className={`relative w-20 h-20 rounded-3xl ${step.bg} flex items-center justify-center border-8 border-white shadow-lg mb-8 group-hover:scale-110 transition-transform duration-300 group-hover:shadow-blue-500/30 bg-gradient-to-br from-blue-100 via-blue-50 to-sky-100`}>
+                  <div className="absolute -inset-2 rounded-3xl border border-blue-300/40" />
+                  <div className="absolute -inset-3 rounded-3xl border border-blue-400/20" />
+                  <step.icon className="w-9 h-9 text-blue-700" />
+                </div>
+                <Badge variant="outline" className="mb-5 text-blue-600 border-blue-200 bg-blue-50/50 px-4 py-1.5 font-semibold">Step {step.step}</Badge>
+                <h3 className="text-2xl font-bold text-blue-950 mb-3">{step.step}. {step.title}</h3>
+                <p className="text-base text-slate-700 font-medium px-4 leading-relaxed">{step.desc}</p>
+                <Button variant="ghost" className="mt-4 text-blue-700 hover:text-blue-800 hover:bg-blue-50">
+                    Go <ArrowRight className="w-4 h-4 ml-1.5" />
+                </Button>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* PERSONAL TOOLKIT MODULES */}
+      <section className="py-32 bg-gradient-to-b from-blue-50/60 via-white to-blue-50/40 relative border-b border-blue-100/80">
+        <div className="absolute top-[-120px] left-1/2 -translate-x-1/2 w-[900px] h-[260px] bg-blue-200/40 blur-[110px] rounded-full pointer-events-none" />
+        <div className="absolute right-10 top-12 h-24 w-24 rounded-full border border-blue-300/40 bg-white/40 backdrop-blur-sm" />
+        <div className="absolute left-8 bottom-12 h-20 w-20 rounded-full border border-sky-300/40 bg-white/30 backdrop-blur-sm" />
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="max-w-3xl mb-20">
+            <Badge className="bg-blue-600 text-white mb-4 px-4 py-1 font-semibold border-0">Unlock Your Plan</Badge>
+            <h2 className="text-4xl lg:text-5xl font-bold text-blue-950 mb-6 tracking-tight">Your Personal Toolkit</h2>
+            <p className="text-xl text-slate-700 font-medium leading-relaxed">Complete your setup to unlock these personalized tools, specifically configured by AI and your therapist for your condition and wellness goals.</p>
+          </div>
+
+          <div className="grid md:grid-cols-2 gap-10">
+            {personalToolkit.map((module, idx) => (
+              <motion.div
+                key={idx}
+                initial={{ opacity: 0, y: 40 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, margin: "-100px" }}
+                transition={{ duration: 0.6, delay: idx * 0.1 }}
+              >
+                <Card className="h-full border border-blue-100/70 shadow-sm rounded-[32px] overflow-hidden group hover:shadow-2xl hover:border-blue-300 transition-all duration-300 bg-white relative">
+                  <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-transparent via-blue-400 to-transparent" />
+                  <CardContent className="p-12 flex flex-col h-full">
+                    <div className="absolute top-6 right-6 px-3 py-1 rounded-full text-[11px] font-semibold uppercase tracking-widest bg-blue-600/10 text-blue-700 border border-blue-200">
+                      Module
+                    </div>
+                    <div className="flex justify-between items-start mb-10">
+                      <div className={`w-20 h-20 rounded-3xl ${module.bgLight} flex items-center justify-center group-hover:scale-110 transition-transform duration-500 border border-blue-100 bg-gradient-to-br from-blue-50 via-white to-sky-100`}>
+                        <module.icon className="w-10 h-10 text-blue-700" />
+                      </div>
+                      <Badge variant="secondary" className="bg-slate-100 text-slate-700 border-0 rounded-full px-4 py-2 font-semibold flex items-center gap-1.5 text-xs uppercase tracking-wider">
+                        <Activity className="w-4 h-4 text-blue-600" />
+                        {module.status}
+                      </Badge>
+                    </div>
+
+                    <h3 className="text-3xl font-bold text-blue-950 mb-2.5">{module.title}</h3>
+                    <p className={`font-semibold mb-5 text-lg ${module.color}`}>{module.subtitle}</p>
+                    <p className="text-slate-700 mb-10 flex-grow leading-relaxed font-medium">{module.description}</p>
+
+                    <div className="space-y-3.5 mb-10 bg-slate-50 p-6 rounded-2xl border border-slate-100 relative overflow-hidden">
+                      <div className="absolute inset-y-0 right-0 w-24 bg-gradient-to-l from-blue-100/60 to-transparent" />
+                      {module.features.map((feat, i) => (
+                        <div key={i} className="flex items-center gap-3 text-base text-slate-800 font-medium">
+                          <CheckCircle className={`w-5 h-5 flex-shrink-0 ${module.color}`} />
+                          {feat}
+                        </div>
+                      ))}
+                    </div>
+
+                    <Button 
+                      onClick={() => setCurrentView(module.id as ViewType)}
+                      variant="outline" 
+                      className="w-full justify-between hover:bg-blue-50 text-blue-900 rounded-xl py-7 border border-slate-200 hover:border-blue-100 font-semibold text-base"
                     >
-                      <motion.div
-                        className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br from-green-100 to-green-50 p-2 sm:p-2.5 flex items-center justify-center shadow-md border border-green-200"
-                        whileHover={{ 
-                          rotate: 5,
-                          scale: 1.1,
-                          transition: { duration: 0.2 }
-                        }}
-                      >
-                        <feature.icon className="w-full h-full text-green-600" />
-                      </motion.div>
-                      <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
-                    </motion.div>
-                    <h3 className="text-base sm:text-lg font-bold text-slate-800 mb-2 group-hover:text-blue-600 transition-colors">
-                      {feature.title}
-                    </h3>
-                    <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-                      {feature.description}
-                    </p>
+                      View {module.title}
+                      <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                    </Button>
                   </CardContent>
                 </Card>
               </motion.div>
@@ -902,6 +441,91 @@ export function HomePage({ setCurrentView }: HomePageProps) {
           </div>
         </div>
       </section>
-    </motion.div>
+
+      {/* WHY US (Feature Grid) */}
+      <section className="py-24 bg-gradient-to-b from-white via-blue-50/30 to-white relative">
+        <div className="absolute top-[-40px] right-[-40px] w-96 h-96 bg-blue-200/40 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-[-60px] left-[-60px] w-80 h-80 bg-sky-200/30 rounded-full blur-3xl pointer-events-none" />
+        <div className="max-w-7xl mx-auto px-6 relative z-10">
+          <div className="mb-20 max-w-2xl">
+            <h2 className="text-3xl lg:text-4xl font-bold text-blue-950 mb-4 tracking-tight">Built around you.</h2>
+            <div className="h-1.5 w-24 bg-blue-600 rounded-full mb-8" />
+            <p className="text-xl text-slate-700 font-medium leading-relaxed">We designed this entire ecosystem so you can ignore the complexities of healthcare logistics and focus entirely on what matters: the healing process.</p>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-x-12 gap-y-16">
+            {[
+              { icon: Target, title: "Precision Matching", desc: "Thera AI connects you with the right professional based strictly on your unique assessment findings." },
+              { icon: Lightbulb, title: "Personalized Paths", desc: "Adaptive recovery plans that update automatically as you report progress." },
+              { icon: Shield, title: "Strictly Secure", desc: "Bank-grade encryption protecting your most sensitive personal health data." },
+              { icon: CheckCircle, title: "Verified Network", desc: "100% of our professionals undergo rigorous, continuous background checks." },
+              { icon: UserCheck, title: "Your Own Pace", desc: "No pressure. Start assessments, book sessions, or access gear only when you feel ready." },
+              { icon: HeartHandshake, title: "Continuous Support", desc: "Access supportive community resources and therapist guidance between sessions." }
+            ].map((item, idx) => (
+              <motion.div 
+                key={idx}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: idx * 0.1 }}
+                className="flex gap-6 group"
+              >
+                <div className="flex-shrink-0 w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-50 via-white to-sky-100 flex items-center justify-center border border-blue-200 group-hover:bg-blue-600 group-hover:border-blue-700 transition-colors duration-300 shadow-[0_10px_25px_rgba(59,130,246,0.15)]">
+                  <item.icon className="w-7 h-7 text-blue-700 group-hover:text-white transition-colors duration-300" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-blue-950 mb-2.5">{item.title}</h3>
+                  <p className="text-base text-slate-700 leading-relaxed font-medium">{item.desc}</p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* FINAL ONBOARDING CTA */}
+      <section className="relative py-32 overflow-hidden border-t border-slate-200">
+        <div className="absolute inset-0 bg-slate-950" />
+        {/* Glowing background accent */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[900px] h-[500px] bg-blue-700/30 blur-[130px] rounded-full pointer-events-none" />
+        
+        <div className="relative max-w-4xl mx-auto px-6 text-center z-10 space-y-10">
+          <div className="inline-flex items-center gap-2.5 px-5 py-2.5 bg-blue-600/20 text-blue-200 rounded-full border border-blue-500/30 backdrop-blur-sm">
+            <Sparkles className="w-5 h-5 text-blue-400 animate-pulse" />
+            <span className="text-sm font-semibold tracking-wide uppercase">Your journey awaits</span>
+          </div>
+
+          <h2 className="text-5xl lg:text-7xl font-extrabold text-white tracking-tight leading-tight">
+            Take the first step <br/> toward healing.
+          </h2>
+          <p className="text-2xl text-blue-100 max-w-2xl mx-auto font-medium leading-relaxed opacity-90">
+            Establish your baseline assessment so Thera AI and our experts can craft your personalized wellness plan.
+          </p>
+          
+          <div className="flex flex-col sm:flex-row gap-5 justify-center pt-8">
+            <Button 
+              size="lg" 
+              onClick={() => setCurrentView("self-test")}
+              className="bg-blue-600 hover:bg-blue-500 text-white rounded-full px-12 py-8 text-xl font-bold shadow-2xl shadow-blue-500/30 transition-all hover:-translate-y-1 border-0"
+            >
+              Start My Assessment
+              <ArrowRight className="w-6 h-6 ml-2" />
+            </Button>
+            <Button 
+              size="lg" 
+              onClick={() => setCurrentView("book")}
+              variant="outline"
+              className="bg-transparent border-blue-600 text-blue-100 hover:bg-white/5 rounded-full px-12 py-8 text-xl font-bold transition-all hover:-translate-y-1"
+            >
+              Skip & Book directly
+            </Button>
+          </div>
+
+          <p className="pt-10 text-slate-400 text-base font-semibold border-t border-white/10 max-w-md mx-auto">
+            Your data is 100% encrypted and strictly confidential.
+          </p>
+        </div>
+      </section>
+    </div>
   );
 }

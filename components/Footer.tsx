@@ -70,20 +70,6 @@ export function Footer() {
               Your comprehensive healthcare ecosystem – connecting patients with providers, enabling self‑care,
               facilitating learning, and providing access to quality therapy equipment.
             </p>
-            <div className="space-y-2 text-sm">
-              <div className={`flex items-start gap-2 ${palette.textMuted}`}>
-                <Phone className="w-4 h-4 mt-0.5" />
-                <span className="select-all">+91 8446602680</span>
-              </div>
-              <div className={`flex items-start gap-2 ${palette.textMuted}`}>
-                <Mail className="w-4 h-4 mt-0.5" />
-                <span className="break-all">support@theratreat.in</span>
-              </div>
-              <div className={`flex items-start gap-2 ${palette.textMuted}`}>
-                <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                <span className="break-words max-w-xs">1503/2, Jadhav Nagar, Shikrapur, Shirur, Pune 412208, Maharashtra</span>
-              </div>
-            </div>
           </div>
 
           {/* Core Modules */}
@@ -121,7 +107,7 @@ export function Footer() {
         </div>
 
         {/* Newsletter */}
-        <div className={`border-t ${palette.border} mt-12 pt-8`}>
+        {/* <div className={`border-t ${palette.border} mt-12 pt-8`}>
           <div className="w-full max-w-md">
             <h4 className="font-semibold mb-2">Stay Connected</h4>
             <p className={`${palette.textMuted} mb-4 text-sm`}>Get health tips, platform updates, and exclusive offers</p>
@@ -138,20 +124,19 @@ export function Footer() {
               </button>
             </form>
           </div>
-        </div>
+        </div> */}
 
         {/* Bottom Footer */}
         <div className={`border-t ${palette.border} mt-10 pt-6`}>
           <div className="flex flex-col md:flex-row justify-between items-center gap-5 w-full min-w-0">
             <div className={`flex flex-wrap justify-center md:justify-start gap-3 md:gap-6 text-xs sm:text-sm ${palette.textMuted} max-w-full`}>
-              <Link href="/policies#privacy" className="hover:text-white transition">Privacy</Link>
-              <Link href="/policies#cancellation" className="hover:text-white transition">Cancellation</Link>
-              <Link href="/policies#conduct" className="hover:text-white transition">Conduct</Link>
-              <Link href="/policies#data-security" className="hover:text-white transition">Security</Link>
-              <Link href="/policies#liability" className="hover:text-white transition">Liability</Link>
-              <Link href="/policies#misuse" className="hover:text-white transition">Misuse</Link>
-              <Link href="/policies#accessibility" className="hover:text-white transition">Accessibility</Link>
-              <Link href="/policies#disclaimer" className="hover:text-white transition">Disclaimer</Link>
+              <Link href="/privacy#privacy" className="hover:text-white transition">Privacy</Link>
+              <Link href="/privacy#conduct" className="hover:text-white transition">Conduct</Link>
+              <Link href="/privacy#data-security" className="hover:text-white transition">Security</Link>
+              <Link href="/privacy#liability" className="hover:text-white transition">Liability</Link>
+              <Link href="/privacy#misuse" className="hover:text-white transition">Misuse</Link>
+              <Link href="/privacy#accessibility" className="hover:text-white transition">Accessibility</Link>
+              <Link href="/privacy#disclaimer" className="hover:text-white transition">Disclaimer</Link>
             </div>
             <div className="flex items-center gap-4">
               <Link aria-label="Facebook" href="#" className={`${palette.icon} hover:text-white transition`}><Facebook className="w-5 h-5" /></Link>

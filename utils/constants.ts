@@ -1,4 +1,3 @@
-// API Response Messages
 export const MESSAGES = {
   SUCCESS: {
     USER_CREATED: 'User created successfully',
@@ -20,7 +19,6 @@ export const MESSAGES = {
   },
 } as const;
 
-// User Roles
 export const USER_ROLES = {
   PATIENT: 'patient',
   THERAPIST: 'therapist',
@@ -28,8 +26,7 @@ export const USER_ROLES = {
   STUDENT: 'student',
   CLINIC: 'clinic',
   ADMIN: 'admin',
-  // Legacy support
-  USER: 'user', // same as patient
+  USER: 'user',
 } as const;
 
 // Appointment Status

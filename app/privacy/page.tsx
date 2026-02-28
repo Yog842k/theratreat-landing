@@ -57,7 +57,7 @@ export default function PrivacyPolicyPage() {
                   By using our website, mobile app, or services you agree to the practices described in this policy.
                 </p>
                 <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500 font-medium">
-                  <span className="px-2 py-1 rounded bg-white/70 border border-slate-200 shadow-sm">Last Updated: 05 Oct 2025</span>
+                  <span className="px-2 py-1 rounded bg-white/70 border border-slate-200 shadow-sm">Last Updated: 28 Feb 2026</span>
                   <span className="px-2 py-1 rounded bg-white/70 border border-slate-200 shadow-sm">Jurisdiction: India (DPDP)</span>
                   <span className="px-2 py-1 rounded bg-white/70 border border-slate-200 shadow-sm">HIPAA Aware</span>
                 </div>
@@ -176,16 +176,10 @@ export default function PrivacyPolicyPage() {
                   <address className="not-italic text-sm leading-relaxed space-y-1">
                     <div className="font-semibold text-slate-800">Primary Contact (Support / Rights Requests)</div>
                     <div>📧 <a href="mailto:support@theratreat.in" className="text-blue-600 hover:underline">support@theratreat.in</a></div>
-                    <div>📞 +91-XXXXXXXXXX (Mon–Fri 9:30 AM – 6:30 PM IST)</div>
+                    <div>📞 +91-8446602680 (Mon–Fri 9:30 AM – 6:30 PM IST)</div>
                     <div className="pt-3 font-semibold text-slate-800">Data Protection & Escalations</div>
                     <div>📧 DPO: <a href="mailto:dpo@theratreat.in" className="text-blue-600 hover:underline">dpo@theratreat.in</a></div>
-                    <div>📧 Grievance Officer: <a href="mailto:grievance@theratreat.in" className="text-blue-600 hover:underline">grievance@theratreat.in</a></div>
-                    <div className="pt-3 font-semibold text-slate-800">Registered Office (for written correspondence)</div>
-                    <div>TheraTreat Health Pvt. Ltd.</div>
-                    <div>3rd Floor, (Building Name / Tech Park)</div>
-                    <div>Plot / Street Line, Business District</div>
-                    <div>Pune, Maharashtra 4110XX, India</div>
-                    <div className="text-xs text-slate-500">(Replace placeholder address lines with final ROC registered address before production).</div>
+                    <div>📧 Grievance Officer: <a href="mailto:grievance@theratreat.in" className="text-blue-600 hover:underline">support@theratreat.in</a></div>
                   </address>
                   <div className="text-xs text-slate-500 space-y-2">
                     <p>If you remain unsatisfied after our final response, you may escalate to the <strong>Data Protection Board of India</strong> under the Digital Personal Data Protection Act, 2023.</p>

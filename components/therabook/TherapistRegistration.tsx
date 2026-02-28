@@ -139,7 +139,8 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
     qualification: 0,
     license: 0,
     resume: 0,
-    profile: 0
+    profile: 0,
+    gst: 0
   });
 
   const [formData, setFormData] = useState<FormData>({
@@ -552,6 +553,18 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
       console.log('All agreements accepted:', formData.agreements);
       
       const bd = formData.bankDetails;
+      if (gstRegistered === "yes") {
+        if (!gstin || gstin.length !== 15 || !gstBusinessName || !gstCertificateUrl || !gstStatus || !gstState) {
+          alert('Please complete all GST registration details and upload the GST certificate.');
+          setIsSubmitting(false);
+          return;
+        }
+      }
+      if (gstRegistered === "no" && !gstDeclarationAgreed) {
+        alert('Please agree to the GST declaration to continue.');
+        setIsSubmitting(false);
+        return;
+      }
       if (!formData.qualificationCertUrls.length || !formData.licenseDocumentUrl || !formData.resumeUrl || !formData.profilePhotoUrl || !bd.accountHolder || !bd.bankName || !bd.accountNumber || !bd.accountNumberConfirm || bd.accountNumber !== bd.accountNumberConfirm || !bd.ifscCode) {
         alert('Please complete all mandatory uploads and bank details');
         setIsSubmitting(false);
@@ -604,6 +617,16 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
         qualificationCertUrls: formData.qualificationCertUrls,
         licenseDocumentUrl: formData.licenseDocumentUrl,
         resumeUrl: formData.resumeUrl,
+        gst: {
+          registered: gstRegistered,
+          gstin,
+          businessName: gstBusinessName,
+          certificateUrl: gstCertificateUrl,
+          status: gstStatus,
+          state: gstState,
+          declarationAgreed: gstDeclarationAgreed,
+          verification: gstVerificationResult || null
+        },
         isCompletingRegistration: true
       };
       
@@ -1134,8 +1157,23 @@ export function TherapistRegistration({ setCurrentView }: TherapistRegistrationP
                   <Label className="font-semibold">Q3. Registered Business/Legal Name (as per GST certificate):</Label>
                   <Input value={gstBusinessName} onChange={e => setGstBusinessName(e.target.value)} placeholder="Business/Legal Name" className="mb-2" />
                   <Label className="font-semibold">Q4. Upload your GST Registration Certificate (PDF/JPEG):</Label>
-                  <Input type="file" accept=".pdf,.jpeg,.jpg,.png" onChange={e => setGstCertificate(e.target.files?.[0] || null)} className="mb-2" />
-                  {gstCertificate && <span className="text-green-700">{gstCertificate.name}</span>}
+                  <Input
+                    type="file"
+                    accept=".pdf,.jpeg,.jpg,.png"
+                    onChange={e => {
+                      const file = e.target.files?.[0] || null;
+                      setGstCertificate(file);
+                      if (file) {
+                        uploadToCloud(file, (url) => setGstCertificateUrl(url), 'gst');
+                      }
+                    }}
+                    className="mb-2"
+                  />
+                  {uploadProgress.gst > 0 && uploadProgress.gst < 100 && (
+                    <div className="text-xs text-slate-600">Uploading: {uploadProgress.gst}%</div>
+                  )}
+                  {gstCertificateUrl && <span className="text-green-700">GST certificate uploaded</span>}
+                  {!gstCertificateUrl && gstCertificate && <span className="text-green-700">{gstCertificate.name}</span>}
                   <Label className="font-semibold">Q5. Is your GST registration currently Active?</Label>
                   <div className="flex gap-6 mt-2">
                     <label className="flex items-center gap-2">

@@ -49,6 +49,12 @@ export default function TherapistSettingsTab({ profile, onSave, saving, success,
     }
   });
   const [editMode, setEditMode] = useState(false);
+  const [agreementsText, setAgreementsText] = useState('');
+  const [availabilityText, setAvailabilityText] = useState('');
+  const getSelectedModes = () => {
+    const modes = Array.isArray(form.sessionModes) ? form.sessionModes.filter(Boolean) : [];
+    return modes.length > 0 ? modes : ['video', 'audio', 'clinic', 'home'];
+  };
   const profileKey = `${profile?._id || ''}-${(profile?.updatedAt && typeof profile.updatedAt === 'object' && '$date' in profile.updatedAt) ? profile.updatedAt.$date : (profile?.updatedAt || '')}-${profile?.email || ''}`;
   useEffect(() => {
     if (editMode) return;
@@ -105,6 +111,7 @@ export default function TherapistSettingsTab({ profile, onSave, saving, success,
       specializations: profile.specializations || profile.designations || [],
       languages: profile.languages || profile.therapyLanguages || profile.preferredLanguages || [],
       sessionTypes: profile.sessionTypes || [],
+      serviceTypes: profile.serviceTypes || [],
       availability: profile.availability || [],
       consultationFee: profile.consultationFee || profile.sessionFee || 0,
       currency: profile.currency || 'INR',
@@ -145,6 +152,8 @@ export default function TherapistSettingsTab({ profile, onSave, saving, success,
       certifications: profile.certifications || [],
       platforms: profile.platforms || ['TheraBook Video'],
     });
+    setAgreementsText(JSON.stringify(profile.agreements || {}, null, 2));
+    setAvailabilityText(JSON.stringify(profile.availability || [], null, 2));
     setEditMode(false);
   }, [profileKey, editMode]);
 
@@ -167,10 +176,20 @@ export default function TherapistSettingsTab({ profile, onSave, saving, success,
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    let parsedAgreements = form.agreements;
+    let parsedAvailability = form.availability;
+    try {
+      parsedAgreements = agreementsText.trim() ? JSON.parse(agreementsText) : {};
+    } catch {}
+    try {
+      parsedAvailability = availabilityText.trim() ? JSON.parse(availabilityText) : [];
+    } catch {}
     onSave({
       ...form,
       sessionModes: form.sessionModes,
-      pricing: form.pricing
+      pricing: form.pricing,
+      agreements: parsedAgreements,
+      availability: parsedAvailability,
     });
     setEditMode(false);
   };
@@ -190,11 +209,35 @@ export default function TherapistSettingsTab({ profile, onSave, saving, success,
           <h3 className="text-lg font-semibold mb-4 text-blue-700">Personal Information</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
+              <label className="block text-sm font-medium mb-1">Display Name</label>
+              {editMode ? (
+                <input type="text" name="displayName" value={form.displayName ?? ''} onChange={handleChange} className="input-ui" />
+              ) : (
+                <div className="py-2 text-slate-700">{form.displayName ?? ''}</div>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Title</label>
+              {editMode ? (
+                <input type="text" name="title" value={form.title ?? ''} onChange={handleChange} className="input-ui" />
+              ) : (
+                <div className="py-2 text-slate-700">{form.title ?? ''}</div>
+              )}
+            </div>
+            <div>
               <label className="block text-sm font-medium mb-1">Full Name</label>
               {editMode ? (
                 <input type="text" name="fullName" value={form.fullName ?? ''} onChange={handleChange} className="input-ui" />
               ) : (
                 <div className="py-2 text-slate-700">{form.fullName ?? ''}</div>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Name (Internal)</label>
+              {editMode ? (
+                <input type="text" name="name" value={form.name ?? ''} onChange={handleChange} className="input-ui" />
+              ) : (
+                <div className="py-2 text-slate-700">{form.name ?? ''}</div>
               )}
             </div>
             <div>
@@ -248,11 +291,27 @@ export default function TherapistSettingsTab({ profile, onSave, saving, success,
               )}
             </div>
             <div>
+              <label className="block text-sm font-medium mb-1">Clinic Address</label>
+              {editMode ? (
+                <textarea name="clinicAddress" value={form.clinicAddress ?? ''} onChange={handleChange} className="input-ui min-h-[48px]" />
+              ) : (
+                <div className="py-2 text-slate-700">{form.clinicAddress ?? ''}</div>
+              )}
+            </div>
+            <div>
               <label className="block text-sm font-medium mb-1">Current City</label>
               {editMode ? (
                 <input type="text" name="currentCity" value={form.currentCity ?? ''} onChange={handleChange} className="input-ui" />
               ) : (
                 <div className="py-2 text-slate-700">{form.currentCity ?? ''}</div>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Location</label>
+              {editMode ? (
+                <input type="text" name="location" value={form.location ?? ''} onChange={handleChange} className="input-ui" />
+              ) : (
+                <div className="py-2 text-slate-700">{form.location ?? ''}</div>
               )}
             </div>
             <div>
@@ -278,6 +337,21 @@ export default function TherapistSettingsTab({ profile, onSave, saving, success,
           <h3 className="text-lg font-semibold mb-4 text-blue-700">Professional & Service Information</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Qualification, University, Graduation Year, License Number, Experience, Workplaces, Online Experience */}
+            <div>
+              <label className="block text-sm font-medium mb-1">Designations</label>
+              {editMode ? (
+                <input
+                  type="text"
+                  name="designations"
+                  value={form.designations?.join(', ') ?? ''}
+                  onChange={e => setForm((prev: any) => ({ ...prev, designations: e.target.value.split(',').map((d: string) => d.trim()).filter(Boolean) }))}
+                  className="input-ui"
+                  placeholder="e.g. Clinical Psychologist, CBT Specialist"
+                />
+              ) : (
+                <div className="py-2 text-slate-700">{form.designations?.length ? form.designations.join(', ') : '-'}</div>
+              )}
+            </div>
             <div>
               <label className="block text-sm font-medium mb-1">Qualification</label>
               {editMode ? (
@@ -334,6 +408,36 @@ export default function TherapistSettingsTab({ profile, onSave, saving, success,
                 <div className="py-2 text-slate-700">Online Experience: {form.onlineExperience ? 'Yes' : 'No'}</div>
               )}
             </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium mb-1">Preferred Languages</label>
+              {editMode ? (
+                <input
+                  type="text"
+                  name="preferredLanguages"
+                  value={form.preferredLanguages?.join(', ') ?? ''}
+                  onChange={e => setForm((prev: any) => ({ ...prev, preferredLanguages: e.target.value.split(',').map((s: string) => s.trim()).filter(Boolean) }))}
+                  className="input-ui"
+                  placeholder="e.g. English, Hindi"
+                />
+              ) : (
+                <div className="py-2 text-slate-700">{form.preferredLanguages?.length ? form.preferredLanguages.join(', ') : '-'}</div>
+              )}
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium mb-1">Therapy Languages</label>
+              {editMode ? (
+                <input
+                  type="text"
+                  name="therapyLanguages"
+                  value={form.therapyLanguages?.join(', ') ?? ''}
+                  onChange={e => setForm((prev: any) => ({ ...prev, therapyLanguages: e.target.value.split(',').map((s: string) => s.trim()).filter(Boolean) }))}
+                  className="input-ui"
+                  placeholder="e.g. English, Hindi"
+                />
+              ) : (
+                <div className="py-2 text-slate-700">{form.therapyLanguages?.length ? form.therapyLanguages.join(', ') : '-'}</div>
+              )}
+            </div>
             {/* Specializations */}
             <div className="md:col-span-2">
               <label className="block text-sm font-medium mb-1">Specializations</label>
@@ -361,6 +465,36 @@ export default function TherapistSettingsTab({ profile, onSave, saving, success,
                 <div className="py-2 text-slate-700">{form.certifications?.length ? form.certifications.join(', ') : ''}</div>
               )}
             </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium mb-1">Primary Conditions</label>
+              {editMode ? (
+                <input
+                  type="text"
+                  name="primaryConditions"
+                  value={form.primaryConditions?.join(', ') ?? ''}
+                  onChange={e => setForm((prev: any) => ({ ...prev, primaryConditions: e.target.value.split(',').map((c: string) => c.trim()).filter(Boolean) }))}
+                  className="input-ui"
+                  placeholder="e.g. Anxiety, Depression"
+                />
+              ) : (
+                <div className="py-2 text-slate-700">{form.primaryConditions?.length ? form.primaryConditions.join(', ') : '-'}</div>
+              )}
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium mb-1">Primary Filters</label>
+              {editMode ? (
+                <input
+                  type="text"
+                  name="primaryFilters"
+                  value={form.primaryFilters?.join(', ') ?? ''}
+                  onChange={e => setForm((prev: any) => ({ ...prev, primaryFilters: e.target.value.split(',').map((f: string) => f.trim()).filter(Boolean) }))}
+                  className="input-ui"
+                  placeholder="e.g. CBT, Trauma, Couples"
+                />
+              ) : (
+                <div className="py-2 text-slate-700">{form.primaryFilters?.length ? form.primaryFilters.join(', ') : '-'}</div>
+              )}
+            </div>
             {/* Platforms */}
             <div className="md:col-span-2">
               <label className="block text-sm font-medium mb-1">Platforms</label>
@@ -378,6 +512,15 @@ export default function TherapistSettingsTab({ profile, onSave, saving, success,
               <input type="text" name="sessionTypes" value={form.sessionTypes?.join(', ') ?? ''} onChange={e => setForm((prev: any) => ({ ...prev, sessionTypes: e.target.value.split(',').map((s: string) => s.trim()).filter(Boolean) }))} className="input-ui" placeholder="e.g. Individual, Couple, Family" />
             ) : (
               <div className="py-2 text-slate-700">{form.sessionTypes?.length ? form.sessionTypes.join(', ') : ''}</div>
+            )}
+          </div>
+          {/* Service Types */}
+          <div className="mt-4">
+            <label className="block text-sm font-medium mb-2">Service Types</label>
+            {editMode ? (
+              <input type="text" name="serviceTypes" value={form.serviceTypes?.join(', ') ?? ''} onChange={e => setForm((prev: any) => ({ ...prev, serviceTypes: e.target.value.split(',').map((s: string) => s.trim()).filter(Boolean) }))} className="input-ui" placeholder="e.g. Therapy, Coaching" />
+            ) : (
+              <div className="py-2 text-slate-700">{form.serviceTypes?.length ? form.serviceTypes.join(', ') : ''}</div>
             )}
           </div>
           {/* Session Modes */}
@@ -412,7 +555,7 @@ export default function TherapistSettingsTab({ profile, onSave, saving, success,
           </div>
           {/* Pricing for each mode */}
           <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-            {['video','audio','clinic','home'].map(mode => (
+            {getSelectedModes().map((mode: string) => (
               <div key={mode}>
                 <label className="block text-xs font-medium mb-1">{mode.charAt(0).toUpperCase() + mode.slice(1)} Price (₹)</label>
                 {editMode ? (
@@ -447,6 +590,31 @@ export default function TherapistSettingsTab({ profile, onSave, saving, success,
             ) : (
               <div className="py-2 text-slate-700">{form.duration || 50} min</div>
             )}
+          </div>
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Session Durations (comma-separated)</label>
+              {editMode ? (
+                <input
+                  type="text"
+                  name="sessionDurations"
+                  value={form.sessionDurations?.join(', ') ?? ''}
+                  onChange={e => setForm((prev: any) => ({ ...prev, sessionDurations: e.target.value.split(',').map((d: string) => d.trim()).filter(Boolean) }))}
+                  className="input-ui"
+                  placeholder="e.g. 30, 45, 60"
+                />
+              ) : (
+                <div className="py-2 text-slate-700">{form.sessionDurations?.length ? form.sessionDurations.join(', ') : '-'}</div>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Weekly Sessions</label>
+              {editMode ? (
+                <input type="text" name="weeklySessions" value={form.weeklySessions ?? ''} onChange={handleChange} className="input-ui" />
+              ) : (
+                <div className="py-2 text-slate-700">{form.weeklySessions ?? '-'}</div>
+              )}
+            </div>
           </div>
           {/* Weekly Slots */}
           <div className="mt-4">
@@ -496,6 +664,38 @@ export default function TherapistSettingsTab({ profile, onSave, saving, success,
               <div className="py-2 text-slate-700 whitespace-pre-line">{form.unavailability?.length ? form.unavailability.map((b: any) => `${b.startDate} to ${b.endDate} (${b.time || 'ALL DAY'})${b.note ? ' - ' + b.note : ''}`).join('\n') : '-'}</div>
             )}
           </div>
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Preferred Days</label>
+              {editMode ? (
+                <input
+                  type="text"
+                  name="preferredDays"
+                  value={form.preferredDays?.join(', ') ?? ''}
+                  onChange={e => setForm((prev: any) => ({ ...prev, preferredDays: e.target.value.split(',').map((d: string) => d.trim()).filter(Boolean) }))}
+                  className="input-ui"
+                  placeholder="e.g. Monday, Wednesday"
+                />
+              ) : (
+                <div className="py-2 text-slate-700">{form.preferredDays?.length ? form.preferredDays.join(', ') : '-'}</div>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Preferred Time Slots</label>
+              {editMode ? (
+                <input
+                  type="text"
+                  name="preferredTimeSlots"
+                  value={form.preferredTimeSlots?.join(', ') ?? ''}
+                  onChange={e => setForm((prev: any) => ({ ...prev, preferredTimeSlots: e.target.value.split(',').map((t: string) => t.trim()).filter(Boolean) }))}
+                  className="input-ui"
+                  placeholder="e.g. 10:00-12:00, 16:00-18:00"
+                />
+              ) : (
+                <div className="py-2 text-slate-700">{form.preferredTimeSlots?.length ? form.preferredTimeSlots.join(', ') : '-'}</div>
+              )}
+            </div>
+          </div>
           {/* Notifications & Public Profile */}
           <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -520,6 +720,70 @@ export default function TherapistSettingsTab({ profile, onSave, saving, success,
                 <input type="checkbox" name="publicProfile" checked={form.publicProfile} onChange={handleChange} className="accent-blue-600 w-4 h-4" />
               ) : (
                 <div className="py-2 text-slate-700">{form.publicProfile ? 'Visible' : 'Hidden'}</div>
+              )}
+            </div>
+          </div>
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex items-center gap-2">
+              {editMode ? (
+                <><input type="checkbox" name="hasClinic" checked={form.hasClinic} onChange={handleChange} className="accent-blue-600 w-4 h-4" />
+                <label className="text-sm font-medium">Has Clinic</label></>
+              ) : (
+                <div className="py-2 text-slate-700">Has Clinic: {form.hasClinic ? 'Yes' : 'No'}</div>
+              )}
+            </div>
+          </div>
+        </div>
+        {/* Payments & Pricing Flags */}
+        <div className="bg-white rounded-2xl shadow border border-slate-100 p-6 mb-2">
+          <h3 className="text-lg font-semibold mb-4 text-blue-700">Payments & Pricing</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium mb-1">Payment Mode</label>
+              {editMode ? (
+                <input type="text" name="paymentMode" value={form.paymentMode ?? ''} onChange={handleChange} className="input-ui" />
+              ) : (
+                <div className="py-2 text-slate-700">{form.paymentMode ?? '-'}</div>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Consultation Fee (â‚¹)</label>
+              {editMode ? (
+                <input type="number" name="consultationFee" value={form.consultationFee ?? ''} onChange={handleChange} className="input-ui" min={0} />
+              ) : (
+                <div className="py-2 text-slate-700">{form.consultationFee ?? '-'}</div>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Session Fee (â‚¹)</label>
+              {editMode ? (
+                <input type="number" name="sessionFee" value={form.sessionFee ?? ''} onChange={handleChange} className="input-ui" min={0} />
+              ) : (
+                <div className="py-2 text-slate-700">{form.sessionFee ?? '-'}</div>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Currency</label>
+              {editMode ? (
+                <input type="text" name="currency" value={form.currency ?? ''} onChange={handleChange} className="input-ui" />
+              ) : (
+                <div className="py-2 text-slate-700">{form.currency ?? '-'}</div>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {editMode ? (
+                <><input type="checkbox" name="dynamicPricing" checked={form.dynamicPricing} onChange={handleChange} className="accent-blue-600 w-4 h-4" />
+                <label className="text-sm font-medium">Dynamic Pricing</label></>
+              ) : (
+                <div className="py-2 text-slate-700">Dynamic Pricing: {form.dynamicPricing ? 'Yes' : 'No'}</div>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {editMode ? (
+                <><input type="checkbox" name="freeFirstSession" checked={form.freeFirstSession} onChange={handleChange} className="accent-blue-600 w-4 h-4" />
+                <label className="text-sm font-medium">Free First Session</label></>
+              ) : (
+                <div className="py-2 text-slate-700">Free First Session: {form.freeFirstSession ? 'Yes' : 'No'}</div>
               )}
             </div>
           </div>
@@ -558,6 +822,169 @@ export default function TherapistSettingsTab({ profile, onSave, saving, success,
                 <input type="text" name="instagram" value={form.instagram} onChange={handleChange} className="input-ui" />
               ) : (
                 <div className="py-2 text-slate-700">{form.instagram || '-'}</div>
+              )}
+            </div>
+          </div>
+        </div>
+        {/* Media & Documents */}
+        <div className="bg-white rounded-2xl shadow border border-slate-100 p-6 mb-2">
+          <h3 className="text-lg font-semibold mb-4 text-blue-700">Media & Documents</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium mb-1">Profile Photo URL</label>
+              {editMode ? (
+                <input type="text" name="profilePhotoUrl" value={form.profilePhotoUrl ?? ''} onChange={handleChange} className="input-ui" />
+              ) : (
+                <div className="py-2 text-slate-700">{form.profilePhotoUrl || '-'}</div>
+              )}
+            </div>
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium mb-1">Qualification Certificate URLs</label>
+              {editMode ? (
+                <input
+                  type="text"
+                  name="qualificationCertUrls"
+                  value={form.qualificationCertUrls?.join(', ') ?? ''}
+                  onChange={e => setForm((prev: any) => ({ ...prev, qualificationCertUrls: e.target.value.split(',').map((u: string) => u.trim()).filter(Boolean) }))}
+                  className="input-ui"
+                  placeholder="Comma-separated URLs"
+                />
+              ) : (
+                <div className="py-2 text-slate-700">{form.qualificationCertUrls?.length ? form.qualificationCertUrls.join(', ') : '-'}</div>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">License Document URL</label>
+              {editMode ? (
+                <input type="text" name="licenseDocumentUrl" value={form.licenseDocumentUrl ?? ''} onChange={handleChange} className="input-ui" />
+              ) : (
+                <div className="py-2 text-slate-700">{form.licenseDocumentUrl || '-'}</div>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Resume URL</label>
+              {editMode ? (
+                <input type="text" name="resumeUrl" value={form.resumeUrl ?? ''} onChange={handleChange} className="input-ui" />
+              ) : (
+                <div className="py-2 text-slate-700">{form.resumeUrl || '-'}</div>
+              )}
+            </div>
+          </div>
+        </div>
+        {/* Account & Verification */}
+        <div className="bg-white rounded-2xl shadow border border-slate-100 p-6 mb-2">
+          <h3 className="text-lg font-semibold mb-4 text-blue-700">Account & Verification</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium mb-1">Status</label>
+              {editMode ? (
+                <input type="text" name="status" value={form.status ?? ''} onChange={handleChange} className="input-ui" />
+              ) : (
+                <div className="py-2 text-slate-700">{form.status || '-'}</div>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {editMode ? (
+                <><input type="checkbox" name="isApproved" checked={form.isApproved} onChange={handleChange} className="accent-blue-600 w-4 h-4" />
+                <label className="text-sm font-medium">Approved</label></>
+              ) : (
+                <div className="py-2 text-slate-700">Approved: {form.isApproved ? 'Yes' : 'No'}</div>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {editMode ? (
+                <><input type="checkbox" name="registrationCompleted" checked={form.registrationCompleted} onChange={handleChange} className="accent-blue-600 w-4 h-4" />
+                <label className="text-sm font-medium">Registration Completed</label></>
+              ) : (
+                <div className="py-2 text-slate-700">Registration Completed: {form.registrationCompleted ? 'Yes' : 'No'}</div>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {editMode ? (
+                <><input type="checkbox" name="rejected" checked={form.rejected} onChange={handleChange} className="accent-blue-600 w-4 h-4" />
+                <label className="text-sm font-medium">Rejected</label></>
+              ) : (
+                <div className="py-2 text-slate-700">Rejected: {form.rejected ? 'Yes' : 'No'}</div>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {editMode ? (
+                <><input type="checkbox" name="verified" checked={form.verified} onChange={handleChange} className="accent-blue-600 w-4 h-4" />
+                <label className="text-sm font-medium">Verified</label></>
+              ) : (
+                <div className="py-2 text-slate-700">Verified: {form.verified ? 'Yes' : 'No'}</div>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Verified At</label>
+              {editMode ? (
+                <input type="text" name="verifiedAt" value={form.verifiedAt ?? ''} onChange={handleChange} className="input-ui" placeholder="YYYY-MM-DD or ISO" />
+              ) : (
+                <div className="py-2 text-slate-700">{form.verifiedAt || '-'}</div>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Rating</label>
+              {editMode ? (
+                <input type="number" name="rating" value={form.rating ?? ''} onChange={handleChange} className="input-ui" min={0} step="0.1" />
+              ) : (
+                <div className="py-2 text-slate-700">{form.rating ?? '-'}</div>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Review Count</label>
+              {editMode ? (
+                <input type="number" name="reviewCount" value={form.reviewCount ?? ''} onChange={handleChange} className="input-ui" min={0} />
+              ) : (
+                <div className="py-2 text-slate-700">{form.reviewCount ?? '-'}</div>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Created At</label>
+              {editMode ? (
+                <input type="text" name="createdAt" value={form.createdAt ?? ''} onChange={handleChange} className="input-ui" placeholder="YYYY-MM-DD or ISO" />
+              ) : (
+                <div className="py-2 text-slate-700">{form.createdAt || '-'}</div>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Updated At</label>
+              {editMode ? (
+                <input type="text" name="updatedAt" value={form.updatedAt ?? ''} onChange={handleChange} className="input-ui" placeholder="YYYY-MM-DD or ISO" />
+              ) : (
+                <div className="py-2 text-slate-700">{form.updatedAt || '-'}</div>
+              )}
+            </div>
+          </div>
+        </div>
+        {/* Agreements & Availability */}
+        <div className="bg-white rounded-2xl shadow border border-slate-100 p-6 mb-2">
+          <h3 className="text-lg font-semibold mb-4 text-blue-700">Agreements & Availability</h3>
+          <div className="grid grid-cols-1 gap-6">
+            <div>
+              <label className="block text-sm font-medium mb-1">Agreements (JSON)</label>
+              {editMode ? (
+                <textarea
+                  value={agreementsText}
+                  onChange={(e) => setAgreementsText(e.target.value)}
+                  className="input-ui min-h-[80px]"
+                  placeholder='{"termsAccepted": true}'
+                />
+              ) : (
+                <div className="py-2 text-slate-700 whitespace-pre-line">{agreementsText || '-'}</div>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Availability (JSON)</label>
+              {editMode ? (
+                <textarea
+                  value={availabilityText}
+                  onChange={(e) => setAvailabilityText(e.target.value)}
+                  className="input-ui min-h-[80px]"
+                  placeholder='[{"day":"Monday","start":"09:00","end":"17:00"}]'
+                />
+              ) : (
+                <div className="py-2 text-slate-700 whitespace-pre-line">{availabilityText || '-'}</div>
               )}
             </div>
           </div>

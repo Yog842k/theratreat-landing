@@ -102,6 +102,17 @@ export async function POST(request: NextRequest) {
 
     const hashedPassword = await AuthUtils.hashPassword(password);
     const now = new Date();
+    const parsePrice = (value: any) => {
+      if (value === undefined || value === null || value === '') return null;
+      const num = Number(value);
+      return Number.isFinite(num) ? num : null;
+    };
+    const sessionModePrices = {
+      video: parsePrice(rest.sessionModePrices?.video),
+      audio: parsePrice(rest.sessionModePrices?.audio),
+      inHome: parsePrice(rest.sessionModePrices?.inHome)
+    };
+    const gst = rest.gst || {};
 
     const userDoc = {
       name: ValidationUtils.sanitizeString(fullName),
@@ -131,6 +142,7 @@ export async function POST(request: NextRequest) {
       email: emailLower,
       residentialAddress: ValidationUtils.sanitizeString(rest.residentialAddress || ''),
       currentCity: ValidationUtils.sanitizeString(rest.currentCity || ''),
+      state: ValidationUtils.sanitizeString(rest.state || ''),
       preferredLanguages: rest.preferredLanguages || [],
       panCard: ValidationUtils.sanitizeString(rest.panCard || ''),
       aadhaar: ValidationUtils.sanitizeString(rest.aadhaar || ''),
@@ -158,6 +170,8 @@ export async function POST(request: NextRequest) {
       dynamicPricing: !!rest.dynamicPricing,
       freeFirstSession: !!rest.freeFirstSession,
       paymentMode: ValidationUtils.sanitizeString(rest.paymentMode || ''),
+      sessionModesOffered: rest.sessionModesOffered || [],
+      sessionModePrices,
       bankDetails: {
         accountHolder: ValidationUtils.sanitizeString(rest.bankDetails?.accountHolder || ''),
         bankName: ValidationUtils.sanitizeString(rest.bankDetails?.bankName || ''),
@@ -171,6 +185,16 @@ export async function POST(request: NextRequest) {
       website: ValidationUtils.sanitizeString(rest.website || ''),
       instagram: ValidationUtils.sanitizeString(rest.instagram || ''),
       therapyLanguages: rest.therapyLanguages || [],
+      gst: {
+        registered: ValidationUtils.sanitizeString(gst.registered || ''),
+        gstin: ValidationUtils.sanitizeString(gst.gstin || ''),
+        businessName: ValidationUtils.sanitizeString(gst.businessName || ''),
+        certificateUrl: ValidationUtils.sanitizeString(gst.certificateUrl || ''),
+        status: ValidationUtils.sanitizeString(gst.status || ''),
+        state: ValidationUtils.sanitizeString(gst.state || ''),
+        declarationAgreed: !!gst.declarationAgreed,
+        verification: gst.verification || null
+      },
       agreements: body.agreements || {},
       displayName: ValidationUtils.sanitizeString(fullName),
       title: ValidationUtils.sanitizeString(rest.designations?.[0] || ''),
